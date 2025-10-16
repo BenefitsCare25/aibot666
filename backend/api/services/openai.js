@@ -101,6 +101,12 @@ IMPORTANT INSTRUCTIONS:
 4. Use clear, professional, and empathetic language
 5. If asked about claims status or personal medical information, direct to appropriate channels
 6. Never make assumptions about coverage not explicitly stated in the context
+7. CONTACT INFORMATION HANDLING:
+   - If user provides contact information (email address, phone number, or digits), acknowledge it professionally
+   - Say: "Thank you for providing your contact information. Our team has received your inquiry and will follow up with you shortly."
+   - DO NOT ask for contact information again if already provided
+   - DO NOT repeat the escalation message
+   - Recognize these patterns as contact info: emails (name@domain.com), phone numbers (8+ digits), mobile numbers
 
 ${employeeInfo}
 
@@ -243,15 +249,33 @@ function calculateConfidence(answer, contexts, finishReason) {
     "cannot answer",
     "let me connect you with",
     "contact support",
-    "speak with our team"
+    "speak with our team",
+    "check back with the team"
   ];
+
+  // Don't penalize confidence for contact acknowledgments
+  const contactAcknowledgmentPhrases = [
+    "thank you for providing your contact",
+    "our team has received your inquiry",
+    "will follow up with you shortly"
+  ];
+
+  const isContactAcknowledgment = contactAcknowledgmentPhrases.some(phrase =>
+    answer.toLowerCase().includes(phrase.toLowerCase())
+  );
 
   const hasUncertainty = uncertaintyPhrases.some(phrase =>
     answer.toLowerCase().includes(phrase.toLowerCase())
   );
 
-  if (hasUncertainty) {
+  // Only reduce confidence if uncertain AND not a contact acknowledgment
+  if (hasUncertainty && !isContactAcknowledgment) {
     confidence = Math.min(confidence, 0.5); // Cap at 0.5 if uncertain
+  }
+
+  // Boost confidence for contact acknowledgments (these are valid responses)
+  if (isContactAcknowledgment) {
+    confidence = Math.max(confidence, 0.75); // Higher confidence for acknowledgments
   }
 
   // Adjust based on finish reason
