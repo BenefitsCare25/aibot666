@@ -14,7 +14,13 @@
     <script>
       // Load widget after DOM is ready
       window.addEventListener('DOMContentLoaded', function() {
-        // Create script element for widget
+        // Load widget CSS
+        const widgetCSS = document.createElement('link');
+        widgetCSS.rel = 'stylesheet';
+        widgetCSS.href = 'https://aibot666.onrender.com/widget.css';
+        document.head.appendChild(widgetCSS);
+
+        // Load widget JavaScript
         const widgetScript = document.createElement('script');
         widgetScript.src = 'https://aibot666.onrender.com/widget.iife.js';
         widgetScript.async = true;
