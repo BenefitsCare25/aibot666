@@ -43,12 +43,18 @@ export function initializeTelegramBot() {
   bot.command('help', (ctx) => {
     ctx.reply(
       '📋 How to respond to escalations:\n\n' +
-      '1. When you receive an escalation notification, read the employee\'s question\n' +
-      '2. Reply directly to that message with your answer\n' +
+      '1. When you receive an escalation notification, read:\n' +
+      '   - The employee\'s question\n' +
+      '   - The AI\'s response\n' +
+      '   - Why it was escalated (no knowledge/low confidence)\n\n' +
+      '2. Reply to the message with one of:\n' +
+      '   ✅ "correct" - Confirm AI response is good\n' +
+      '   📝 Custom answer - Provide better answer\n' +
+      '   ⏭️ "skip" - Mark as reviewed, don\'t add to KB\n\n' +
       '3. The system will:\n' +
-      '   - Save your response to the knowledge base\n' +
-      '   - Use it to answer similar questions in the future\n' +
-      '   - Mark the escalation as resolved\n\n' +
+      '   - Save response to knowledge base\n' +
+      '   - Use it for similar questions\n' +
+      '   - Mark escalation as resolved\n\n' +
       'Commands:\n' +
       '/pending - List all pending escalations\n' +
       '/stats - View escalation statistics'
@@ -164,12 +170,67 @@ export function initializeTelegramBot() {
         return;
       }
 
+      // Normalize response for command detection
+      const normalizedResponse = response.trim().toLowerCase();
+
+      // Handle "skip" command - mark as reviewed without adding to KB
+      if (normalizedResponse === 'skip' || normalizedResponse === '/skip') {
+        const { error: updateError } = await supabase
+          .from('escalations')
+          .update({
+            status: 'skipped',
+            resolution: 'Reviewed but not added to knowledge base',
+            resolved_by: ctx.from.username || ctx.from.first_name,
+            resolved_at: new Date().toISOString()
+          })
+          .eq('id', escalationId);
+
+        if (updateError) {
+          console.error('Error updating escalation:', updateError);
+          ctx.reply('❌ Error updating escalation');
+          return;
+        }
+
+        ctx.reply(
+          '⏭️ Escalation skipped\n\n' +
+          '✓ Marked as reviewed\n' +
+          '✗ Not added to knowledge base\n\n' +
+          `Employee: ${escalation.employees?.name}\n` +
+          `Question: ${escalation.query.substring(0, 100)}${escalation.query.length > 100 ? '...' : ''}`
+        );
+        return;
+      }
+
+      // Handle "correct" command - use AI's response
+      const isCorrectCommand = normalizedResponse === 'correct' ||
+                               normalizedResponse === '✓' ||
+                               normalizedResponse === 'ok' ||
+                               normalizedResponse === '/correct';
+
+      let answerToSave;
+      let resolvedStatus;
+
+      if (isCorrectCommand) {
+        // Use AI's original response from context
+        answerToSave = escalation.context?.aiResponse;
+        resolvedStatus = 'AI response confirmed as correct';
+
+        if (!answerToSave) {
+          ctx.reply('❌ Original AI response not found in escalation context');
+          return;
+        }
+      } else {
+        // Use human's custom answer
+        answerToSave = response;
+        resolvedStatus = 'Custom answer provided';
+      }
+
       // Update escalation with resolution
       const { error: updateError } = await supabase
         .from('escalations')
         .update({
           status: 'resolved',
-          resolution: response,
+          resolution: answerToSave,
           resolved_by: ctx.from.username || ctx.from.first_name,
           resolved_at: new Date().toISOString()
         })
@@ -185,13 +246,14 @@ export function initializeTelegramBot() {
       try {
         await addKnowledgeEntry({
           title: escalation.query.substring(0, 200),
-          content: `Question: ${escalation.query}\n\nAnswer: ${response}`,
+          content: `Question: ${escalation.query}\n\nAnswer: ${answerToSave}`,
           category: 'hitl_learning',
           subcategory: escalation.employees?.policy_type || 'general',
           metadata: {
             escalation_id: escalationId,
             resolved_by: ctx.from.username || ctx.from.first_name,
-            employee_policy: escalation.employees?.policy_type
+            employee_policy: escalation.employees?.policy_type,
+            source_type: isCorrectCommand ? 'ai_confirmed' : 'human_provided'
           },
           source: 'hitl_learning'
         });
@@ -210,13 +272,16 @@ export function initializeTelegramBot() {
             .eq('id', escalation.message_id);
         }
 
+        const statusIcon = isCorrectCommand ? '✅' : '📝';
+        const statusText = isCorrectCommand ? 'AI response confirmed' : 'Custom answer saved';
+
         ctx.reply(
-          '✅ Response saved!\n\n' +
+          `${statusIcon} ${statusText}\n\n` +
           '✓ Escalation marked as resolved\n' +
           '✓ Added to knowledge base\n' +
           '✓ Bot will use this for similar questions\n\n' +
           `Employee: ${escalation.employees?.name}\n` +
-          `Question: ${escalation.query.substring(0, 100)}...`
+          `Question: ${escalation.query.substring(0, 100)}${escalation.query.length > 100 ? '...' : ''}`
         );
       } catch (kbError) {
         console.error('Error adding to knowledge base:', kbError);
@@ -245,30 +310,67 @@ export function initializeTelegramBot() {
  * @param {Object} escalation - Escalation record
  * @param {string} query - User query
  * @param {Object} employee - Employee information
+ * @param {Object} aiResponse - AI response object with answer and metadata
  */
-export async function notifyTelegramEscalation(escalation, query, employee) {
+export async function notifyTelegramEscalation(escalation, query, employee, aiResponse) {
   if (!bot || !TELEGRAM_CHAT_ID) {
     console.warn('Telegram not configured - escalation not sent');
     return;
   }
 
   try {
+    const context = escalation.context || {};
+    const knowledgeMatch = context.knowledgeMatch || {};
+
+    // Format escalation reason
+    let reasonEmoji = '⚠️';
+    let reasonText = 'Unknown reason';
+
+    if (context.reason === 'no_knowledge_found') {
+      reasonEmoji = '❌';
+      reasonText = 'No Knowledge Base Match';
+    } else if (context.reason === 'poor_knowledge_match') {
+      reasonEmoji = '⚠️';
+      reasonText = 'Poor Knowledge Match';
+    } else if (context.reason === 'low_confidence') {
+      reasonEmoji = '🤔';
+      reasonText = 'Low Confidence Response';
+    }
+
+    // Format knowledge source status
+    let sourceStatus = 'None found';
+    if (knowledgeMatch.matchCount > 0) {
+      sourceStatus = `${knowledgeMatch.matchCount} source${knowledgeMatch.matchCount > 1 ? 's' : ''} - ${(knowledgeMatch.bestMatch * 100).toFixed(0)}% relevance`;
+    } else if (knowledgeMatch.bestMatch) {
+      sourceStatus = `Found but below threshold - ${(knowledgeMatch.bestMatch * 100).toFixed(0)}% relevance`;
+    }
+
+    // Truncate AI response if too long
+    const aiAnswer = context.aiResponse || 'No response generated';
+    const truncatedAnswer = aiAnswer.length > 500
+      ? aiAnswer.substring(0, 500) + '...'
+      : aiAnswer;
+
     const message = `
 🔔 <b>New Escalation</b>
 
 <b>Employee:</b> ${employee.name}
-<b>Policy:</b> ${employee.policy_type}
-<b>Coverage:</b> $${employee.coverage_limit}
+<b>Policy:</b> ${employee.policy_type} | <b>Coverage:</b> $${employee.coverage_limit}
 
 <b>Question:</b>
 ${query}
 
-<b>Context:</b>
-${escalation.context?.confidence ? `Confidence: ${(escalation.context.confidence * 100).toFixed(1)}%` : ''}
+🤖 <b>AI Response:</b>
+${truncatedAnswer}
+
+📊 <b>Status:</b> ${reasonEmoji} ${reasonText}
+<b>Knowledge Sources:</b> ${sourceStatus}
 
 <i>[Escalation: ${escalation.id}]</i>
 
-👉 Reply to this message with your answer to help the employee and teach the bot.
+✅ Reply <b>"correct"</b> if AI response is good
+📝 Reply with <b>better answer</b> to teach the bot
+⏭️ Reply <b>"skip"</b> to mark as reviewed
     `.trim();
 
     await bot.telegram.sendMessage(TELEGRAM_CHAT_ID, message, {

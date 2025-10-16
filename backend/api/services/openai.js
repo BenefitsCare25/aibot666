@@ -153,6 +153,9 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
     // Calculate confidence score based on various factors
     const confidence = calculateConfidence(answer, contexts, finishReason);
 
+    // Calculate knowledge match metadata
+    const knowledgeMatch = calculateKnowledgeMatch(contexts);
+
     return {
       answer,
       confidence,
@@ -162,6 +165,7 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
         category: ctx.category,
         similarity: ctx.similarity
       })),
+      knowledgeMatch,
       model: CHAT_MODEL,
       tokens: response.usage.total_tokens,
       finishReason
@@ -170,6 +174,49 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
     console.error('Error generating RAG response:', error.message);
     throw new Error(`Failed to generate response: ${error.message}`);
   }
+}
+
+/**
+ * Calculate knowledge match metadata
+ * @param {Array} contexts - Retrieved contexts
+ * @returns {Object} - Knowledge match information
+ */
+function calculateKnowledgeMatch(contexts) {
+  const MIN_SIMILARITY = parseFloat(process.env.MIN_KNOWLEDGE_SIMILARITY) || 0.4;
+
+  if (!contexts || contexts.length === 0) {
+    return {
+      hasKnowledge: false,
+      matchCount: 0,
+      avgSimilarity: 0,
+      bestMatch: null,
+      status: 'no_knowledge'
+    };
+  }
+
+  // Filter contexts that meet minimum similarity threshold
+  const relevantContexts = contexts.filter(ctx => ctx.similarity >= MIN_SIMILARITY);
+
+  if (relevantContexts.length === 0) {
+    return {
+      hasKnowledge: false,
+      matchCount: 0,
+      avgSimilarity: contexts.length > 0 ? contexts[0].similarity : 0,
+      bestMatch: contexts.length > 0 ? contexts[0].similarity : null,
+      status: 'poor_match'
+    };
+  }
+
+  const avgSimilarity = relevantContexts.reduce((sum, ctx) => sum + ctx.similarity, 0) / relevantContexts.length;
+  const bestMatch = Math.max(...relevantContexts.map(ctx => ctx.similarity));
+
+  return {
+    hasKnowledge: true,
+    matchCount: relevantContexts.length,
+    avgSimilarity,
+    bestMatch,
+    status: relevantContexts.length >= 2 ? 'good_match' : 'partial_match'
+  };
 }
 
 /**

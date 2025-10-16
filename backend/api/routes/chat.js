@@ -18,6 +18,8 @@ import { notifyTelegramEscalation } from '../services/telegram.js';
 const router = express.Router();
 
 const CONFIDENCE_THRESHOLD = parseFloat(process.env.CONFIDENCE_THRESHOLD) || 0.7;
+const ESCALATE_ON_NO_KNOWLEDGE = process.env.ESCALATE_ON_NO_KNOWLEDGE !== 'false';
+const ESCALATE_ON_LOW_CONFIDENCE = process.env.ESCALATE_ON_LOW_CONFIDENCE === 'true';
 
 /**
  * POST /api/chat/session
@@ -172,11 +174,25 @@ router.post('/message', async (req, res) => {
     // Update session activity
     await touchSession(sessionId);
 
-    // Check if escalation is needed
+    // Check if escalation is needed based on configuration
     let escalated = false;
-    if (response.confidence < CONFIDENCE_THRESHOLD) {
+    let escalationReason = null;
+
+    // Priority 1: No knowledge found
+    if (ESCALATE_ON_NO_KNOWLEDGE && !response.knowledgeMatch.hasKnowledge) {
       escalated = true;
-      await handleEscalation(session, message, response, employee);
+      escalationReason = response.knowledgeMatch.status === 'no_knowledge'
+        ? 'no_knowledge_found'
+        : 'poor_knowledge_match';
+    }
+    // Priority 2: Low confidence (if enabled)
+    else if (ESCALATE_ON_LOW_CONFIDENCE && response.confidence < CONFIDENCE_THRESHOLD) {
+      escalated = true;
+      escalationReason = 'low_confidence';
+    }
+
+    if (escalated) {
+      await handleEscalation(session, message, response, employee, escalationReason);
     }
 
     // Cache the result if confidence is high
@@ -342,7 +358,7 @@ async function saveMessageToDB(session, userMessage, aiResponse, employeeId) {
 /**
  * Helper: Handle escalation to human support
  */
-async function handleEscalation(session, query, response, employee) {
+async function handleEscalation(session, query, response, employee, reason) {
   try {
     // Find the last assistant message ID
     const { data: lastMessage } = await supabase
@@ -354,7 +370,7 @@ async function handleEscalation(session, query, response, employee) {
       .limit(1)
       .single();
 
-    // Create escalation record
+    // Create escalation record with enhanced context
     const { data: escalation, error: escError } = await supabase
       .from('escalations')
       .insert([{
@@ -363,7 +379,10 @@ async function handleEscalation(session, query, response, employee) {
         employee_id: employee.id,
         query,
         context: {
+          reason,
+          aiResponse: response.answer,
           confidence: response.confidence,
+          knowledgeMatch: response.knowledgeMatch,
           sources: response.sources,
           employee: {
             name: employee.name,
@@ -380,8 +399,8 @@ async function handleEscalation(session, query, response, employee) {
       return;
     }
 
-    // Notify via Telegram
-    await notifyTelegramEscalation(escalation, query, employee);
+    // Notify via Telegram with AI response
+    await notifyTelegramEscalation(escalation, query, employee, response);
 
     // Mark message as escalated
     if (lastMessage) {

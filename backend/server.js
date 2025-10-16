@@ -20,6 +20,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3001';
 
+// Trust proxy - Required for deployment behind reverse proxies (Render, etc.)
+// This allows express-rate-limit to correctly identify user IPs from X-Forwarded-For header
+app.set('trust proxy', 1);
+
 // Security middleware - Relaxed for widget embedding
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP to allow widget embedding
