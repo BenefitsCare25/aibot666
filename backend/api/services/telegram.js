@@ -18,6 +18,54 @@ if (TELEGRAM_BOT_TOKEN) {
 }
 
 /**
+ * Extract contact information (email/phone) from conversation messages
+ * @param {Array} messages - Array of conversation messages
+ * @returns {Object} - Extracted contact information
+ */
+function extractContactInfo(messages) {
+  // Email pattern: standard email format
+  const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+
+  // Phone pattern: flexible format supporting international, parentheses, dashes, spaces
+  const phoneRegex = /\b(\+?\d{1,4}[\s-]?)?(\(?\d{2,4}\)?[\s-]?)?\d{3,4}[\s-]?\d{3,4}\b/g;
+
+  const emails = new Set();
+  const phones = new Set();
+
+  // Only extract from user messages
+  messages.forEach(msg => {
+    if (msg.role === 'user' || msg.content) {
+      const content = msg.content || '';
+
+      // Extract emails
+      const foundEmails = content.match(emailRegex);
+      if (foundEmails) {
+        foundEmails.forEach(email => emails.add(email.toLowerCase()));
+      }
+
+      // Extract phones (filter out numbers that are too short or likely not phone numbers)
+      const foundPhones = content.match(phoneRegex);
+      if (foundPhones) {
+        foundPhones.forEach(phone => {
+          // Remove spaces and dashes for validation
+          const cleaned = phone.replace(/[\s-()]/g, '');
+          // Only add if it looks like a real phone number (8-15 digits)
+          if (cleaned.length >= 8 && cleaned.length <= 15) {
+            phones.add(phone.trim());
+          }
+        });
+      }
+    }
+  });
+
+  return {
+    emails: Array.from(emails),
+    phones: Array.from(phones),
+    found: emails.size > 0 || phones.size > 0
+  };
+}
+
+/**
  * Initialize Telegram bot with message handlers
  */
 export function initializeTelegramBot() {
@@ -311,8 +359,9 @@ export function initializeTelegramBot() {
  * @param {string} query - User query
  * @param {Object} employee - Employee information
  * @param {Object} aiResponse - AI response object with answer and metadata
+ * @param {Array} conversationHistory - Recent conversation messages for contact extraction
  */
-export async function notifyTelegramEscalation(escalation, query, employee, aiResponse) {
+export async function notifyTelegramEscalation(escalation, query, employee, aiResponse, conversationHistory = []) {
   if (!bot || !TELEGRAM_CHAT_ID) {
     console.warn('Telegram not configured - escalation not sent');
     return;
@@ -345,6 +394,24 @@ export async function notifyTelegramEscalation(escalation, query, employee, aiRe
       sourceStatus = `Found but below threshold - ${(knowledgeMatch.bestMatch * 100).toFixed(0)}% relevance`;
     }
 
+    // Extract contact information from conversation
+    const extractedContact = extractContactInfo(conversationHistory);
+
+    // Format contact information
+    const registeredEmail = employee.email || 'Not available';
+
+    let chatContact = 'Not provided';
+    if (extractedContact.found) {
+      const contactParts = [];
+      if (extractedContact.emails.length > 0) {
+        contactParts.push(`📧 ${extractedContact.emails.join(', ')}`);
+      }
+      if (extractedContact.phones.length > 0) {
+        contactParts.push(`📱 ${extractedContact.phones.join(', ')}`);
+      }
+      chatContact = contactParts.join(' | ');
+    }
+
     // Truncate AI response if too long
     const aiAnswer = context.aiResponse || 'No response generated';
     const truncatedAnswer = aiAnswer.length > 500
@@ -356,6 +423,9 @@ export async function notifyTelegramEscalation(escalation, query, employee, aiRe
 
 <b>Employee:</b> ${employee.name}
 <b>Policy:</b> ${employee.policy_type} | <b>Coverage:</b> $${employee.coverage_limit}
+
+📧 <b>Registered Email:</b> ${registeredEmail}
+💬 <b>Contact from Chat:</b> ${chatContact}
 
 <b>Question:</b>
 ${query}

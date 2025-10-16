@@ -96,7 +96,7 @@ Employee Information:
 
 IMPORTANT INSTRUCTIONS:
 1. Answer ONLY based on the provided context and employee information
-2. If the information is not in the context, say "I don't have enough information to answer that question accurately. Let me connect you with our support team."
+2. If the information is not in the context, say "For such query, let us check back with the team. You may leave your contact or email address for our team to follow up with you. Thank you."
 3. Be specific about policy limits, coverage amounts, and procedures
 4. Use clear, professional, and empathetic language
 5. If asked about claims status or personal medical information, direct to appropriate channels

@@ -370,6 +370,14 @@ async function handleEscalation(session, query, response, employee, reason) {
       .limit(1)
       .single();
 
+    // Get recent conversation history for contact extraction (last 20 messages)
+    const { data: recentMessages } = await supabase
+      .from('chat_history')
+      .select('role, content')
+      .eq('conversation_id', session.conversationId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
     // Create escalation record with enhanced context
     const { data: escalation, error: escError } = await supabase
       .from('escalations')
@@ -399,8 +407,8 @@ async function handleEscalation(session, query, response, employee, reason) {
       return;
     }
 
-    // Notify via Telegram with AI response
-    await notifyTelegramEscalation(escalation, query, employee, response);
+    // Notify via Telegram with AI response and conversation history for contact extraction
+    await notifyTelegramEscalation(escalation, query, employee, response, recentMessages || []);
 
     // Mark message as escalated
     if (lastMessage) {
