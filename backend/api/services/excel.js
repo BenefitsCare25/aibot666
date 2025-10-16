@@ -246,13 +246,24 @@ export function validateExcelFormat(filePath) {
     const requiredFields = ['employee_id', 'name', 'email', 'policy_type'];
     const errors = [];
 
-    // Check for required columns (case-insensitive)
-    const headerLower = headers.map(h => String(h).toLowerCase().replace(/\s+/g, '_'));
+    // Check for required columns (case-insensitive and flexible matching)
+    // Normalize headers by removing spaces, underscores, and hyphens
+    const headerLower = headers.map(h =>
+      String(h).toLowerCase().replace(/[\s_-]+/g, '')
+    );
+
+    console.log('Excel validation - Original headers:', headers);
+    console.log('Excel validation - Normalized headers:', headerLower);
 
     requiredFields.forEach(field => {
-      const found = headerLower.some(h => h.includes(field.replace(/_/g, '')));
+      // Normalize the required field name for comparison
+      const normalizedField = field.replace(/[_-]/g, '');
+
+      // Check if any header matches (exact match or contains the field)
+      const found = headerLower.some(h => h === normalizedField || h.includes(normalizedField));
+
       if (!found) {
-        errors.push(`Missing required column: ${field}`);
+        errors.push(`Missing required column: ${field} (looking for variations like "${field.replace(/_/g, ' ')}", "${field.replace(/_/g, '')}", etc.)`);
       }
     });
 
