@@ -20,20 +20,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3001';
 
-// Security middleware
+// Security middleware - Relaxed for widget embedding
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
-  crossOriginEmbedderPolicy: false
+  contentSecurityPolicy: false, // Disable CSP to allow widget embedding
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS configuration
+// CORS configuration - Allow widget embedding
 app.use(cors({
   origin: CORS_ORIGIN.split(',').map(origin => origin.trim()),
   credentials: true,
@@ -47,6 +41,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Compression middleware
 app.use(compression());
+
+// Serve static files (widget)
+app.use(express.static('public'));
 
 // Rate limiting
 const limiter = rateLimit({

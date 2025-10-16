@@ -9,5 +9,33 @@
   <body class="bg-gray-50">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+
+    <!-- Insurance Chat Widget -->
+    <script>
+      // Load widget after DOM is ready
+      window.addEventListener('DOMContentLoaded', function() {
+        // Create script element for widget
+        const widgetScript = document.createElement('script');
+        widgetScript.src = 'https://aibot666.onrender.com/widget.iife.js';
+        widgetScript.async = true;
+
+        widgetScript.onload = function() {
+          // Initialize widget with production API
+          if (window.InsuranceChatWidget) {
+            window.InsuranceChatWidget.init({
+              apiUrl: 'https://aibot666.onrender.com',
+              position: 'bottom-right',
+              primaryColor: '#3b82f6'
+            });
+          }
+        };
+
+        widgetScript.onerror = function() {
+          console.warn('Insurance Chat Widget failed to load. Make sure the widget is deployed.');
+        };
+
+        document.body.appendChild(widgetScript);
+      });
+    </script>
   </body>
 </html>
