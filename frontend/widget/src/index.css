@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset styles for widget isolation */
+#insurance-chat-widget-root {
+  all: initial;
+  position: fixed;
+  z-index: 999999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+#insurance-chat-widget-root * {
+  box-sizing: border-box;
+}
+
+/* Custom scrollbar */
+.ic-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ic-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.ic-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.ic-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Animations */
+@keyframes ic-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.ic-animate-pulse {
+  animation: ic-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Typing indicator animation */
+@keyframes ic-typing {
+  0%, 60%, 100% { opacity: 0.3; }
+  30% { opacity: 1; }
+}
+
+.ic-typing-dot {
+  animation: ic-typing 1.4s infinite;
+}
+
+.ic-typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.ic-typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
