@@ -7,7 +7,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-const EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-large';
+const EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small';
 const CHAT_MODEL = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
 const TEMPERATURE = parseFloat(process.env.OPENAI_TEMPERATURE) || 0;
 const MAX_TOKENS = parseInt(process.env.OPENAI_MAX_TOKENS) || 1000;

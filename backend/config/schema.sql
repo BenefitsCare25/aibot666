@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS knowledge_base (
   content TEXT NOT NULL,
   category VARCHAR(100) NOT NULL, -- 'insurance', 'claims', 'benefits', 'policy', 'faq'
   subcategory VARCHAR(100),
-  embedding vector(3072), -- text-embedding-3-large dimensions
+  embedding vector(1536), -- text-embedding-3-small dimensions
   metadata JSONB DEFAULT '{}',
   source VARCHAR(255), -- 'admin_upload', 'hitl_learning', 'initial_import'
   confidence_score DECIMAL(3, 2) DEFAULT 1.0,
@@ -44,9 +44,9 @@ CREATE TABLE IF NOT EXISTS knowledge_base (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create index for vector similarity search
+-- Create index for vector similarity search using HNSW (supports >2000 dimensions)
 CREATE INDEX IF NOT EXISTS idx_knowledge_base_embedding ON knowledge_base
-  USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+  USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX IF NOT EXISTS idx_knowledge_base_category ON knowledge_base(category);
 CREATE INDEX IF NOT EXISTS idx_knowledge_base_active ON knowledge_base(is_active);
 
@@ -99,14 +99,14 @@ CREATE TABLE IF NOT EXISTS employee_embeddings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
   content TEXT NOT NULL, -- Concatenated employee info for embedding
-  embedding vector(3072),
+  embedding vector(1536), -- text-embedding-3-small dimensions
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create index for employee vector similarity search
+-- Create index for employee vector similarity search using HNSW (supports >2000 dimensions)
 CREATE INDEX IF NOT EXISTS idx_employee_embeddings_vector ON employee_embeddings
-  USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+  USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 
 -- Analytics table: Track usage metrics
 CREATE TABLE IF NOT EXISTS analytics (
@@ -177,7 +177,7 @@ CREATE POLICY knowledge_base_select_active ON knowledge_base
 
 -- Function for cosine similarity search
 CREATE OR REPLACE FUNCTION match_knowledge(
-  query_embedding vector(3072),
+  query_embedding vector(1536),
   match_threshold float,
   match_count int
 )
@@ -205,7 +205,7 @@ $$;
 
 -- Function for employee data similarity search
 CREATE OR REPLACE FUNCTION match_employees(
-  query_embedding vector(3072),
+  query_embedding vector(1536),
   match_threshold float,
   match_count int
 )
