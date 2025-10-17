@@ -17,9 +17,7 @@ import { notifyTelegramEscalation } from '../services/telegram.js';
 
 const router = express.Router();
 
-const CONFIDENCE_THRESHOLD = parseFloat(process.env.CONFIDENCE_THRESHOLD) || 0.7;
 const ESCALATE_ON_NO_KNOWLEDGE = process.env.ESCALATE_ON_NO_KNOWLEDGE !== 'false';
-const ESCALATE_ON_LOW_CONFIDENCE = process.env.ESCALATE_ON_LOW_CONFIDENCE === 'true';
 
 /**
  * POST /api/chat/session
@@ -178,17 +176,10 @@ router.post('/message', async (req, res) => {
     let escalated = false;
     let escalationReason = null;
 
-    // Priority 1: No knowledge found
-    if (ESCALATE_ON_NO_KNOWLEDGE && !response.knowledgeMatch.hasKnowledge) {
+    // Only escalate when no knowledge found (no results from vector search)
+    if (ESCALATE_ON_NO_KNOWLEDGE && response.knowledgeMatch.status === 'no_knowledge') {
       escalated = true;
-      escalationReason = response.knowledgeMatch.status === 'no_knowledge'
-        ? 'no_knowledge_found'
-        : 'poor_knowledge_match';
-    }
-    // Priority 2: Low confidence (if enabled)
-    else if (ESCALATE_ON_LOW_CONFIDENCE && response.confidence < CONFIDENCE_THRESHOLD) {
-      escalated = true;
-      escalationReason = 'low_confidence';
+      escalationReason = 'no_knowledge_found';
     }
 
     if (escalated) {
