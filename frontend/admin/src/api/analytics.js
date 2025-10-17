@@ -11,5 +11,10 @@ export const analyticsApi = {
   getEscalations: async (params = {}) => {
     const { status = '', page = 1, limit = 50 } = params;
     return apiClient.get('/api/admin/escalations', { params: { status, page, limit } });
+  },
+
+  // Update escalation
+  updateEscalation: async (id, updates) => {
+    return apiClient.patch(`/api/admin/escalations/${id}`, updates);
   }
 };

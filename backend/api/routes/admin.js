@@ -455,6 +455,89 @@ router.get('/escalations', async (req, res) => {
 });
 
 /**
+ * PATCH /api/admin/escalations/:id
+ * Update escalation status and resolution
+ */
+router.patch('/escalations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, resolution, resolved_by, add_to_kb = false } = req.body;
+
+    // Build update object
+    const updates = {
+      updated_at: new Date().toISOString()
+    };
+
+    if (status !== undefined) {
+      updates.status = status;
+
+      // Auto-set resolved_at when marking as resolved
+      if (status === 'resolved') {
+        updates.resolved_at = new Date().toISOString();
+        if (resolved_by) {
+          updates.resolved_by = resolved_by;
+        }
+      }
+    }
+
+    if (resolution !== undefined) {
+      updates.resolution = resolution;
+    }
+
+    // Update the escalation
+    const { data: escalation, error: updateError } = await supabase
+      .from('escalations')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    // If marking as resolved and add_to_kb is true, add to knowledge base
+    if (status === 'resolved' && add_to_kb && resolution) {
+      try {
+        const kbEntry = await addKnowledgeEntry({
+          title: `Escalation: ${escalation.query.substring(0, 100)}`,
+          content: resolution,
+          category: 'Escalations',
+          subcategory: 'Resolved Queries',
+          metadata: {
+            escalation_id: escalation.id,
+            original_query: escalation.query,
+            resolved_by: resolved_by || 'admin'
+          },
+          source: 'escalation_resolution'
+        });
+
+        // Mark escalation as added to KB
+        await supabase
+          .from('escalations')
+          .update({ was_added_to_kb: true })
+          .eq('id', id);
+
+        escalation.was_added_to_kb = true;
+      } catch (kbError) {
+        console.error('Error adding to knowledge base:', kbError);
+        // Don't fail the update if KB addition fails
+      }
+    }
+
+    res.json({
+      success: true,
+      data: escalation
+    });
+  } catch (error) {
+    console.error('Error updating escalation:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to update escalation',
+      details: error.message
+    });
+  }
+});
+
+/**
  * GET /api/admin/analytics
  * Get usage analytics
  */
