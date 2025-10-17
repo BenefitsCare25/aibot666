@@ -14,8 +14,12 @@ import {
 import supabase from '../../config/supabase.js';
 import { createHash } from 'crypto';
 import { notifyTelegramEscalation, notifyContactProvided } from '../services/telegram.js';
+import { companyContextMiddleware } from '../middleware/companyContext.js';
 
 const router = express.Router();
+
+// Apply company context middleware to all chat routes
+router.use(companyContextMiddleware);
 
 const ESCALATE_ON_NO_KNOWLEDGE = process.env.ESCALATE_ON_NO_KNOWLEDGE !== 'false';
 
@@ -34,8 +38,8 @@ router.post('/session', async (req, res) => {
       });
     }
 
-    // Verify employee exists
-    const employee = await getEmployeeByEmployeeId(employeeId);
+    // Verify employee exists (use company-specific client)
+    const employee = await getEmployeeByEmployeeId(employeeId, req.supabase);
 
     if (!employee) {
       return res.status(404).json({
@@ -55,6 +59,9 @@ router.post('/session', async (req, res) => {
           id: employee.id,
           name: employee.name,
           policyType: employee.policy_type
+        },
+        company: {
+          name: req.company.name
         }
       }
     });
@@ -119,8 +126,8 @@ router.post('/message', async (req, res) => {
       });
     }
 
-    // Get employee data
-    const { data: employee, error: empError } = await supabase
+    // Get employee data (use company-specific client)
+    const { data: employee, error: empError } = await req.supabase
       .from('employees')
       .select('*')
       .eq('id', session.employeeId)
@@ -133,8 +140,8 @@ router.post('/message', async (req, res) => {
       });
     }
 
-    // Search knowledge base
-    const contexts = await searchKnowledgeBase(message);
+    // Search knowledge base (use company-specific client)
+    const contexts = await searchKnowledgeBase(message, req.supabase);
 
     // Get conversation history
     const history = await getConversationHistory(session.conversationId);
@@ -166,8 +173,8 @@ router.post('/message', async (req, res) => {
       sources: response.sources
     });
 
-    // Save to database for persistence
-    await saveMessageToDB(session, message, response, employee.id);
+    // Save to database for persistence (use company-specific client)
+    await saveMessageToDB(session, message, response, employee.id, req.supabase);
 
     // Update session activity
     await touchSession(sessionId);
@@ -189,7 +196,7 @@ router.post('/message', async (req, res) => {
     }
 
     if (escalated) {
-      await handleEscalation(session, message, response, employee, escalationReason);
+      await handleEscalation(session, message, response, employee, escalationReason, req.supabase);
     }
 
     // Cache the result if confidence is high
@@ -230,7 +237,8 @@ router.get('/history/:conversationId', async (req, res) => {
     const { conversationId } = req.params;
     const { limit = 20 } = req.query;
 
-    const { data, error } = await supabase
+    // Use company-specific client
+    const { data, error } = await req.supabase
       .from('chat_history')
       .select('*')
       .eq('conversation_id', conversationId)
@@ -316,7 +324,7 @@ router.get('/status', async (req, res) => {
 /**
  * Helper: Save message to database
  */
-async function saveMessageToDB(session, userMessage, aiResponse, employeeId) {
+async function saveMessageToDB(session, userMessage, aiResponse, employeeId, supabaseClient) {
   try {
     const messages = [
       {
@@ -340,7 +348,7 @@ async function saveMessageToDB(session, userMessage, aiResponse, employeeId) {
       }
     ];
 
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('chat_history')
       .insert(messages);
 
@@ -374,9 +382,9 @@ function isContactInformation(message) {
 /**
  * Helper: Check if there's a pending escalation for this conversation
  */
-async function getPendingEscalation(conversationId) {
+async function getPendingEscalation(conversationId, supabaseClient) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('escalations')
       .select('*')
       .eq('conversation_id', conversationId)
@@ -399,10 +407,10 @@ async function getPendingEscalation(conversationId) {
 /**
  * Helper: Update existing escalation with contact information
  */
-async function updateEscalationWithContact(escalationId, contactInfo, employee) {
+async function updateEscalationWithContact(escalationId, contactInfo, employee, supabaseClient) {
   try {
     // First, fetch the current escalation to get the context
-    const { data: currentEscalation, error: fetchError } = await supabase
+    const { data: currentEscalation, error: fetchError } = await supabaseClient
       .from('escalations')
       .select('context')
       .eq('id', escalationId)
@@ -419,7 +427,7 @@ async function updateEscalationWithContact(escalationId, contactInfo, employee) 
       contactFromChat: contactInfo
     };
 
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('escalations')
       .update({
         context: updatedContext,
@@ -443,17 +451,17 @@ async function updateEscalationWithContact(escalationId, contactInfo, employee) 
 /**
  * Helper: Handle escalation to human support
  */
-async function handleEscalation(session, query, response, employee, reason) {
+async function handleEscalation(session, query, response, employee, reason, supabaseClient) {
   try {
     // Check if user is providing contact information after previous escalation
     const isContact = isContactInformation(query);
-    const pendingEscalation = await getPendingEscalation(session.conversationId);
+    const pendingEscalation = await getPendingEscalation(session.conversationId, supabaseClient);
 
     // If user is providing contact info and there's already a pending escalation,
     // update the existing escalation instead of creating a new one
     if (isContact && pendingEscalation) {
       console.log('Contact information detected for existing escalation, updating...');
-      await updateEscalationWithContact(pendingEscalation.id, query, employee);
+      await updateEscalationWithContact(pendingEscalation.id, query, employee, supabaseClient);
       return; // Don't create a new escalation
     }
 
@@ -462,7 +470,7 @@ async function handleEscalation(session, query, response, employee, reason) {
     // appear broken. Each question that needs escalation should be escalated independently.
 
     // Find the last assistant message ID
-    const { data: lastMessage } = await supabase
+    const { data: lastMessage } = await supabaseClient
       .from('chat_history')
       .select('id')
       .eq('conversation_id', session.conversationId)
@@ -472,7 +480,7 @@ async function handleEscalation(session, query, response, employee, reason) {
       .single();
 
     // Get recent conversation history for contact extraction (last 20 messages)
-    const { data: recentMessages } = await supabase
+    const { data: recentMessages } = await supabaseClient
       .from('chat_history')
       .select('role, content')
       .eq('conversation_id', session.conversationId)
@@ -480,7 +488,7 @@ async function handleEscalation(session, query, response, employee, reason) {
       .limit(20);
 
     // Create escalation record with enhanced context
-    const { data: escalation, error: escError } = await supabase
+    const { data: escalation, error: escError } = await supabaseClient
       .from('escalations')
       .insert([{
         conversation_id: session.conversationId,
@@ -513,7 +521,7 @@ async function handleEscalation(session, query, response, employee, reason) {
 
     // Mark message as escalated
     if (lastMessage) {
-      await supabase
+      await supabaseClient
         .from('chat_history')
         .update({ was_escalated: true })
         .eq('id', lastMessage.id);

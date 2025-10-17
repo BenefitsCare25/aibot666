@@ -10,26 +10,30 @@ const TOP_K_RESULTS = parseInt(process.env.TOP_K_RESULTS) || 5;
 /**
  * Search knowledge base using vector similarity
  * @param {string} query - User query text
+ * @param {Object} supabaseClient - Supabase client (for multi-tenancy)
  * @param {number} topK - Number of results to return
  * @param {number} threshold - Minimum similarity threshold
  * @param {string} category - Optional category filter
  * @returns {Promise<Array>} - Array of matching knowledge base entries
  */
-export async function searchKnowledgeBase(query, topK = TOP_K_RESULTS, threshold = SIMILARITY_THRESHOLD, category = null) {
+export async function searchKnowledgeBase(query, supabaseClient = null, topK = TOP_K_RESULTS, threshold = SIMILARITY_THRESHOLD, category = null) {
   try {
+    // Use provided client or fallback to default
+    const client = supabaseClient || supabase;
+
     // Generate embedding for the query
     const queryEmbedding = await generateEmbedding(query);
 
     // First check if ANY knowledge exists with very low threshold (0.1)
     // This helps us differentiate between "no data" vs "low similarity data"
-    const { data: anyData } = await supabase.rpc('match_knowledge', {
+    const { data: anyData } = await client.rpc('match_knowledge', {
       query_embedding: queryEmbedding,
       match_threshold: 0.1,
       match_count: 1
     });
 
     // Use Supabase RPC to call the match_knowledge function with actual threshold
-    let rpcQuery = supabase.rpc('match_knowledge', {
+    let rpcQuery = client.rpc('match_knowledge', {
       query_embedding: queryEmbedding,
       match_threshold: threshold,
       match_count: topK
@@ -45,7 +49,7 @@ export async function searchKnowledgeBase(query, topK = TOP_K_RESULTS, threshold
     // Update usage statistics for retrieved documents
     if (data && data.length > 0) {
       const ids = data.map(item => item.id);
-      await updateKnowledgeUsage(ids);
+      await updateKnowledgeUsage(ids, client);
     }
 
     // Return data with metadata about whether ANY knowledge exists
@@ -350,12 +354,15 @@ export async function addEmployeesBatch(employeesData) {
  * Update usage statistics for knowledge base entries
  * @param {Array} ids - Array of knowledge base entry IDs
  */
-async function updateKnowledgeUsage(ids) {
+async function updateKnowledgeUsage(ids, supabaseClient = null) {
   try {
-    const { error } = await supabase
+    // Use provided client or fallback to default
+    const client = supabaseClient || supabase;
+
+    const { error } = await client
       .from('knowledge_base')
       .update({
-        usage_count: supabase.raw('usage_count + 1'),
+        usage_count: client.raw('usage_count + 1'),
         last_used_at: new Date().toISOString()
       })
       .in('id', ids);
@@ -373,9 +380,12 @@ async function updateKnowledgeUsage(ids) {
  * @param {string} employeeId - Employee ID
  * @returns {Promise<Object>} - Employee data
  */
-export async function getEmployeeByEmployeeId(employeeId) {
+export async function getEmployeeByEmployeeId(employeeId, supabaseClient = null) {
   try {
-    const { data, error } = await supabase
+    // Use provided client or fallback to default
+    const client = supabaseClient || supabase;
+
+    const { data, error } = await client
       .from('employees')
       .select('*')
       .eq('employee_id', employeeId)
