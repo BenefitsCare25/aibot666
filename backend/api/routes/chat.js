@@ -458,12 +458,9 @@ async function handleEscalation(session, query, response, employee, reason) {
       return; // Don't create a new escalation
     }
 
-    // If there's already a pending escalation and this isn't contact info,
-    // don't create another escalation
-    if (pendingEscalation && !isContact) {
-      console.log('Pending escalation already exists, skipping duplicate escalation');
-      return;
-    }
+    // Note: We removed the check that prevented new escalations when one is pending
+    // because it prevented Telegram notifications from being sent, making the workflow
+    // appear broken. Each question that needs escalation should be escalated independently.
 
     // Find the last assistant message ID
     const { data: lastMessage } = await supabase

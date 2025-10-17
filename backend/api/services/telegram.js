@@ -11,7 +11,15 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 let bot;
 
 if (TELEGRAM_BOT_TOKEN) {
-  bot = new Telegraf(TELEGRAM_BOT_TOKEN);
+  bot = new Telegraf(TELEGRAM_BOT_TOKEN, {
+    telegram: {
+      apiRoot: 'https://api.telegram.org',
+      webhookReply: false,
+      agent: null, // Use default agent
+      attachmentAgent: null
+    },
+    handlerTimeout: 90000 // 90 second timeout instead of default
+  });
   console.log('✓ Telegram bot initialized');
 } else {
   console.warn('⚠ TELEGRAM_BOT_TOKEN not set - HITL features disabled');
@@ -181,22 +189,41 @@ export function initializeTelegramBot() {
   // Handle replies to escalation messages
   bot.on('message', async (ctx) => {
     try {
+      // Debug logging for group chat troubleshooting
+      console.log('📩 Received message:', {
+        hasReply: !!ctx.message.reply_to_message,
+        messageText: ctx.message.text?.substring(0, 50),
+        chatType: ctx.chat.type,
+        fromUser: ctx.from?.username || ctx.from?.first_name
+      });
+
       // Check if this is a reply to an escalation
       if (!ctx.message.reply_to_message) {
+        console.log('⏭️ Not a reply message, ignoring');
         return;
       }
 
-      const replyToText = ctx.message.reply_to_message.text;
-      const response = ctx.message.text;
+      // Support both text and caption for media messages
+      const replyToText = ctx.message.reply_to_message.text ||
+                         ctx.message.reply_to_message.caption || '';
+      const response = ctx.message.text || ctx.message.caption || '';
+
+      console.log('🔍 Processing reply:', {
+        replyToLength: replyToText.length,
+        responseLength: response.length,
+        replyPreview: replyToText.substring(0, 100)
+      });
 
       // Extract escalation ID from the original message
       const escalationIdMatch = replyToText.match(/\[Escalation: ([a-f0-9-]+)\]/);
 
       if (!escalationIdMatch) {
+        console.log('❌ No escalation ID found in reply');
         return; // Not an escalation message
       }
 
       const escalationId = escalationIdMatch[1];
+      console.log(`✅ Found escalation ID: ${escalationId}`);
 
       // Get escalation details
       const { data: escalation, error: escError } = await supabase
@@ -208,10 +235,19 @@ export function initializeTelegramBot() {
         .eq('id', escalationId)
         .single();
 
-      if (escError || !escalation) {
+      if (escError) {
+        console.error('❌ Database error fetching escalation:', escError);
         ctx.reply('❌ Escalation not found');
         return;
       }
+
+      if (!escalation) {
+        console.log('❌ No escalation found with ID:', escalationId);
+        ctx.reply('❌ Escalation not found');
+        return;
+      }
+
+      console.log(`📋 Escalation status: ${escalation.status}`);
 
       if (escalation.status !== 'pending') {
         ctx.reply('ℹ️ This escalation has already been resolved');
@@ -220,9 +256,11 @@ export function initializeTelegramBot() {
 
       // Normalize response for command detection
       const normalizedResponse = response.trim().toLowerCase();
+      console.log(`💬 User response: "${normalizedResponse}"`);
 
       // Handle "skip" command - mark as reviewed without adding to KB
       if (normalizedResponse === 'skip' || normalizedResponse === '/skip') {
+        console.log('⏭️ Processing SKIP command');
         const { error: updateError } = await supabase
           .from('escalations')
           .update({
@@ -234,11 +272,12 @@ export function initializeTelegramBot() {
           .eq('id', escalationId);
 
         if (updateError) {
-          console.error('Error updating escalation:', updateError);
+          console.error('❌ Error updating escalation (skip):', updateError);
           ctx.reply('❌ Error updating escalation');
           return;
         }
 
+        console.log(`✅ Escalation ${escalationId} marked as skipped`);
         ctx.reply(
           '⏭️ Escalation skipped\n\n' +
           '✓ Marked as reviewed\n' +
@@ -259,21 +298,27 @@ export function initializeTelegramBot() {
       let resolvedStatus;
 
       if (isCorrectCommand) {
+        console.log('✅ Processing CORRECT command');
         // Use AI's original response from context
         answerToSave = escalation.context?.aiResponse;
         resolvedStatus = 'AI response confirmed as correct';
 
         if (!answerToSave) {
+          console.error('❌ No aiResponse in escalation context:', escalation.context);
           ctx.reply('❌ Original AI response not found in escalation context');
           return;
         }
+        console.log(`📝 Using AI response (${answerToSave.substring(0, 50)}...)`);
       } else {
+        console.log('📝 Processing CUSTOM answer');
         // Use human's custom answer
         answerToSave = response;
         resolvedStatus = 'Custom answer provided';
+        console.log(`📝 Using custom answer (${answerToSave.substring(0, 50)}...)`);
       }
 
       // Update escalation with resolution
+      console.log(`💾 Updating escalation ${escalationId} to resolved status...`);
       const { error: updateError } = await supabase
         .from('escalations')
         .update({
@@ -285,13 +330,16 @@ export function initializeTelegramBot() {
         .eq('id', escalationId);
 
       if (updateError) {
-        console.error('Error updating escalation:', updateError);
+        console.error('❌ Error updating escalation to resolved:', updateError);
         ctx.reply('❌ Error updating escalation');
         return;
       }
 
+      console.log(`✅ Escalation ${escalationId} marked as resolved`);
+
       // Add to knowledge base
       try {
+        console.log('📚 Adding to knowledge base...');
         await addKnowledgeEntry({
           title: escalation.query.substring(0, 200),
           content: `Question: ${escalation.query}\n\nAnswer: ${answerToSave}`,
@@ -306,11 +354,15 @@ export function initializeTelegramBot() {
           source: 'hitl_learning'
         });
 
+        console.log('✅ Successfully added to knowledge base');
+
         // Mark as added to knowledge base
         await supabase
           .from('escalations')
           .update({ was_added_to_kb: true })
           .eq('id', escalationId);
+
+        console.log('✅ Updated was_added_to_kb flag');
 
         // Update chat history to mark as resolved
         if (escalation.message_id) {
@@ -318,11 +370,13 @@ export function initializeTelegramBot() {
             .from('chat_history')
             .update({ escalation_resolved: true })
             .eq('id', escalation.message_id);
+          console.log('✅ Updated chat history escalation_resolved flag');
         }
 
         const statusIcon = isCorrectCommand ? '✅' : '📝';
         const statusText = isCorrectCommand ? 'AI response confirmed' : 'Custom answer saved';
 
+        console.log(`🎉 Workflow complete! Sending success message to user`);
         ctx.reply(
           `${statusIcon} ${statusText}\n\n` +
           '✓ Escalation marked as resolved\n' +
@@ -332,7 +386,7 @@ export function initializeTelegramBot() {
           `Question: ${escalation.query.substring(0, 100)}${escalation.query.length > 100 ? '...' : ''}`
         );
       } catch (kbError) {
-        console.error('Error adding to knowledge base:', kbError);
+        console.error('❌ Error adding to knowledge base:', kbError);
         ctx.reply('⚠️ Response saved but failed to add to knowledge base');
       }
     } catch (error) {
@@ -341,12 +395,31 @@ export function initializeTelegramBot() {
     }
   });
 
-  // Start bot
-  bot.launch().then(() => {
-    console.log('✓ Telegram bot started successfully');
-  }).catch(err => {
-    console.error('Error starting Telegram bot:', err);
-  });
+  // Start bot with retry logic
+  const launchWithRetry = async (maxRetries = 3, delayMs = 5000) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await bot.launch({
+          dropPendingUpdates: true // Ignore old updates on restart
+        });
+        console.log('✓ Telegram bot started successfully');
+        return;
+      } catch (err) {
+        console.error(`Telegram bot launch attempt ${attempt}/${maxRetries} failed:`, err.message);
+
+        if (attempt < maxRetries) {
+          const delay = delayMs * attempt; // Exponential backoff
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          console.error('❌ Failed to start Telegram bot after all retries');
+          console.warn('Continuing without Telegram notifications...');
+        }
+      }
+    }
+  };
+
+  launchWithRetry();
 
   // Enable graceful stop
   process.once('SIGINT', () => bot.stop('SIGINT'));
