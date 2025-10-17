@@ -188,40 +188,30 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
  * @returns {Object} - Knowledge match information
  */
 function calculateKnowledgeMatch(contexts) {
-  const MIN_SIMILARITY = parseFloat(process.env.MIN_KNOWLEDGE_SIMILARITY) || 0.4;
+  // Check if knowledge base has ANY data related to this query (even if low similarity)
+  const hasAnyKnowledgeInDB = contexts._hasAnyKnowledge;
 
+  // If no contexts returned AND no knowledge exists in DB at all -> true no_knowledge
   if (!contexts || contexts.length === 0) {
     return {
-      hasKnowledge: false,
+      hasKnowledge: hasAnyKnowledgeInDB, // True if DB has data, even if below threshold
       matchCount: 0,
       avgSimilarity: 0,
       bestMatch: null,
-      status: 'no_knowledge'
+      status: hasAnyKnowledgeInDB ? 'poor_match' : 'no_knowledge'
     };
   }
 
-  // Filter contexts that meet minimum similarity threshold
-  const relevantContexts = contexts.filter(ctx => ctx.similarity >= MIN_SIMILARITY);
-
-  if (relevantContexts.length === 0) {
-    return {
-      hasKnowledge: false,
-      matchCount: 0,
-      avgSimilarity: contexts.length > 0 ? contexts[0].similarity : 0,
-      bestMatch: contexts.length > 0 ? contexts[0].similarity : null,
-      status: 'poor_match'
-    };
-  }
-
-  const avgSimilarity = relevantContexts.reduce((sum, ctx) => sum + ctx.similarity, 0) / relevantContexts.length;
-  const bestMatch = Math.max(...relevantContexts.map(ctx => ctx.similarity));
+  // If we have results, analyze them
+  const avgSimilarity = contexts.reduce((sum, ctx) => sum + ctx.similarity, 0) / contexts.length;
+  const bestMatch = Math.max(...contexts.map(ctx => ctx.similarity));
 
   return {
     hasKnowledge: true,
-    matchCount: relevantContexts.length,
+    matchCount: contexts.length,
     avgSimilarity,
     bestMatch,
-    status: relevantContexts.length >= 2 ? 'good_match' : 'partial_match'
+    status: contexts.length >= 2 ? 'good_match' : 'partial_match'
   };
 }
 

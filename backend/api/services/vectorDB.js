@@ -20,7 +20,15 @@ export async function searchKnowledgeBase(query, topK = TOP_K_RESULTS, threshold
     // Generate embedding for the query
     const queryEmbedding = await generateEmbedding(query);
 
-    // Use Supabase RPC to call the match_knowledge function
+    // First check if ANY knowledge exists with very low threshold (0.1)
+    // This helps us differentiate between "no data" vs "low similarity data"
+    const { data: anyData } = await supabase.rpc('match_knowledge', {
+      query_embedding: queryEmbedding,
+      match_threshold: 0.1,
+      match_count: 1
+    });
+
+    // Use Supabase RPC to call the match_knowledge function with actual threshold
     let rpcQuery = supabase.rpc('match_knowledge', {
       query_embedding: queryEmbedding,
       match_threshold: threshold,
@@ -40,7 +48,11 @@ export async function searchKnowledgeBase(query, topK = TOP_K_RESULTS, threshold
       await updateKnowledgeUsage(ids);
     }
 
-    return data || [];
+    // Return data with metadata about whether ANY knowledge exists
+    const results = data || [];
+    results._hasAnyKnowledge = anyData && anyData.length > 0;
+
+    return results;
   } catch (error) {
     console.error('Error in searchKnowledgeBase:', error.message);
     throw error;
