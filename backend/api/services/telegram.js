@@ -456,6 +456,41 @@ ${truncatedAnswer}
 }
 
 /**
+ * Send notification when contact information is provided
+ * @param {string} escalationId - Escalation ID
+ * @param {string} contactInfo - Contact information provided
+ * @param {Object} employee - Employee information
+ */
+export async function notifyContactProvided(escalationId, contactInfo, employee) {
+  if (!bot || !TELEGRAM_CHAT_ID) {
+    return;
+  }
+
+  try {
+    const message = `
+📞 <b>Contact Information Provided</b>
+
+<b>Employee:</b> ${employee.name}
+<b>Policy:</b> ${employee.policy_type} | <b>Coverage:</b> $${employee.coverage_limit}
+
+💬 <b>Contact Provided:</b> ${contactInfo}
+
+<i>[Escalation: ${escalationId}]</i>
+
+ℹ️ The team can now follow up with the employee using this contact information.
+    `.trim();
+
+    await bot.telegram.sendMessage(TELEGRAM_CHAT_ID, message, {
+      parse_mode: 'HTML'
+    });
+
+    console.log(`✓ Contact update for escalation ${escalationId} sent to Telegram`);
+  } catch (error) {
+    console.error('Error sending contact notification:', error);
+  }
+}
+
+/**
  * Send notification about resolved escalation
  * @param {string} escalationId - Escalation ID
  * @param {string} resolution - Resolution text
@@ -486,5 +521,6 @@ The bot has learned from this interaction!
 export default {
   initializeTelegramBot,
   notifyTelegramEscalation,
+  notifyContactProvided,
   notifyEscalationResolved
 };
