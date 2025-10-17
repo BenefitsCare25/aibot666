@@ -33,10 +33,16 @@ export default function Dashboard() {
 
   const statCards = [
     {
-      title: 'Total Queries',
-      value: stats?.queries?.total || 0,
+      title: 'Total Chat (Unique Employee)',
+      value: stats?.queries?.uniqueEmployees || 0,
       icon: '💬',
       color: 'bg-blue-500'
+    },
+    {
+      title: 'Total Response from AI chatbot',
+      value: stats?.queries?.totalResponses || 0,
+      icon: '🤖',
+      color: 'bg-purple-500'
     },
     {
       title: 'Escalations',
@@ -51,8 +57,8 @@ export default function Dashboard() {
       color: 'bg-red-500'
     },
     {
-      title: 'Avg Confidence',
-      value: stats?.queries?.avgConfidence ? `${(stats.queries.avgConfidence * 100).toFixed(0)}%` : '0%',
+      title: 'Resolution Rate',
+      value: stats?.queries?.resolutionRate ? `${stats.queries.resolutionRate}%` : '0%',
       icon: '✅',
       color: 'bg-green-500'
     }
@@ -66,7 +72,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {statCards.map((stat) => (
           <div key={stat.title} className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
