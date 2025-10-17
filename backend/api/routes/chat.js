@@ -176,10 +176,17 @@ router.post('/message', async (req, res) => {
     let escalated = false;
     let escalationReason = null;
 
-    // Only escalate when no knowledge found (no results from vector search)
-    if (ESCALATE_ON_NO_KNOWLEDGE && response.knowledgeMatch.status === 'no_knowledge') {
+    // Check if AI responded with the "no knowledge" message
+    const aiSaysNoKnowledge = response.answer &&
+      response.answer.toLowerCase().includes('check back with the team');
+
+    // Escalate when:
+    // 1. No knowledge found in vector search, OR
+    // 2. AI explicitly says it doesn't have the information
+    if (ESCALATE_ON_NO_KNOWLEDGE &&
+        (response.knowledgeMatch.status === 'no_knowledge' || aiSaysNoKnowledge)) {
       escalated = true;
-      escalationReason = 'no_knowledge_found';
+      escalationReason = aiSaysNoKnowledge ? 'ai_indicated_no_knowledge' : 'no_knowledge_found';
     }
 
     if (escalated) {
