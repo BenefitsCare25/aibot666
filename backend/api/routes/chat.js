@@ -176,17 +176,16 @@ router.post('/message', async (req, res) => {
     let escalated = false;
     let escalationReason = null;
 
-    // Check if AI responded with the "no knowledge" message
+    // Check if AI explicitly says it cannot answer (uses the exact template phrase)
     const aiSaysNoKnowledge = response.answer &&
-      response.answer.toLowerCase().includes('check back with the team');
+      response.answer.toLowerCase().includes('for such query, let us check back with the team');
 
-    // Escalate when:
-    // 1. No knowledge found in vector search, OR
-    // 2. AI explicitly says it doesn't have the information
-    if (ESCALATE_ON_NO_KNOWLEDGE &&
-        (response.knowledgeMatch.status === 'no_knowledge' || aiSaysNoKnowledge)) {
+    // Escalate ONLY when AI explicitly cannot answer
+    // If AI gave a real answer, it means it found data in Supabase (employee table or knowledge_base)
+    // Do NOT escalate based on knowledgeMatch.status alone - AI can answer using employee data
+    if (ESCALATE_ON_NO_KNOWLEDGE && aiSaysNoKnowledge) {
       escalated = true;
-      escalationReason = aiSaysNoKnowledge ? 'ai_indicated_no_knowledge' : 'no_knowledge_found';
+      escalationReason = 'ai_unable_to_answer';
     }
 
     if (escalated) {
