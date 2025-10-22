@@ -17,8 +17,23 @@ import {
 } from '../services/vectorDB.js';
 import supabase from '../../config/supabase.js';
 import { getAllCompanies, getCompanyById } from '../services/companySchema.js';
+import { companyContextMiddleware, adminContextMiddleware } from '../middleware/companyContext.js';
 
 const router = express.Router();
+
+// Apply company context middleware to routes that need schema-specific data
+// Company management routes use adminContextMiddleware (public schema)
+router.use('/companies', adminContextMiddleware);
+
+// All other admin routes use companyContextMiddleware (company-specific schema)
+router.use((req, res, next) => {
+  // Skip middleware for company routes
+  if (req.path.startsWith('/companies')) {
+    return next();
+  }
+  // Apply company context for all other routes
+  return companyContextMiddleware(req, res, next);
+});
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -149,7 +164,7 @@ router.get('/employees', async (req, res) => {
     const { page = 1, limit = 50, search = '' } = req.query;
     const offset = (page - 1) * limit;
 
-    let query = supabase
+    let query = req.supabase
       .from('employees')
       .select('*', { count: 'exact' });
 
@@ -195,7 +210,7 @@ router.get('/employees/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const employee = await getEmployeeByEmployeeId(id);
+    const employee = await getEmployeeByEmployeeId(id, req.supabase);
 
     res.json({
       success: true,
@@ -218,7 +233,7 @@ router.post('/employees', async (req, res) => {
   try {
     const employeeData = req.body;
 
-    const employee = await addEmployee(employeeData);
+    const employee = await addEmployee(employeeData, req.supabase);
 
     res.json({
       success: true,
@@ -315,7 +330,7 @@ router.get('/knowledge', async (req, res) => {
     const { page = 1, limit = 50, category = '', search = '' } = req.query;
     const offset = (page - 1) * limit;
 
-    let query = supabase
+    let query = req.supabase
       .from('knowledge_base')
       .select('*', { count: 'exact' });
 
@@ -415,7 +430,7 @@ router.get('/escalations', async (req, res) => {
     const { status = '', page = 1, limit = 50 } = req.query;
     const offset = (page - 1) * limit;
 
-    let query = supabase
+    let query = req.supabase
       .from('escalations')
       .select(`
         *,
@@ -486,7 +501,7 @@ router.patch('/escalations/:id', async (req, res) => {
     }
 
     // Update the escalation
-    const { data: escalation, error: updateError } = await supabase
+    const { data: escalation, error: updateError } = await req.supabase
       .from('escalations')
       .update(updates)
       .eq('id', id)
@@ -512,7 +527,7 @@ router.patch('/escalations/:id', async (req, res) => {
         });
 
         // Mark escalation as added to KB
-        await supabase
+        await req.supabase
           .from('escalations')
           .update({ was_added_to_kb: true })
           .eq('id', id);
@@ -708,7 +723,7 @@ router.get('/analytics', async (req, res) => {
     const { startDate, endDate } = req.query;
 
     // Get chat statistics
-    let chatQuery = supabase
+    let chatQuery = req.supabase
       .from('chat_history')
       .select('employee_id, created_at, was_escalated, confidence_score, role');
 
@@ -739,7 +754,7 @@ router.get('/analytics', async (req, res) => {
     const resolutionRate = totalQueries > 0 ? ((totalQueries - escalatedQueries) / totalQueries * 100).toFixed(2) : 0;
 
     // Get escalation statistics
-    const { data: escalations, error: escError } = await supabase
+    const { data: escalations, error: escError } = await req.supabase
       .from('escalations')
       .select('status, created_at, resolved_at');
 

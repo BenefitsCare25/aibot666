@@ -120,6 +120,8 @@ export function initializeTelegramBot() {
   // Handle /pending command
   bot.command('pending', async (ctx) => {
     try {
+      // Note: This command operates on public schema by default
+      // TODO: Support multi-tenant pending queries
       const { data: escalations, error } = await supabase
         .from('escalations')
         .select(`
@@ -158,6 +160,8 @@ export function initializeTelegramBot() {
   // Handle /stats command
   bot.command('stats', async (ctx) => {
     try {
+      // Note: This command operates on public schema by default
+      // TODO: Support multi-tenant stats queries
       const { data: stats, error } = await supabase
         .from('escalations')
         .select('status, created_at');
@@ -214,8 +218,8 @@ export function initializeTelegramBot() {
         replyPreview: replyToText.substring(0, 100)
       });
 
-      // Extract escalation ID from the original message
-      const escalationIdMatch = replyToText.match(/\[Escalation: ([a-f0-9-]+)\]/);
+      // Extract escalation ID and schema from the original message
+      const escalationIdMatch = replyToText.match(/\[Escalation: ([a-f0-9-]+)(?:\|Schema: ([a-z0-9_]+))?\]/);
 
       if (!escalationIdMatch) {
         console.log('❌ No escalation ID found in reply');
@@ -223,10 +227,18 @@ export function initializeTelegramBot() {
       }
 
       const escalationId = escalationIdMatch[1];
-      console.log(`✅ Found escalation ID: ${escalationId}`);
+      const schemaName = escalationIdMatch[2]; // May be undefined for old messages
+      console.log(`✅ Found escalation ID: ${escalationId}${schemaName ? ` in schema: ${schemaName}` : ''}`);
+
+      // Get schema-specific client
+      // Import getSchemaClient here to avoid circular dependencies
+      const { getSchemaClient } = await import('../../config/supabase.js');
+      const schemaClient = getSchemaClient(schemaName || null);
+
+      console.log(`[Supabase] Using client for schema: ${schemaName || 'public'}`);
 
       // Get escalation details
-      const { data: escalation, error: escError } = await supabase
+      const { data: escalation, error: escError } = await schemaClient
         .from('escalations')
         .select(`
           *,
@@ -261,7 +273,7 @@ export function initializeTelegramBot() {
       // Handle "skip" command - mark as reviewed without adding to KB
       if (normalizedResponse === 'skip' || normalizedResponse === '/skip') {
         console.log('⏭️ Processing SKIP command');
-        const { error: updateError } = await supabase
+        const { error: updateError } = await schemaClient
           .from('escalations')
           .update({
             status: 'skipped',
@@ -319,7 +331,7 @@ export function initializeTelegramBot() {
 
       // Update escalation with resolution
       console.log(`💾 Updating escalation ${escalationId} to resolved status...`);
-      const { error: updateError } = await supabase
+      const { error: updateError } = await schemaClient
         .from('escalations')
         .update({
           status: 'resolved',
@@ -357,7 +369,7 @@ export function initializeTelegramBot() {
         console.log('✅ Successfully added to knowledge base');
 
         // Mark as added to knowledge base
-        await supabase
+        await schemaClient
           .from('escalations')
           .update({ was_added_to_kb: true })
           .eq('id', escalationId);
@@ -366,7 +378,7 @@ export function initializeTelegramBot() {
 
         // Update chat history to mark as resolved
         if (escalation.message_id) {
-          await supabase
+          await schemaClient
             .from('chat_history')
             .update({ escalation_resolved: true })
             .eq('id', escalation.message_id);
@@ -433,8 +445,9 @@ export function initializeTelegramBot() {
  * @param {Object} employee - Employee information
  * @param {Object} aiResponse - AI response object with answer and metadata
  * @param {Array} conversationHistory - Recent conversation messages for contact extraction
+ * @param {string} schemaName - Schema name for multi-tenant routing (optional)
  */
-export async function notifyTelegramEscalation(escalation, query, employee, aiResponse, conversationHistory = []) {
+export async function notifyTelegramEscalation(escalation, query, employee, aiResponse, conversationHistory = [], schemaName = null) {
   if (!bot || !TELEGRAM_CHAT_ID) {
     console.warn('Telegram not configured - escalation not sent');
     return;
@@ -509,7 +522,7 @@ ${truncatedAnswer}
 📊 <b>Status:</b> ${reasonEmoji} ${reasonText}
 <b>Knowledge Sources:</b> ${sourceStatus}
 
-<i>[Escalation: ${escalation.id}]</i>
+<i>[Escalation: ${escalation.id}${schemaName ? `|Schema: ${schemaName}` : ''}]</i>
 
 ✅ Reply <b>"correct"</b> if AI response is good
 📝 Reply with <b>better answer</b> to teach the bot

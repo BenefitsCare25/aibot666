@@ -196,7 +196,7 @@ router.post('/message', async (req, res) => {
     }
 
     if (escalated) {
-      await handleEscalation(session, message, response, employee, escalationReason, req.supabase);
+      await handleEscalation(session, message, response, employee, escalationReason, req.supabase, req.company.schemaName);
     }
 
     // Cache the result if confidence is high
@@ -451,7 +451,7 @@ async function updateEscalationWithContact(escalationId, contactInfo, employee, 
 /**
  * Helper: Handle escalation to human support
  */
-async function handleEscalation(session, query, response, employee, reason, supabaseClient) {
+async function handleEscalation(session, query, response, employee, reason, supabaseClient, schemaName = null) {
   try {
     // Check if user is providing contact information after previous escalation
     const isContact = isContactInformation(query);
@@ -516,8 +516,8 @@ async function handleEscalation(session, query, response, employee, reason, supa
       return;
     }
 
-    // Notify via Telegram with AI response and conversation history for contact extraction
-    await notifyTelegramEscalation(escalation, query, employee, response, recentMessages || []);
+    // Notify via Telegram with AI response, conversation history, and schema name for multi-tenant routing
+    await notifyTelegramEscalation(escalation, query, employee, response, recentMessages || [], schemaName);
 
     // Mark message as escalated
     if (lastMessage) {
