@@ -4,6 +4,7 @@ import axios from 'axios';
 export const useChatStore = create((set, get) => ({
   // State
   apiUrl: '',
+  domain: null, // Optional domain override
   sessionId: null,
   employeeId: null,
   employeeName: '',
@@ -12,8 +13,8 @@ export const useChatStore = create((set, get) => ({
   error: null,
 
   // Actions
-  initialize: (apiUrl) => {
-    set({ apiUrl });
+  initialize: (apiUrl, domain = null) => {
+    set({ apiUrl, domain });
   },
 
   reset: () => {
@@ -28,11 +29,11 @@ export const useChatStore = create((set, get) => ({
   },
 
   createSession: async (employeeId) => {
-    const { apiUrl } = get();
+    const { apiUrl, domain: domainOverride } = get();
     set({ isLoading: true, error: null });
 
-    // Extract domain from current page URL
-    const domain = window.location.hostname;
+    // Use domain override if provided, otherwise extract from current page URL
+    const domain = domainOverride || window.location.hostname;
 
     try {
       const response = await axios.post(`${apiUrl}/api/chat/session`, {
@@ -70,14 +71,14 @@ export const useChatStore = create((set, get) => ({
   },
 
   sendMessage: async (message) => {
-    const { apiUrl, sessionId, messages } = get();
+    const { apiUrl, sessionId, messages, domain: domainOverride } = get();
 
     if (!sessionId) {
       throw new Error('No active session');
     }
 
-    // Extract domain from current page URL
-    const domain = window.location.hostname;
+    // Use domain override if provided, otherwise extract from current page URL
+    const domain = domainOverride || window.location.hostname;
 
     // Add user message immediately
     const userMessage = {
@@ -149,11 +150,11 @@ export const useChatStore = create((set, get) => ({
   },
 
   loadHistory: async (conversationId) => {
-    const { apiUrl } = get();
+    const { apiUrl, domain: domainOverride } = get();
     set({ isLoading: true, error: null });
 
-    // Extract domain from current page URL
-    const domain = window.location.hostname;
+    // Use domain override if provided, otherwise extract from current page URL
+    const domain = domainOverride || window.location.hostname;
 
     try {
       const response = await axios.get(`${apiUrl}/api/chat/history/${conversationId}?limit=50`, {

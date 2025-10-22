@@ -4,14 +4,14 @@ import ChatButton from './components/ChatButton';
 import ChatWindow from './components/ChatWindow';
 import LoginForm from './components/LoginForm';
 
-export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryColor = '#3b82f6' }) {
+export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryColor = '#3b82f6', domain = null }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { initialize } = useChatStore();
 
   useEffect(() => {
-    // Initialize store with API URL
-    initialize(apiUrl);
+    // Initialize store with API URL and optional domain override
+    initialize(apiUrl, domain);
 
     // Check if user has existing session in localStorage
     const storedSession = localStorage.getItem('insurance_chat_session');
@@ -31,7 +31,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         localStorage.removeItem('insurance_chat_session');
       }
     }
-  }, [apiUrl, initialize]);
+  }, [apiUrl, domain, initialize]);
 
   const positionClasses = {
     'bottom-right': 'ic-bottom-4 ic-right-4',

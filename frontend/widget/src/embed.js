@@ -30,7 +30,8 @@ import './index.css';
         apiUrl = 'https://insurance-chatbot-api.onrender.com',
         position = 'bottom-right',
         primaryColor = '#3b82f6',
-        containerId = 'insurance-chat-widget-root'
+        containerId = 'insurance-chat-widget-root',
+        domain = null // Optional: override domain detection (useful for admin dashboards)
       } = config;
 
       // Create container if it doesn't exist
@@ -47,7 +48,8 @@ import './index.css';
         React.createElement(ChatWidget, {
           apiUrl,
           position,
-          primaryColor
+          primaryColor,
+          domain
         })
       );
     }

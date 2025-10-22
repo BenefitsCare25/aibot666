@@ -28,10 +28,14 @@
         widgetScript.onload = function() {
           // Initialize widget with production API
           if (window.InsuranceChatWidget) {
+            // Get selected company domain from localStorage (set by CompanySelector)
+            const selectedDomain = localStorage.getItem('selected_company_domain') || 'company-a.local';
+
             window.InsuranceChatWidget.init({
               apiUrl: 'https://aibot666.onrender.com',
               position: 'bottom-right',
-              primaryColor: '#3b82f6'
+              primaryColor: '#3b82f6',
+              domain: selectedDomain // Pass company domain to widget
             });
           }
         };
