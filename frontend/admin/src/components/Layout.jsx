@@ -8,7 +8,8 @@ const navigation = [
   { name: 'Knowledge Base', href: '/knowledge', icon: '📚' },
   { name: 'Chat History', href: '/chat-history', icon: '💬' },
   { name: 'Escalations', href: '/escalations', icon: '🚨' },
-  { name: 'Analytics', href: '/analytics', icon: '📈' }
+  { name: 'Analytics', href: '/analytics', icon: '📈' },
+  { name: 'Companies', href: '/companies', icon: '🏢' }
 ];
 
 export default function Layout() {

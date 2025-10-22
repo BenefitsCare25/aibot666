@@ -6,6 +6,7 @@ import KnowledgeBase from './pages/KnowledgeBase';
 import ChatHistory from './pages/ChatHistory';
 import Escalations from './pages/Escalations';
 import Analytics from './pages/Analytics';
+import Companies from './pages/Companies';
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="chat-history" element={<ChatHistory />} />
         <Route path="escalations" element={<Escalations />} />
         <Route path="analytics" element={<Analytics />} />
+        <Route path="companies" element={<Companies />} />
       </Route>
     </Routes>
   );
