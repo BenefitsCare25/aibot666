@@ -44,22 +44,18 @@ export function createSchemaClient(schemaName) {
 
   console.log(`[Supabase] Creating schema client for: ${schemaName}`);
 
-  // Create Supabase client with custom schema via global headers
-  // This sets the "Accept-Profile" header for PostgREST schema selection
+  // Create base Supabase client
   const baseClient = createClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: true,
       persistSession: false
     },
-    global: {
-      headers: {
-        'Accept-Profile': schemaName,  // Tell PostgREST which schema to use for SELECT
-        'Content-Profile': schemaName  // Tell PostgREST which schema to use for INSERT/UPDATE/DELETE
-      }
+    db: {
+      schema: schemaName  // Set default schema for this client
     }
   });
 
-  console.log(`[Supabase] Client headers set: Accept-Profile=${schemaName}, Content-Profile=${schemaName}`);
+  console.log(`[Supabase] Client configured with db.schema=${schemaName}`);
 
   // Wrapper that provides schema-aware operations
   const schemaClient = {
@@ -68,17 +64,18 @@ export function createSchemaClient(schemaName) {
 
     /**
      * Access tables in the configured schema
-     * Uses Accept-Profile header to route to correct schema
+     * Uses the db.schema configuration
      */
     from: (table) => {
+      console.log(`[Supabase] Querying table: ${table} in schema: ${schemaName}`);
       return baseClient.from(table);
     },
 
     /**
-     * Call schema-qualified RPC functions
-     * Functions must be in the same schema specified in Accept-Profile
+     * Call RPC functions in the configured schema
      */
     rpc: (fnName, params, options) => {
+      console.log(`[Supabase] Calling RPC: ${fnName} in schema: ${schemaName}`);
       return baseClient.rpc(fnName, params, options);
     },
 
