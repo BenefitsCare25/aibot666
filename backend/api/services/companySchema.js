@@ -257,6 +257,30 @@ export async function getAllCompanies() {
 }
 
 /**
+ * Get company by ID
+ * @param {string} companyId - Company ID
+ * @returns {Promise<Object|null>} - Company record or null
+ */
+export async function getCompanyById(companyId) {
+  try {
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('id', companyId)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error getting company by ID:', error);
+    return null;
+  }
+}
+
+/**
  * Update company
  * @param {string} companyId - Company ID
  * @param {Object} updates - Fields to update
@@ -323,6 +347,7 @@ export default {
   schemaExists,
   registerCompany,
   getCompanyByDomain,
+  getCompanyById,
   normalizeDomain,
   getAllCompanies,
   updateCompany,

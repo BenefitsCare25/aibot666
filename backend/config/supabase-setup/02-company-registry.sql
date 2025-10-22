@@ -1,5 +1,10 @@
--- Company Registry Schema
--- This file creates the company registry in the public schema for multi-tenant support
+-- ============================================
+-- STEP 2: Create Company Registry
+-- ============================================
+-- This creates the registry table that maps domains to company schemas
+
+-- Enable required extensions
+CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Companies table: Store company information and domain mapping
 CREATE TABLE IF NOT EXISTS public.companies (
@@ -82,25 +87,32 @@ $$ LANGUAGE plpgsql;
 ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Admin users can see all companies
--- Note: This requires proper authentication setup in your application
 CREATE POLICY companies_admin_all ON public.companies
   FOR ALL
-  USING (true); -- Modify this based on your auth requirements
+  USING (true);
 
--- Insert a default company for existing data migration
-INSERT INTO public.companies (name, domain, schema_name, status, settings)
-VALUES (
-  'Default Company',
-  'localhost',
-  'company_default',
-  'active',
-  '{"isDefault": true}'::JSONB
-)
+-- Insert 2 companies for testing
+INSERT INTO public.companies (name, domain, additional_domains, schema_name, status, settings)
+VALUES
+  (
+    'Company A',
+    'company-a.local',
+    ARRAY['www.company-a.local', 'localhost'],
+    'company_a',
+    'active',
+    '{"brandColor": "#3b82f6", "features": ["escalation", "analytics"]}'::JSONB
+  ),
+  (
+    'Company B',
+    'company-b.local',
+    ARRAY['www.company-b.local'],
+    'company_b',
+    'active',
+    '{"brandColor": "#10b981", "features": ["escalation", "analytics"]}'::JSONB
+  )
 ON CONFLICT (domain) DO NOTHING;
 
--- Comments for documentation
-COMMENT ON TABLE public.companies IS 'Registry of all companies in the multi-tenant system';
-COMMENT ON COLUMN public.companies.domain IS 'Primary domain used to identify company from widget embedding';
-COMMENT ON COLUMN public.companies.additional_domains IS 'Array of additional domains that map to this company';
-COMMENT ON COLUMN public.companies.schema_name IS 'PostgreSQL schema name where company data is stored';
-COMMENT ON COLUMN public.companies.settings IS 'Company-specific settings like branding, feature flags, etc.';
+-- Verify companies were created
+SELECT id, name, domain, schema_name, status FROM public.companies;
+
+-- Should show 2 companies

@@ -31,12 +31,19 @@ export const useChatStore = create((set, get) => ({
     const { apiUrl } = get();
     set({ isLoading: true, error: null });
 
+    // Extract domain from current page URL
+    const domain = window.location.hostname;
+
     try {
       const response = await axios.post(`${apiUrl}/api/chat/session`, {
         employeeId,
         metadata: {
           source: 'widget',
           timestamp: new Date().toISOString()
+        }
+      }, {
+        headers: {
+          'X-Widget-Domain': domain
         }
       });
 
@@ -69,6 +76,9 @@ export const useChatStore = create((set, get) => ({
       throw new Error('No active session');
     }
 
+    // Extract domain from current page URL
+    const domain = window.location.hostname;
+
     // Add user message immediately
     const userMessage = {
       id: Date.now().toString(),
@@ -87,6 +97,10 @@ export const useChatStore = create((set, get) => ({
       const response = await axios.post(`${apiUrl}/api/chat/message`, {
         sessionId,
         message
+      }, {
+        headers: {
+          'X-Widget-Domain': domain
+        }
       });
 
       if (response.data.success) {
@@ -138,8 +152,15 @@ export const useChatStore = create((set, get) => ({
     const { apiUrl } = get();
     set({ isLoading: true, error: null });
 
+    // Extract domain from current page URL
+    const domain = window.location.hostname;
+
     try {
-      const response = await axios.get(`${apiUrl}/api/chat/history/${conversationId}?limit=50`);
+      const response = await axios.get(`${apiUrl}/api/chat/history/${conversationId}?limit=50`, {
+        headers: {
+          'X-Widget-Domain': domain
+        }
+      });
 
       if (response.data.success) {
         const history = response.data.data.messages.map(msg => ({

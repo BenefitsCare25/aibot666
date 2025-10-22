@@ -16,6 +16,13 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Add company domain header for multi-tenant support
+    const selectedCompany = localStorage.getItem('selected_company_domain');
+    if (selectedCompany) {
+      config.headers['X-Widget-Domain'] = selectedCompany;
+    }
+
     return config;
   },
   (error) => {

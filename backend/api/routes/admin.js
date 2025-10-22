@@ -16,6 +16,7 @@ import {
   getEmployeeByEmployeeId
 } from '../services/vectorDB.js';
 import supabase from '../../config/supabase.js';
+import { getAllCompanies, getCompanyById } from '../services/companySchema.js';
 
 const router = express.Router();
 
@@ -533,6 +534,167 @@ router.patch('/escalations/:id', async (req, res) => {
       success: false,
       error: 'Failed to update escalation',
       details: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/admin/companies
+ * Get all companies
+ */
+router.get('/companies', async (req, res) => {
+  try {
+    const companies = await getAllCompanies();
+
+    res.json({
+      success: true,
+      data: companies
+    });
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch companies'
+    });
+  }
+});
+
+/**
+ * GET /api/admin/companies/:id
+ * Get company by ID
+ */
+router.get('/companies/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const company = await getCompanyById(id);
+
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        error: 'Company not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: company
+    });
+  } catch (error) {
+    console.error('Error fetching company:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch company'
+    });
+  }
+});
+
+/**
+ * POST /api/admin/companies
+ * Create new company
+ */
+router.post('/companies', async (req, res) => {
+  try {
+    const { name, domain, additional_domains, schema_name, settings } = req.body;
+
+    if (!name || !domain || !schema_name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Name, domain, and schema_name are required'
+      });
+    }
+
+    const { data: company, error } = await supabase
+      .from('companies')
+      .insert({
+        name,
+        domain,
+        additional_domains: additional_domains || [],
+        schema_name,
+        settings: settings || {},
+        status: 'active'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: company
+    });
+  } catch (error) {
+    console.error('Error creating company:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to create company',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * PUT /api/admin/companies/:id
+ * Update company
+ */
+router.put('/companies/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, domain, additional_domains, settings, status } = req.body;
+
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (domain !== undefined) updates.domain = domain;
+    if (additional_domains !== undefined) updates.additional_domains = additional_domains;
+    if (settings !== undefined) updates.settings = settings;
+    if (status !== undefined) updates.status = status;
+
+    const { data: company, error } = await supabase
+      .from('companies')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: company
+    });
+  } catch (error) {
+    console.error('Error updating company:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to update company',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/admin/companies/:id
+ * Delete company
+ */
+router.delete('/companies/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('companies')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'Company deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting company:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to delete company'
     });
   }
 });

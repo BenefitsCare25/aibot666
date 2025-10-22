@@ -1,18 +1,17 @@
--- Company Schema Template
--- This template is used to create a new schema for each company
--- Replace {{SCHEMA_NAME}} with the actual company schema name
+-- Company A Schema
+-- Creates complete database schema for Company A with all tables
+
+-- Enable pgvector extension first (must be done before using vector type)
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
 
 -- Create schema for company
-CREATE SCHEMA IF NOT EXISTS {{SCHEMA_NAME}};
+CREATE SCHEMA IF NOT EXISTS company_a;
 
--- Set search path to company schema
-SET search_path TO {{SCHEMA_NAME}}, public;
-
--- Enable pgvector extension (already enabled globally, but we reference it)
--- Note: Extensions are global in PostgreSQL, not schema-specific
+-- Set search path to include extensions schema for vector type
+SET search_path TO company_a, public, extensions;
 
 -- Employees table: Store employee information and insurance details
-CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.employees (
+CREATE TABLE IF NOT EXISTS company_a.employees (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_id VARCHAR(50) UNIQUE NOT NULL,
   name VARCHAR(255) NOT NULL,
@@ -33,11 +32,11 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.employees (
 );
 
 -- Create indexes for faster employee lookups
-CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_employees_employee_id ON {{SCHEMA_NAME}}.employees(employee_id);
-CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_employees_email ON {{SCHEMA_NAME}}.employees(email);
+CREATE INDEX IF NOT EXISTS idx_company_a_employees_employee_id ON company_a.employees(employee_id);
+CREATE INDEX IF NOT EXISTS idx_company_a_employees_email ON company_a.employees(email);
 
 -- Knowledge base table: Store insurance policies, FAQs, and procedures
-CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.knowledge_base (
+CREATE TABLE IF NOT EXISTS company_a.knowledge_base (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title VARCHAR(500),
   content TEXT NOT NULL,
@@ -55,16 +54,16 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.knowledge_base (
 );
 
 -- Create index for vector similarity search using HNSW
-CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_kb_embedding ON {{SCHEMA_NAME}}.knowledge_base
+CREATE INDEX IF NOT EXISTS idx_company_a_kb_embedding ON company_a.knowledge_base
   USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
-CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_kb_category ON {{SCHEMA_NAME}}.knowledge_base(category);
-CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_kb_active ON {{SCHEMA_NAME}}.knowledge_base(is_active);
+CREATE INDEX IF NOT EXISTS idx_company_a_kb_category ON company_a.knowledge_base(category);
+CREATE INDEX IF NOT EXISTS idx_company_a_kb_active ON company_a.knowledge_base(is_active);
 
 -- Chat history table: Store conversation logs
-CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.chat_history (
+CREATE TABLE IF NOT EXISTS company_a.chat_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID NOT NULL,
-  employee_id UUID REFERENCES {{SCHEMA_NAME}}.employees(id) ON DELETE CASCADE,
+  employee_id UUID REFERENCES company_a.employees(id) ON DELETE CASCADE,
   role VARCHAR(20) NOT NULL,
   content TEXT NOT NULL,
   metadata JSONB DEFAULT '{}',
@@ -76,17 +75,17 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.chat_history (
 );
 
 -- Create indexes for chat history
-CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_chat_conversation ON {{SCHEMA_NAME}}.chat_history(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_chat_employee ON {{SCHEMA_NAME}}.chat_history(employee_id);
-CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_chat_created ON {{SCHEMA_NAME}}.chat_history(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_chat_escalated ON {{SCHEMA_NAME}}.chat_history(was_escalated);
+CREATE INDEX IF NOT EXISTS idx_company_a_chat_conversation ON company_a.chat_history(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_company_a_chat_employee ON company_a.chat_history(employee_id);
+CREATE INDEX IF NOT EXISTS idx_company_a_chat_created ON company_a.chat_history(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_company_a_chat_escalated ON company_a.chat_history(was_escalated);
 
 -- Escalations table: Track human-in-the-loop interventions
-CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.escalations (
+CREATE TABLE IF NOT EXISTS company_a.escalations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID NOT NULL,
-  message_id UUID REFERENCES {{SCHEMA_NAME}}.chat_history(id) ON DELETE CASCADE,
-  employee_id UUID REFERENCES {{SCHEMA_NAME}}.employees(id) ON DELETE CASCADE,
+  message_id UUID REFERENCES company_a.chat_history(id) ON DELETE CASCADE,
+  employee_id UUID REFERENCES company_a.employees(id) ON DELETE CASCADE,
   query TEXT NOT NULL,
   context JSONB DEFAULT '{}',
   telegram_message_id VARCHAR(100),
@@ -100,14 +99,14 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.escalations (
 );
 
 -- Create indexes for escalations
-CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_esc_status ON {{SCHEMA_NAME}}.escalations(status);
-CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_esc_conversation ON {{SCHEMA_NAME}}.escalations(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_esc_created ON {{SCHEMA_NAME}}.escalations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_company_a_esc_status ON company_a.escalations(status);
+CREATE INDEX IF NOT EXISTS idx_company_a_esc_conversation ON company_a.escalations(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_company_a_esc_created ON company_a.escalations(created_at DESC);
 
 -- Employee embeddings table: Store employee data as vectors for semantic search
-CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.employee_embeddings (
+CREATE TABLE IF NOT EXISTS company_a.employee_embeddings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  employee_id UUID REFERENCES {{SCHEMA_NAME}}.employees(id) ON DELETE CASCADE,
+  employee_id UUID REFERENCES company_a.employees(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   embedding vector(1536),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -115,11 +114,11 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.employee_embeddings (
 );
 
 -- Create index for employee vector similarity search using HNSW
-CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_emp_emb_vector ON {{SCHEMA_NAME}}.employee_embeddings
+CREATE INDEX IF NOT EXISTS idx_company_a_emp_emb_vector ON company_a.employee_embeddings
   USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 
 -- Analytics table: Track usage metrics
-CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.analytics (
+CREATE TABLE IF NOT EXISTS company_a.analytics (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   date DATE NOT NULL,
   total_queries INTEGER DEFAULT 0,
@@ -134,10 +133,10 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.analytics (
 );
 
 -- Create unique index for daily analytics
-CREATE UNIQUE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_analytics_date ON {{SCHEMA_NAME}}.analytics(date);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_company_a_analytics_date ON company_a.analytics(date);
 
 -- Function to update updated_at timestamp (schema-specific)
-CREATE OR REPLACE FUNCTION {{SCHEMA_NAME}}.update_updated_at_column()
+CREATE OR REPLACE FUNCTION company_a.update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = NOW();
@@ -146,23 +145,23 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create triggers for updated_at
-CREATE TRIGGER update_employees_updated_at BEFORE UPDATE ON {{SCHEMA_NAME}}.employees
-  FOR EACH ROW EXECUTE FUNCTION {{SCHEMA_NAME}}.update_updated_at_column();
+CREATE TRIGGER update_employees_updated_at BEFORE UPDATE ON company_a.employees
+  FOR EACH ROW EXECUTE FUNCTION company_a.update_updated_at_column();
 
-CREATE TRIGGER update_knowledge_base_updated_at BEFORE UPDATE ON {{SCHEMA_NAME}}.knowledge_base
-  FOR EACH ROW EXECUTE FUNCTION {{SCHEMA_NAME}}.update_updated_at_column();
+CREATE TRIGGER update_knowledge_base_updated_at BEFORE UPDATE ON company_a.knowledge_base
+  FOR EACH ROW EXECUTE FUNCTION company_a.update_updated_at_column();
 
-CREATE TRIGGER update_escalations_updated_at BEFORE UPDATE ON {{SCHEMA_NAME}}.escalations
-  FOR EACH ROW EXECUTE FUNCTION {{SCHEMA_NAME}}.update_updated_at_column();
+CREATE TRIGGER update_escalations_updated_at BEFORE UPDATE ON company_a.escalations
+  FOR EACH ROW EXECUTE FUNCTION company_a.update_updated_at_column();
 
-CREATE TRIGGER update_employee_embeddings_updated_at BEFORE UPDATE ON {{SCHEMA_NAME}}.employee_embeddings
-  FOR EACH ROW EXECUTE FUNCTION {{SCHEMA_NAME}}.update_updated_at_column();
+CREATE TRIGGER update_employee_embeddings_updated_at BEFORE UPDATE ON company_a.employee_embeddings
+  FOR EACH ROW EXECUTE FUNCTION company_a.update_updated_at_column();
 
-CREATE TRIGGER update_analytics_updated_at BEFORE UPDATE ON {{SCHEMA_NAME}}.analytics
-  FOR EACH ROW EXECUTE FUNCTION {{SCHEMA_NAME}}.update_updated_at_column();
+CREATE TRIGGER update_analytics_updated_at BEFORE UPDATE ON company_a.analytics
+  FOR EACH ROW EXECUTE FUNCTION company_a.update_updated_at_column();
 
 -- Function for cosine similarity search (schema-specific)
-CREATE OR REPLACE FUNCTION {{SCHEMA_NAME}}.match_knowledge(
+CREATE OR REPLACE FUNCTION company_a.match_knowledge(
   query_embedding vector(1536),
   match_threshold float,
   match_count int
@@ -182,7 +181,7 @@ AS $$
     knowledge_base.content,
     knowledge_base.category,
     1 - (knowledge_base.embedding <=> query_embedding) as similarity
-  FROM {{SCHEMA_NAME}}.knowledge_base
+  FROM company_a.knowledge_base
   WHERE knowledge_base.is_active = true
     AND 1 - (knowledge_base.embedding <=> query_embedding) > match_threshold
   ORDER BY similarity DESC
@@ -190,7 +189,7 @@ AS $$
 $$;
 
 -- Function for employee data similarity search (schema-specific)
-CREATE OR REPLACE FUNCTION {{SCHEMA_NAME}}.match_employees(
+CREATE OR REPLACE FUNCTION company_a.match_employees(
   query_embedding vector(1536),
   match_threshold float,
   match_count int
@@ -208,17 +207,17 @@ AS $$
     employee_embeddings.employee_id,
     employee_embeddings.content,
     1 - (employee_embeddings.embedding <=> query_embedding) as similarity
-  FROM {{SCHEMA_NAME}}.employee_embeddings
+  FROM company_a.employee_embeddings
   WHERE 1 - (employee_embeddings.embedding <=> query_embedding) > match_threshold
   ORDER BY similarity DESC
   LIMIT match_count;
 $$;
 
 -- Grant permissions (adjust based on your security requirements)
--- GRANT USAGE ON SCHEMA {{SCHEMA_NAME}} TO your_app_user;
--- GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA {{SCHEMA_NAME}} TO your_app_user;
--- GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA {{SCHEMA_NAME}} TO your_app_user;
--- GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA {{SCHEMA_NAME}} TO your_app_user;
+-- GRANT USAGE ON SCHEMA company_a TO your_app_user;
+-- GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA company_a TO your_app_user;
+-- GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA company_a TO your_app_user;
+-- GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA company_a TO your_app_user;
 
 -- Reset search path
 RESET search_path;

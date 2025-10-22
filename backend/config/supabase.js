@@ -32,30 +32,58 @@ export const supabasePublic = createClient(
 
 /**
  * Create a schema-scoped Supabase client for multi-tenancy
- * This client will use the specified schema for all database operations
- * @param {string} schemaName - PostgreSQL schema name (e.g., 'company_acme')
- * @returns {Object} - Supabase client with schema context
+ * IMPORTANT: Supabase JS client doesn't support schema switching via db.schema config
+ * This wrapper automatically prefixes table names with the schema
+ * @param {string} schemaName - PostgreSQL schema name (e.g., 'company_a')
+ * @returns {Object} - Wrapped Supabase client with schema-qualified table names
  */
 export function createSchemaClient(schemaName) {
   if (!schemaName) {
     throw new Error('Schema name is required for multi-tenant client');
   }
 
-  // Create a new client with schema-specific configuration
-  const client = createClient(supabaseUrl, supabaseKey, {
+  // Create base Supabase client
+  const baseClient = createClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: true,
       persistSession: false
-    },
-    db: {
-      schema: schemaName
     }
   });
 
-  // Store schema name for reference
-  client._schemaName = schemaName;
+  // Wrapper that automatically qualifies table names with schema
+  const schemaClient = {
+    _schemaName: schemaName,
+    _baseClient: baseClient,
 
-  return client;
+    /**
+     * Wrap from() to automatically prefix table name with schema
+     * Usage: client.from('employees') becomes query on 'company_a.employees'
+     */
+    from: (table) => {
+      const qualifiedTable = `${schemaName}.${table}`;
+      return baseClient.from(qualifiedTable);
+    },
+
+    /**
+     * Wrap rpc() to call schema-qualified functions
+     * Usage: client.rpc('match_knowledge') becomes 'company_a.match_knowledge'
+     */
+    rpc: (fnName, params, options) => {
+      const qualifiedFn = `${schemaName}.${fnName}`;
+      return baseClient.rpc(qualifiedFn, params, options);
+    },
+
+    // Pass through other methods directly
+    auth: baseClient.auth,
+    storage: baseClient.storage,
+    functions: baseClient.functions,
+    realtime: baseClient.realtime,
+
+    // Direct access to base client if needed
+    _raw: baseClient
+  };
+
+  return schemaClient;
 }
 
 /**
