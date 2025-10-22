@@ -22,9 +22,12 @@ export default function CompanySelector() {
       const response = await companyApi.getAll();
       if (response.success) {
         setCompanies(response.data);
-        // Auto-select first company if none selected
-        if (!selectedCompany && response.data.length > 0) {
-          handleCompanyChange(response.data[0].domain);
+        // Auto-select first company if none selected (but don't reload)
+        const saved = localStorage.getItem('selected_company_domain');
+        if (!saved && response.data.length > 0) {
+          const firstDomain = response.data[0].domain;
+          setSelectedCompany(firstDomain);
+          localStorage.setItem('selected_company_domain', firstDomain);
         }
       }
     } catch (err) {
