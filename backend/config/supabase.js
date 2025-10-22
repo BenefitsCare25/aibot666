@@ -42,6 +42,8 @@ export function createSchemaClient(schemaName) {
     throw new Error('Schema name is required for multi-tenant client');
   }
 
+  console.log(`[Supabase] Creating schema client for: ${schemaName}`);
+
   // Create Supabase client with custom schema via global headers
   // This sets the "Accept-Profile" header for PostgREST schema selection
   const baseClient = createClient(supabaseUrl, supabaseKey, {
@@ -56,6 +58,8 @@ export function createSchemaClient(schemaName) {
       }
     }
   });
+
+  console.log(`[Supabase] Client headers set: Accept-Profile=${schemaName}, Content-Profile=${schemaName}`);
 
   // Wrapper that provides schema-aware operations
   const schemaClient = {
