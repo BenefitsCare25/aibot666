@@ -42,35 +42,37 @@ export function createSchemaClient(schemaName) {
     throw new Error('Schema name is required for multi-tenant client');
   }
 
-  // Create base Supabase client
+  // Create Supabase client with schema configuration
+  // Use db.schema option to set the PostgreSQL search_path
   const baseClient = createClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: true,
       persistSession: false
+    },
+    db: {
+      schema: schemaName // Set schema for all queries
     }
   });
 
-  // Wrapper that automatically qualifies table names with schema
+  // Wrapper that provides schema-aware operations
   const schemaClient = {
     _schemaName: schemaName,
     _baseClient: baseClient,
 
     /**
-     * Wrap from() to automatically prefix table name with schema
-     * Usage: client.from('employees') becomes query on 'company_a.employees'
+     * Access tables in the configured schema
+     * Usage: client.from('employees') queries 'company_a.employees'
      */
     from: (table) => {
-      const qualifiedTable = `${schemaName}.${table}`;
-      return baseClient.from(qualifiedTable);
+      return baseClient.from(table);
     },
 
     /**
-     * Wrap rpc() to call schema-qualified functions
-     * Usage: client.rpc('match_knowledge') becomes 'company_a.match_knowledge'
+     * Call schema-qualified functions
+     * Usage: client.rpc('match_knowledge') calls 'company_a.match_knowledge'
      */
     rpc: (fnName, params, options) => {
-      const qualifiedFn = `${schemaName}.${fnName}`;
-      return baseClient.rpc(qualifiedFn, params, options);
+      return baseClient.rpc(fnName, params, options);
     },
 
     // Pass through other methods directly
