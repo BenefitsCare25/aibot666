@@ -24,7 +24,7 @@ export default function Companies() {
     try {
       setLoading(true);
       const response = await companyApi.getAll();
-      setCompanies(response.data.data);
+      setCompanies(response.data || []);
       setError('');
     } catch (err) {
       console.error('Error loading companies:', err);
