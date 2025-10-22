@@ -42,15 +42,18 @@ export function createSchemaClient(schemaName) {
     throw new Error('Schema name is required for multi-tenant client');
   }
 
-  // Create Supabase client with schema configuration
-  // Use db.schema option to set the PostgreSQL search_path
+  // Create Supabase client with custom schema via global headers
+  // This sets the "Accept-Profile" header for PostgREST schema selection
   const baseClient = createClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: true,
       persistSession: false
     },
-    db: {
-      schema: schemaName // Set schema for all queries
+    global: {
+      headers: {
+        'Accept-Profile': schemaName,  // Tell PostgREST which schema to use for SELECT
+        'Content-Profile': schemaName  // Tell PostgREST which schema to use for INSERT/UPDATE/DELETE
+      }
     }
   });
 
@@ -61,15 +64,15 @@ export function createSchemaClient(schemaName) {
 
     /**
      * Access tables in the configured schema
-     * Usage: client.from('employees') queries 'company_a.employees'
+     * Uses Accept-Profile header to route to correct schema
      */
     from: (table) => {
       return baseClient.from(table);
     },
 
     /**
-     * Call schema-qualified functions
-     * Usage: client.rpc('match_knowledge') calls 'company_a.match_knowledge'
+     * Call schema-qualified RPC functions
+     * Functions must be in the same schema specified in Accept-Profile
      */
     rpc: (fnName, params, options) => {
       return baseClient.rpc(fnName, params, options);
