@@ -8,7 +8,15 @@
       "Bash(git commit:*)",
       "Bash(npm run build:*)",
       "Read(//c/Users/huien/Pictures/Screenshots/**)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(git log:*)",
+      "Bash(npx vite build)",
+      "Bash(npm install)",
+      "Bash(cat:*)",
+      "WebFetch(domain:docs.render.com)",
+      "WebFetch(domain:render.com)",
+      "Bash(npm run:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

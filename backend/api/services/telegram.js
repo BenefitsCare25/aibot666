@@ -120,31 +120,55 @@ export function initializeTelegramBot() {
   // Handle /pending command
   bot.command('pending', async (ctx) => {
     try {
-      // Note: This command operates on public schema by default
-      // TODO: Support multi-tenant pending queries
-      const { data: escalations, error } = await supabase
-        .from('escalations')
-        .select(`
-          id,
-          query,
-          created_at,
-          employees (name, policy_type)
-        `)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(10);
+      // Fetch pending escalations from all company schemas
+      const { getAllCompanies } = await import('../services/companySchema.js');
+      const { getSchemaClient } = await import('../../config/supabase.js');
+      const companies = await getAllCompanies();
 
-      if (error) throw error;
+      let allEscalations = [];
 
-      if (!escalations || escalations.length === 0) {
+      for (const company of companies) {
+        if (company.status !== 'active') continue;
+
+        const schemaClient = getSchemaClient(company.schema_name);
+        const { data: escalations, error } = await schemaClient
+          .from('escalations')
+          .select(`
+            id,
+            query,
+            created_at,
+            employees (name, policy_type)
+          `)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (!error && escalations) {
+          // Add company/schema info to each escalation
+          escalations.forEach(esc => {
+            esc._company = company.name;
+            esc._schema = company.schema_name;
+          });
+          allEscalations.push(...escalations);
+        }
+      }
+
+      // Sort all escalations by created_at
+      allEscalations.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      // Limit to 10 most recent
+      allEscalations = allEscalations.slice(0, 10);
+
+      if (allEscalations.length === 0) {
         ctx.reply('✅ No pending escalations!');
         return;
       }
 
-      let message = `📊 Pending Escalations (${escalations.length}):\n\n`;
+      let message = `📊 Pending Escalations (${allEscalations.length}):\n\n`;
 
-      escalations.forEach((esc, idx) => {
+      allEscalations.forEach((esc, idx) => {
         message += `${idx + 1}. [${esc.id.substring(0, 8)}]\n`;
+        message += `   Company: ${esc._company}\n`;
         message += `   Employee: ${esc.employees?.name}\n`;
         message += `   Question: ${esc.query.substring(0, 100)}${esc.query.length > 100 ? '...' : ''}\n`;
         message += `   Time: ${new Date(esc.created_at).toLocaleString()}\n\n`;
@@ -160,30 +184,64 @@ export function initializeTelegramBot() {
   // Handle /stats command
   bot.command('stats', async (ctx) => {
     try {
-      // Note: This command operates on public schema by default
-      // TODO: Support multi-tenant stats queries
-      const { data: stats, error } = await supabase
-        .from('escalations')
-        .select('status, created_at');
+      // Fetch statistics from all company schemas
+      const { getAllCompanies } = await import('../services/companySchema.js');
+      const { getSchemaClient } = await import('../../config/supabase.js');
+      const companies = await getAllCompanies();
 
-      if (error) throw error;
+      let allStats = [];
+      let companyBreakdown = [];
 
-      const total = stats.length;
-      const pending = stats.filter(s => s.status === 'pending').length;
-      const resolved = stats.filter(s => s.status === 'resolved').length;
-      const today = stats.filter(s => {
+      for (const company of companies) {
+        if (company.status !== 'active') continue;
+
+        const schemaClient = getSchemaClient(company.schema_name);
+        const { data: stats, error } = await schemaClient
+          .from('escalations')
+          .select('status, created_at');
+
+        if (!error && stats) {
+          allStats.push(...stats);
+
+          // Calculate per-company stats
+          const total = stats.length;
+          const pending = stats.filter(s => s.status === 'pending').length;
+          const resolved = stats.filter(s => s.status === 'resolved').length;
+
+          companyBreakdown.push({
+            name: company.name,
+            total,
+            pending,
+            resolved
+          });
+        }
+      }
+
+      const total = allStats.length;
+      const pending = allStats.filter(s => s.status === 'pending').length;
+      const resolved = allStats.filter(s => s.status === 'resolved').length;
+      const today = allStats.filter(s => {
         const date = new Date(s.created_at);
         const now = new Date();
         return date.toDateString() === now.toDateString();
       }).length;
 
-      ctx.reply(
-        `📈 Escalation Statistics:\n\n` +
-        `Total: ${total}\n` +
-        `Pending: ${pending}\n` +
-        `Resolved: ${resolved}\n` +
-        `Today: ${today}`
-      );
+      let message = `📈 Escalation Statistics:\n\n`;
+      message += `Total: ${total}\n`;
+      message += `Pending: ${pending}\n`;
+      message += `Resolved: ${resolved}\n`;
+      message += `Today: ${today}\n`;
+
+      // Add per-company breakdown if multiple companies
+      if (companyBreakdown.length > 1) {
+        message += `\n📊 By Company:\n`;
+        companyBreakdown.forEach(comp => {
+          message += `\n${comp.name}:\n`;
+          message += `  Total: ${comp.total} | Pending: ${comp.pending} | Resolved: ${comp.resolved}\n`;
+        });
+      }
+
+      ctx.reply(message);
     } catch (error) {
       console.error('Error fetching stats:', error);
       ctx.reply('❌ Error fetching statistics');
@@ -233,23 +291,65 @@ export function initializeTelegramBot() {
       // Get schema-specific client
       // Import getSchemaClient here to avoid circular dependencies
       const { getSchemaClient } = await import('../../config/supabase.js');
-      const schemaClient = getSchemaClient(schemaName || null);
 
-      console.log(`[Supabase] Using client for schema: ${schemaName || 'public'}`);
+      // If no schema in message, try to find escalation across all company schemas
+      let schemaClient;
+      let escalation;
+      let escError;
 
-      // Get escalation details
-      const { data: escalation, error: escError } = await schemaClient
-        .from('escalations')
-        .select(`
-          *,
-          employees (name, email, policy_type)
-        `)
-        .eq('id', escalationId)
-        .single();
+      if (schemaName) {
+        // Schema specified, use it directly
+        schemaClient = getSchemaClient(schemaName);
+        console.log(`[Supabase] Using client for schema: ${schemaName}`);
+
+        const result = await schemaClient
+          .from('escalations')
+          .select(`
+            *,
+            employees (name, email, policy_type)
+          `)
+          .eq('id', escalationId)
+          .single();
+
+        escalation = result.data;
+        escError = result.error;
+      } else {
+        // No schema specified (old message format), search across all company schemas
+        console.warn(`⚠️ No schema in escalation message, searching all company schemas...`);
+
+        const { getAllCompanies } = await import('../services/companySchema.js');
+        const companies = await getAllCompanies();
+
+        for (const company of companies) {
+          if (company.status !== 'active') continue;
+
+          console.log(`🔍 Searching in schema: ${company.schema_name}`);
+          schemaClient = getSchemaClient(company.schema_name);
+
+          const result = await schemaClient
+            .from('escalations')
+            .select(`
+              *,
+              employees (name, email, policy_type)
+            `)
+            .eq('id', escalationId)
+            .single();
+
+          if (!result.error && result.data) {
+            escalation = result.data;
+            console.log(`✅ Found escalation in schema: ${company.schema_name}`);
+            break;
+          }
+        }
+
+        if (!escalation) {
+          escError = { message: 'Escalation not found in any company schema' };
+        }
+      }
 
       if (escError) {
         console.error('❌ Database error fetching escalation:', escError);
-        ctx.reply('❌ Escalation not found');
+        ctx.reply(`❌ Escalation not found. ${!schemaName ? 'This might be an old message. Please use the admin panel to resolve it.' : ''}`);
         return;
       }
 
@@ -349,7 +449,7 @@ export function initializeTelegramBot() {
 
       console.log(`✅ Escalation ${escalationId} marked as resolved`);
 
-      // Add to knowledge base
+      // Add to knowledge base (use schema-specific client)
       try {
         console.log('📚 Adding to knowledge base...');
         await addKnowledgeEntry({
@@ -364,7 +464,7 @@ export function initializeTelegramBot() {
             source_type: isCorrectCommand ? 'ai_confirmed' : 'human_provided'
           },
           source: 'hitl_learning'
-        });
+        }, schemaClient);
 
         console.log('✅ Successfully added to knowledge base');
 

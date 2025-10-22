@@ -271,7 +271,7 @@ router.post('/knowledge', async (req, res) => {
       subcategory,
       metadata,
       source: 'admin_upload'
-    });
+    }, req.supabase); // Pass schema-specific client
 
     res.json({
       success: true,
@@ -302,7 +302,7 @@ router.post('/knowledge/batch', async (req, res) => {
       });
     }
 
-    const created = await addKnowledgeEntriesBatch(entries);
+    const created = await addKnowledgeEntriesBatch(entries, req.supabase); // Pass schema-specific client
 
     res.json({
       success: true,
@@ -382,7 +382,7 @@ router.put('/knowledge/:id', async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
-    const entry = await updateKnowledgeEntry(id, updates);
+    const entry = await updateKnowledgeEntry(id, updates, req.supabase); // Pass schema-specific client
 
     res.json({
       success: true,
@@ -406,7 +406,7 @@ router.delete('/knowledge/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    await deleteKnowledgeEntry(id);
+    await deleteKnowledgeEntry(id, req.supabase); // Pass schema-specific client
 
     res.json({
       success: true,
@@ -524,7 +524,7 @@ router.patch('/escalations/:id', async (req, res) => {
             resolved_by: resolved_by || 'admin'
           },
           source: 'escalation_resolution'
-        });
+        }, req.supabase); // Pass schema-specific client
 
         // Mark escalation as added to KB
         await req.supabase

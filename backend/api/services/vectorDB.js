@@ -110,10 +110,14 @@ export async function searchEmployeeData(query, topK = 3, threshold = 0.6) {
 /**
  * Add new knowledge base entry with embedding
  * @param {Object} entry - Knowledge base entry
+ * @param {Object} supabaseClient - Supabase client (for multi-tenancy)
  * @returns {Promise<Object>} - Created entry
  */
-export async function addKnowledgeEntry(entry) {
+export async function addKnowledgeEntry(entry, supabaseClient = null) {
   try {
+    // Use provided client or fallback to default
+    const client = supabaseClient || supabase;
+
     const { title, content, category, subcategory, metadata, source } = entry;
 
     if (!content || !category) {
@@ -123,7 +127,7 @@ export async function addKnowledgeEntry(entry) {
     // Generate embedding for the content
     const embedding = await generateEmbedding(content);
 
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('knowledge_base')
       .insert([{
         title,
@@ -151,10 +155,14 @@ export async function addKnowledgeEntry(entry) {
 /**
  * Add multiple knowledge base entries in batch
  * @param {Array} entries - Array of knowledge base entries
+ * @param {Object} supabaseClient - Supabase client (for multi-tenancy)
  * @returns {Promise<Array>} - Array of created entries
  */
-export async function addKnowledgeEntriesBatch(entries) {
+export async function addKnowledgeEntriesBatch(entries, supabaseClient = null) {
   try {
+    // Use provided client or fallback to default
+    const client = supabaseClient || supabase;
+
     if (!entries || entries.length === 0) {
       throw new Error('Entries array cannot be empty');
     }
@@ -174,7 +182,7 @@ export async function addKnowledgeEntriesBatch(entries) {
       source: entry.source || 'admin_upload'
     }));
 
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('knowledge_base')
       .insert(entriesWithEmbeddings)
       .select();
@@ -194,16 +202,20 @@ export async function addKnowledgeEntriesBatch(entries) {
  * Update knowledge base entry
  * @param {string} id - Entry ID
  * @param {Object} updates - Fields to update
+ * @param {Object} supabaseClient - Supabase client (for multi-tenancy)
  * @returns {Promise<Object>} - Updated entry
  */
-export async function updateKnowledgeEntry(id, updates) {
+export async function updateKnowledgeEntry(id, updates, supabaseClient = null) {
   try {
+    // Use provided client or fallback to default
+    const client = supabaseClient || supabase;
+
     // If content is updated, regenerate embedding
     if (updates.content) {
       updates.embedding = await generateEmbedding(updates.content);
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('knowledge_base')
       .update(updates)
       .eq('id', id)
@@ -224,11 +236,15 @@ export async function updateKnowledgeEntry(id, updates) {
 /**
  * Delete knowledge base entry
  * @param {string} id - Entry ID
+ * @param {Object} supabaseClient - Supabase client (for multi-tenancy)
  * @returns {Promise<boolean>} - Success status
  */
-export async function deleteKnowledgeEntry(id) {
+export async function deleteKnowledgeEntry(id, supabaseClient = null) {
   try {
-    const { error } = await supabase
+    // Use provided client or fallback to default
+    const client = supabaseClient || supabase;
+
+    const { error } = await client
       .from('knowledge_base')
       .delete()
       .eq('id', id);
