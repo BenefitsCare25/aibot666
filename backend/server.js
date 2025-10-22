@@ -36,7 +36,7 @@ app.use(cors({
   origin: CORS_ORIGIN.split(',').map(origin => origin.trim()),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Widget-Domain']
 }));
 
 // Body parsing middleware
