@@ -108,6 +108,14 @@ IMPORTANT INSTRUCTIONS:
    - DO NOT repeat the escalation message
    - Recognize these patterns as contact info: emails (name@domain.com), phone numbers (8+ digits), mobile numbers
 
+FORMATTING GUIDELINES:
+- Use clean, readable formatting with markdown
+- Use bullet points (using -) for lists instead of asterisks
+- Use bold text sparingly for emphasis on key information only
+- Keep paragraphs short and concise
+- For coverage details, present them in a clean list format
+- Avoid excessive formatting - prioritize clarity over style
+
 ${employeeInfo}
 
 CONTEXT FROM KNOWLEDGE BASE:
