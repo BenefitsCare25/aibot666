@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && echo 'Deploy to Render'"
+    "copy-to-backend": "cp dist/widget.iife.js ../../backend/public/widget.iife.js && cp dist/widget.css ../../backend/public/widget.css && echo '✅ Widget files copied to backend/public/'",
+    "deploy": "npm run build && npm run copy-to-backend"
   },
   "dependencies": {
     "axios": "^1.6.5",

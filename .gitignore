@@ -36,11 +36,15 @@ uploads/
 temp/
 tmp/
 
-# Build outputs
+# Build outputs (temporary)
 dist/
 build/
 .next/
 out/
+
+# Exception: Widget production builds in backend/public are committed
+!backend/public/widget.iife.js
+!backend/public/widget.css
 
 # Testing
 coverage/
