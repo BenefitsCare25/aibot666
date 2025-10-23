@@ -2,10 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { useChatStore } from '../store/chatStore';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
+import QuickQuestions from './QuickQuestions';
 
 export default function ChatWindow({ onClose, onLogout, primaryColor }) {
   const { employeeName, messages, isLoading, sendMessage } = useChatStore();
   const [inputValue, setInputValue] = useState('');
+  const [showQuickQuestions, setShowQuickQuestions] = useState(false);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -34,6 +36,22 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleQuestionSelect = async (question) => {
+    setShowQuickQuestions(false);
+    setInputValue(question);
+
+    // Automatically send the selected question
+    try {
+      await sendMessage(question);
+    } catch (error) {
+      console.error('Failed to send selected question:', error);
+    }
+  };
+
+  const toggleQuickQuestions = () => {
+    setShowQuickQuestions(!showQuickQuestions);
   };
 
   return (
@@ -66,6 +84,26 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
           </div>
         </div>
         <div className="ic-flex ic-items-center ic-gap-2">
+          <button
+            onClick={toggleQuickQuestions}
+            className="ic-text-white hover:ic-bg-white/20 ic-rounded ic-p-1 ic-transition-colors"
+            title={showQuickQuestions ? "Hide Quick Questions" : "Show Quick Questions"}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="ic-w-5 ic-h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </button>
           <button
             onClick={onLogout}
             className="ic-text-white hover:ic-bg-white/20 ic-rounded ic-p-1 ic-transition-colors"
@@ -109,12 +147,19 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
         </div>
       </div>
 
-      {/* Messages */}
-      <MessageList
-        messages={messages}
-        isLoading={isLoading}
-        messagesEndRef={messagesEndRef}
-      />
+      {/* Content Area - Toggle between Messages and Quick Questions */}
+      {showQuickQuestions ? (
+        <QuickQuestions
+          onQuestionSelect={handleQuestionSelect}
+          primaryColor={primaryColor}
+        />
+      ) : (
+        <MessageList
+          messages={messages}
+          isLoading={isLoading}
+          messagesEndRef={messagesEndRef}
+        />
+      )}
 
       {/* Input */}
       <MessageInput
