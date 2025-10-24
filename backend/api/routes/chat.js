@@ -236,27 +236,39 @@ router.post('/request-log', async (req, res) => {
     const permanentDir = path.join(process.cwd(), 'uploads', 'logs', session.conversationId);
 
     if (attachmentIds.length > 0) {
-      // Create permanent directory
-      await fs.mkdir(permanentDir, { recursive: true });
+      try {
+        // Ensure both directories exist
+        await fs.mkdir(tempDir, { recursive: true });
+        await fs.mkdir(permanentDir, { recursive: true });
 
-      // Move files from temp to permanent storage
-      for (const fileId of attachmentIds) {
-        const tempPath = path.join(tempDir, fileId);
-        const permanentPath = path.join(permanentDir, fileId);
+        // Move files from temp to permanent storage
+        for (const fileId of attachmentIds) {
+          const tempPath = path.join(tempDir, fileId);
+          const permanentPath = path.join(permanentDir, fileId);
 
-        try {
-          await fs.copyFile(tempPath, permanentPath);
-          const stats = await fs.stat(permanentPath);
+          try {
+            // Check if temp file exists
+            await fs.access(tempPath);
 
-          attachments.push({
-            id: fileId,
-            name: fileId.split('-').slice(1).join('-'), // Remove UUID prefix
-            path: permanentPath,
-            size: stats.size
-          });
-        } catch (error) {
-          console.error(`Error processing attachment ${fileId}:`, error);
+            // Copy file to permanent storage
+            await fs.copyFile(tempPath, permanentPath);
+            const stats = await fs.stat(permanentPath);
+
+            attachments.push({
+              id: fileId,
+              name: fileId.split('-').slice(1).join('-'), // Remove UUID prefix
+              path: permanentPath,
+              size: stats.size
+            });
+
+            console.log(`Successfully processed attachment: ${fileId}`);
+          } catch (error) {
+            console.error(`Error processing attachment ${fileId}:`, error);
+            // Continue processing other files even if one fails
+          }
         }
+      } catch (dirError) {
+        console.error('Error creating directories:', dirError);
       }
     }
 
