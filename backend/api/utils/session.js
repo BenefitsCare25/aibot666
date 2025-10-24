@@ -170,10 +170,35 @@ export async function addMessageToHistory(conversationId, message) {
  * Get conversation history
  * @param {string} conversationId - Conversation ID
  * @param {number} limit - Maximum number of messages to retrieve
+ * @param {string} employeeId - Optional employee ID for validation (security check)
  * @returns {Promise<Array>} - Array of messages
  */
-export async function getConversationHistory(conversationId, limit = 10) {
+export async function getConversationHistory(conversationId, limit = 10, employeeId = null) {
   try {
+    // SECURITY: If employeeId is provided, validate conversation belongs to this employee
+    if (employeeId) {
+      // Find session that owns this conversationId
+      const sessionKeys = await redis.keys('session:*');
+      let conversationOwner = null;
+
+      for (const key of sessionKeys) {
+        const sessionData = await redis.get(key);
+        if (sessionData) {
+          const session = JSON.parse(sessionData);
+          if (session.conversationId === conversationId) {
+            conversationOwner = session.employeeId;
+            break;
+          }
+        }
+      }
+
+      // If conversation has an owner and it doesn't match the requesting employee, deny access
+      if (conversationOwner && conversationOwner !== employeeId) {
+        console.warn(`Security: Employee ${employeeId} attempted to access conversation ${conversationId} owned by ${conversationOwner}`);
+        return []; // Return empty history to prevent data leakage
+      }
+    }
+
     const historyKey = `history:${conversationId}`;
     const messages = await redis.lrange(historyKey, -limit, -1);
 

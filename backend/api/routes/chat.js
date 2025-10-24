@@ -141,10 +141,18 @@ router.post('/message', async (req, res) => {
     }
 
     // Search knowledge base (use company-specific client)
-    const contexts = await searchKnowledgeBase(message, req.supabase);
+    // Pass employee's policy_type for filtering to reduce token usage
+    const contexts = await searchKnowledgeBase(
+      message,
+      req.supabase,
+      5,           // topK
+      0.7,         // threshold
+      null,        // category
+      employee.policy_type  // policyType for filtering
+    );
 
-    // Get conversation history
-    const history = await getConversationHistory(session.conversationId);
+    // Get conversation history (with employee validation for security)
+    const history = await getConversationHistory(session.conversationId, 10, session.employeeId);
 
     // Format history for OpenAI
     const formattedHistory = history.map(h => ({

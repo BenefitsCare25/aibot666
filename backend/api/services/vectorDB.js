@@ -14,9 +14,10 @@ const TOP_K_RESULTS = parseInt(process.env.TOP_K_RESULTS) || 5;
  * @param {number} topK - Number of results to return
  * @param {number} threshold - Minimum similarity threshold
  * @param {string} category - Optional category filter
+ * @param {string} policyType - Optional policy type filter (e.g., 'Premium', 'Standard')
  * @returns {Promise<Array>} - Array of matching knowledge base entries
  */
-export async function searchKnowledgeBase(query, supabaseClient = null, topK = TOP_K_RESULTS, threshold = SIMILARITY_THRESHOLD, category = null) {
+export async function searchKnowledgeBase(query, supabaseClient = null, topK = TOP_K_RESULTS, threshold = SIMILARITY_THRESHOLD, category = null, policyType = null) {
   try {
     // Use provided client or fallback to default
     const client = supabaseClient || supabase;
@@ -33,10 +34,13 @@ export async function searchKnowledgeBase(query, supabaseClient = null, topK = T
     });
 
     // Use Supabase RPC to call the match_knowledge function with actual threshold
+    // Fetch more results initially if we're going to filter by policy type
+    const fetchCount = policyType ? topK * 3 : topK;
+
     let rpcQuery = client.rpc('match_knowledge', {
       query_embedding: queryEmbedding,
       match_threshold: threshold,
-      match_count: topK
+      match_count: fetchCount
     });
 
     const { data, error } = await rpcQuery;
@@ -46,14 +50,43 @@ export async function searchKnowledgeBase(query, supabaseClient = null, topK = T
       throw new Error(`Vector search failed: ${error.message}`);
     }
 
+    let results = data || [];
+
+    // Apply policy type filtering if provided
+    if (policyType && results.length > 0) {
+      // Define benefit types that should always be included regardless of policy
+      const benefitTypes = ['dental', 'optical', 'health_insurance', 'maternity', 'claims', 'submission'];
+
+      results = results.filter(item => {
+        // Include if no subcategory (general knowledge)
+        if (!item.subcategory) return true;
+
+        // Include if subcategory is 'general'
+        if (item.subcategory.toLowerCase() === 'general') return true;
+
+        // Include if subcategory matches the employee's policy type
+        if (item.subcategory.toLowerCase() === policyType.toLowerCase()) return true;
+
+        // Include if subcategory is a benefit type (not policy-specific)
+        if (benefitTypes.includes(item.subcategory.toLowerCase())) return true;
+
+        // Exclude otherwise (different policy type)
+        return false;
+      });
+
+      // Limit to requested topK after filtering
+      results = results.slice(0, topK);
+
+      console.log(`Policy filtering: ${policyType} - Retrieved ${data.length} items, filtered to ${results.length} items`);
+    }
+
     // Update usage statistics for retrieved documents
-    if (data && data.length > 0) {
-      const ids = data.map(item => item.id);
+    if (results && results.length > 0) {
+      const ids = results.map(item => item.id);
       await updateKnowledgeUsage(ids, client);
     }
 
     // Return data with metadata about whether ANY knowledge exists
-    const results = data || [];
     results._hasAnyKnowledge = anyData && anyData.length > 0;
 
     return results;
@@ -68,10 +101,15 @@ export async function searchKnowledgeBase(query, supabaseClient = null, topK = T
  * @param {string} query - Query text
  * @param {number} topK - Number of results to return
  * @param {number} threshold - Minimum similarity threshold
+ * @param {string} currentEmployeeId - Current employee's ID (for filtering to prevent data leakage)
  * @returns {Promise<Array>} - Array of matching employee entries
  */
-export async function searchEmployeeData(query, topK = 3, threshold = 0.6) {
+export async function searchEmployeeData(query, topK = 3, threshold = 0.6, currentEmployeeId = null) {
   try {
+    // SECURITY WARNING: This function is currently DISABLED for production use
+    // It can potentially expose other employees' data through semantic search
+    console.warn('searchEmployeeData called - this function should only be used for self-lookup');
+
     const queryEmbedding = await generateEmbedding(query);
 
     const { data, error } = await supabase.rpc('match_employees', {
@@ -88,10 +126,23 @@ export async function searchEmployeeData(query, topK = 3, threshold = 0.6) {
     // Fetch full employee details
     if (data && data.length > 0) {
       const employeeIds = data.map(item => item.employee_id);
-      const { data: employees, error: empError } = await supabase
+
+      // SECURITY: Build query with employee filter
+      let query = supabase
         .from('employees')
         .select('*')
         .in('id', employeeIds);
+
+      // CRITICAL: If currentEmployeeId is provided, ONLY return that employee's data
+      if (currentEmployeeId) {
+        query = query.eq('id', currentEmployeeId);
+        console.log(`Security filter applied: restricting results to employee ${currentEmployeeId}`);
+      } else {
+        // If no employee filter provided, log a security warning
+        console.warn('SECURITY WARNING: searchEmployeeData called without currentEmployeeId filter - potential data leak');
+      }
+
+      const { data: employees, error: empError } = await query;
 
       if (empError) {
         throw new Error(`Failed to fetch employee details: ${empError.message}`);
