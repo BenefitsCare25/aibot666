@@ -18,6 +18,7 @@ export const useChatStore = create((set, get) => ({
   uploadingAttachment: false,
   userEmail: '', // User's email for acknowledgment
   showEmailInput: false, // Whether to show email input field
+  isLogMode: false, // Track if user is in LOG request mode
 
   // Actions
   initialize: (apiUrl, domain = null) => {
@@ -35,7 +36,8 @@ export const useChatStore = create((set, get) => ({
       attachments: [],
       logRequested: false,
       userEmail: '',
-      showEmailInput: false
+      showEmailInput: false,
+      isLogMode: false
     });
   },
 
@@ -264,6 +266,21 @@ export const useChatStore = create((set, get) => ({
     set({ showEmailInput: show });
   },
 
+  // Enter LOG request mode
+  enterLogMode: () => {
+    set({ isLogMode: true, showEmailInput: true });
+  },
+
+  // Exit LOG request mode (cancel)
+  exitLogMode: () => {
+    set({
+      isLogMode: false,
+      showEmailInput: false,
+      attachments: [],
+      userEmail: ''
+    });
+  },
+
   // Request LOG
   requestLog: async (message = '') => {
     const { sessionId, attachments, logRequested, userEmail, apiUrl, domain: domainOverride } = get();
@@ -296,6 +313,7 @@ export const useChatStore = create((set, get) => ({
 
         set({
           logRequested: true,
+          isLogMode: false, // Exit LOG mode after sending
           attachments: [], // Clear attachments after successful LOG request
           showEmailInput: false, // Hide email input
           userEmail: '' // Clear email for privacy

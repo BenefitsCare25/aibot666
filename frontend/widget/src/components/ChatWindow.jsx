@@ -18,7 +18,10 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
     userEmail,
     setUserEmail,
     showEmailInput,
-    toggleEmailInput
+    toggleEmailInput,
+    isLogMode,
+    enterLogMode,
+    exitLogMode
   } = useChatStore();
   const [inputValue, setInputValue] = useState('');
   const [showQuickQuestions, setShowQuickQuestions] = useState(false);
@@ -197,6 +200,9 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
         onEmailChange={setUserEmail}
         showEmailInput={showEmailInput}
         onToggleEmailInput={toggleEmailInput}
+        isLogMode={isLogMode}
+        onEnterLogMode={enterLogMode}
+        onExitLogMode={exitLogMode}
       />
     </div>
   );
