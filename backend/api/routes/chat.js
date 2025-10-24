@@ -143,15 +143,51 @@ router.post('/upload-attachment', upload.single('file'), async (req, res) => {
       });
     }
 
-    // Return file metadata
+    // Read file immediately and store in session (for ephemeral filesystems like Render)
+    const fileBuffer = await fs.readFile(req.file.path);
+    const fileBase64 = fileBuffer.toString('base64');
+
+    // Get session to store file data
+    const session = await getSession(sessionId);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found'
+      });
+    }
+
+    // Store file data in session attachments array
+    if (!session.attachments) {
+      session.attachments = [];
+    }
+
+    const fileData = {
+      id: req.file.filename,
+      name: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      base64: fileBase64,
+      uploadedAt: new Date().toISOString()
+    };
+
+    session.attachments.push(fileData);
+    await saveSession(sessionId, session);
+
+    // Delete temp file immediately after storing in session
+    try {
+      await fs.unlink(req.file.path);
+    } catch (unlinkError) {
+      console.error('Error deleting temp file:', unlinkError);
+    }
+
+    // Return file metadata (without base64 to reduce response size)
     res.json({
       success: true,
       data: {
         id: req.file.filename,
         name: req.file.originalname,
         size: req.file.size,
-        mimetype: req.file.mimetype,
-        path: req.file.path
+        mimetype: req.file.mimetype
       }
     });
   } catch (error) {
@@ -230,45 +266,28 @@ router.post('/request-log', async (req, res) => {
       });
     }
 
-    // Process attachments if any
+    // Process attachments from session (files are already stored as base64)
     const attachments = [];
-    const tempDir = path.join(process.cwd(), 'uploads', 'temp', sessionId);
-    const permanentDir = path.join(process.cwd(), 'uploads', 'logs', session.conversationId);
 
-    if (attachmentIds.length > 0) {
-      try {
-        // Ensure both directories exist
-        await fs.mkdir(tempDir, { recursive: true });
-        await fs.mkdir(permanentDir, { recursive: true });
+    if (attachmentIds.length > 0 && session.attachments) {
+      // Get files from session storage
+      for (const fileId of attachmentIds) {
+        const fileData = session.attachments.find(att => att.id === fileId);
 
-        // Move files from temp to permanent storage
-        for (const fileId of attachmentIds) {
-          const tempPath = path.join(tempDir, fileId);
-          const permanentPath = path.join(permanentDir, fileId);
+        if (fileData) {
+          // Use base64 data from session
+          attachments.push({
+            id: fileData.id,
+            name: fileData.name,
+            size: fileData.size,
+            mimetype: fileData.mimetype,
+            base64: fileData.base64 // Already encoded and stored in session
+          });
 
-          try {
-            // Check if temp file exists
-            await fs.access(tempPath);
-
-            // Copy file to permanent storage
-            await fs.copyFile(tempPath, permanentPath);
-            const stats = await fs.stat(permanentPath);
-
-            attachments.push({
-              id: fileId,
-              name: fileId.split('-').slice(1).join('-'), // Remove UUID prefix
-              path: permanentPath,
-              size: stats.size
-            });
-
-            console.log(`Successfully processed attachment: ${fileId}`);
-          } catch (error) {
-            console.error(`Error processing attachment ${fileId}:`, error);
-            // Continue processing other files even if one fails
-          }
+          console.log(`Successfully retrieved attachment from session: ${fileData.name}`);
+        } else {
+          console.error(`Attachment ${fileId} not found in session`);
         }
-      } catch (dirError) {
-        console.error('Error creating directories:', dirError);
       }
     }
 

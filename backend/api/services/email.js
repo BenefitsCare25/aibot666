@@ -1,5 +1,5 @@
 import { Client } from '@microsoft/microsoft-graph-client';
-import { UsernamePasswordCredential } from '@azure/identity';
+import { ConfidentialClientApplication } from '@azure/msal-node';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -12,31 +12,38 @@ const LOG_REQUEST_EMAIL_FROM = process.env.LOG_REQUEST_EMAIL_FROM;
 const LOG_REQUEST_EMAIL_TO = process.env.LOG_REQUEST_EMAIL_TO;
 
 /**
- * Initialize Microsoft Graph Client with Delegated Permissions (Username/Password Flow)
- * Uses a service account for sending emails on behalf of users
+ * Initialize Microsoft Graph Client with Delegated Permissions (ROPC Flow)
+ * Uses Resource Owner Password Credentials flow with a service account
  */
 function getGraphClient() {
-  // Use Username/Password Credential for delegated permissions
-  const credential = new UsernamePasswordCredential(
-    AZURE_TENANT_ID,
-    AZURE_CLIENT_ID,
-    AZURE_SERVICE_ACCOUNT_USERNAME,
-    AZURE_SERVICE_ACCOUNT_PASSWORD,
-    {
-      // Required for delegated permissions
-      authorityHost: 'https://login.microsoftonline.com',
+  // Configure MSAL confidential client with client secret
+  const msalConfig = {
+    auth: {
+      clientId: AZURE_CLIENT_ID,
+      clientSecret: AZURE_CLIENT_SECRET,
+      authority: `https://login.microsoftonline.com/${AZURE_TENANT_ID}`
     }
-  );
+  };
+
+  const cca = new ConfidentialClientApplication(msalConfig);
 
   const client = Client.initWithMiddleware({
     authProvider: {
       getAccessToken: async () => {
-        // Request delegated permission scopes
-        const token = await credential.getToken([
-          'https://graph.microsoft.com/Mail.Send',
-          'https://graph.microsoft.com/User.Read'
-        ]);
-        return token.token;
+        // Use Resource Owner Password Credentials (ROPC) flow
+        const tokenRequest = {
+          scopes: ['https://graph.microsoft.com/Mail.Send', 'https://graph.microsoft.com/User.Read'],
+          username: AZURE_SERVICE_ACCOUNT_USERNAME,
+          password: AZURE_SERVICE_ACCOUNT_PASSWORD
+        };
+
+        try {
+          const response = await cca.acquireTokenByUsernamePassword(tokenRequest);
+          return response.accessToken;
+        } catch (error) {
+          console.error('Error acquiring token:', error);
+          throw new Error(`Authentication failed: ${error.message}`);
+        }
       }
     }
   });
@@ -200,7 +207,10 @@ export async function sendLogRequestEmail(data) {
     const graphAttachments = [];
     for (const attachment of attachments) {
       try {
-        const contentBytes = await fileToBase64(attachment.path);
+        // Use base64 data from attachment object (already encoded)
+        // OR read from file path if path is provided (backward compatibility)
+        const contentBytes = attachment.base64 || await fileToBase64(attachment.path);
+
         graphAttachments.push({
           '@odata.type': '#microsoft.graph.fileAttachment',
           name: attachment.name,

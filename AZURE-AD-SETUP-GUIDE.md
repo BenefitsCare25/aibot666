@@ -54,15 +54,13 @@ Since you're using **Delegated permissions**, we use a **service account** (dedi
 1. Look for your app with Client ID: `d5042b07-f7dc-4706-bf6f-847a7bd1538d`
 2. Click on the app name to open it
 
-### Step 4: Enable Public Client Flow
+### Step 4: Configure Authentication Settings
 
-**⚠️ Required for Username/Password authentication**
+**Note**: With the ROPC (Resource Owner Password Credentials) flow using client_secret, public client flows are NOT required.
 
 1. In the left sidebar, click **Authentication**
-2. Scroll down to **Advanced settings**
-3. Find **Allow public client flows**
-4. Toggle to **Yes**
-5. Click **Save**
+2. No changes needed - the app uses confidential client authentication with client_secret
+3. Verify that you have a valid client secret in **Certificates & secrets**
 
 ### Step 5: Add API Permissions (Delegated)
 
@@ -225,10 +223,11 @@ Testing Email Service...
 
 **Solution**: MFA must be disabled for the service account. Go to Microsoft 365 Admin Center → Users → Select service account → Security → Disable MFA.
 
-### Issue: "Public client flows not allowed" (AADSTS7000218)
+### Issue: "Public client flows not allowed" or "client_secret required" (AADSTS7000218)
 
-**Solution**: Enable public client flows in Azure Portal:
-- App registrations → Your app → Authentication → Allow public client flows = Yes
+**Solution**: This error is now handled by using confidential client flow with client_secret. Ensure:
+- `AZURE_CLIENT_SECRET` is set correctly in Render environment variables
+- Client secret is valid and not expired in Azure Portal
 
 ### Issue: "Invalid client secret" (401)
 
