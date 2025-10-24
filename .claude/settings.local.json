@@ -16,7 +16,11 @@
       "WebFetch(domain:docs.render.com)",
       "WebFetch(domain:render.com)",
       "Bash(npm run:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npm install:*)",
+      "Bash(git rm:*)",
+      "Bash(npm test:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []

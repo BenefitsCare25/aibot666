@@ -5,7 +5,21 @@ import MessageInput from './MessageInput';
 import QuickQuestions from './QuickQuestions';
 
 export default function ChatWindow({ onClose, onLogout, primaryColor }) {
-  const { employeeName, messages, isLoading, sendMessage } = useChatStore();
+  const {
+    employeeName,
+    messages,
+    isLoading,
+    sendMessage,
+    attachments,
+    addAttachment,
+    removeAttachment,
+    requestLog,
+    logRequested,
+    userEmail,
+    setUserEmail,
+    showEmailInput,
+    toggleEmailInput
+  } = useChatStore();
   const [inputValue, setInputValue] = useState('');
   const [showQuickQuestions, setShowQuickQuestions] = useState(false);
   const messagesEndRef = useRef(null);
@@ -52,6 +66,11 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
 
   const toggleQuickQuestions = () => {
     setShowQuickQuestions(!showQuickQuestions);
+  };
+
+  const handleRequestLog = async () => {
+    await requestLog(inputValue);
+    setInputValue(''); // Clear input after LOG request
   };
 
   return (
@@ -161,7 +180,7 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
         />
       )}
 
-      {/* Input */}
+      {/* Input - Enhanced with attachments and email */}
       <MessageInput
         value={inputValue}
         onChange={setInputValue}
@@ -169,6 +188,15 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
         onKeyPress={handleKeyPress}
         disabled={isLoading}
         primaryColor={primaryColor}
+        attachments={attachments}
+        onAddAttachment={addAttachment}
+        onRemoveAttachment={removeAttachment}
+        onRequestLog={handleRequestLog}
+        logRequested={logRequested}
+        userEmail={userEmail}
+        onEmailChange={setUserEmail}
+        showEmailInput={showEmailInput}
+        onToggleEmailInput={toggleEmailInput}
       />
     </div>
   );

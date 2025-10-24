@@ -15,6 +15,11 @@ import supabase from '../../config/supabase.js';
 import { createHash } from 'crypto';
 import { notifyTelegramEscalation, notifyContactProvided } from '../services/telegram.js';
 import { companyContextMiddleware } from '../middleware/companyContext.js';
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
+import { sendLogRequestEmail, sendAcknowledgmentEmail } from '../services/email.js';
+import path from 'path';
+import fs from 'fs/promises';
 
 const router = express.Router();
 
@@ -22,6 +27,48 @@ const router = express.Router();
 router.use(companyContextMiddleware);
 
 const ESCALATE_ON_NO_KNOWLEDGE = process.env.ESCALATE_ON_NO_KNOWLEDGE !== 'false';
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const sessionId = req.body.sessionId || 'temp';
+    const uploadDir = path.join(process.cwd(), 'uploads', 'temp', sessionId);
+
+    // Create directory if it doesn't exist
+    await fs.mkdir(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `${uuidv4()}-${file.originalname}`;
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB per file
+    files: 5 // Max 5 files
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'image/jpeg',
+      'image/png',
+      'image/gif'
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`File type ${file.mimetype} not supported`), false);
+    }
+  }
+});
 
 /**
  * POST /api/chat/session
@@ -70,6 +117,218 @@ router.post('/session', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to create session'
+    });
+  }
+});
+
+/**
+ * POST /api/chat/upload-attachment
+ * Upload file attachment for LOG request
+ */
+router.post('/upload-attachment', upload.single('file'), async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Session ID is required'
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No file uploaded'
+      });
+    }
+
+    // Return file metadata
+    res.json({
+      success: true,
+      data: {
+        id: req.file.filename,
+        name: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+        path: req.file.path
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading attachment:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to upload file'
+    });
+  }
+});
+
+/**
+ * POST /api/chat/request-log
+ * Request LOG (conversation history + attachments) via email
+ */
+router.post('/request-log', async (req, res) => {
+  try {
+    const { sessionId, message, attachmentIds = [], userEmail } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Session ID is required'
+      });
+    }
+
+    // Get session
+    const session = await getSession(sessionId);
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found or expired'
+      });
+    }
+
+    // Check if LOG already requested for this conversation
+    const { data: existingLog } = await req.supabase
+      .from('log_requests')
+      .select('id')
+      .eq('conversation_id', session.conversationId)
+      .single();
+
+    if (existingLog) {
+      return res.status(400).json({
+        success: false,
+        error: 'LOG already requested for this conversation'
+      });
+    }
+
+    // Get employee data
+    const { data: employee, error: empError } = await req.supabase
+      .from('employees')
+      .select('*')
+      .eq('id', session.employeeId)
+      .single();
+
+    if (empError || !employee) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve employee data'
+      });
+    }
+
+    // Get full conversation history
+    const { data: conversationHistory, error: histError } = await req.supabase
+      .from('chat_history')
+      .select('*')
+      .eq('conversation_id', session.conversationId)
+      .order('created_at', { ascending: true });
+
+    if (histError) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve conversation history'
+      });
+    }
+
+    // Process attachments if any
+    const attachments = [];
+    const tempDir = path.join(process.cwd(), 'uploads', 'temp', sessionId);
+    const permanentDir = path.join(process.cwd(), 'uploads', 'logs', session.conversationId);
+
+    if (attachmentIds.length > 0) {
+      // Create permanent directory
+      await fs.mkdir(permanentDir, { recursive: true });
+
+      // Move files from temp to permanent storage
+      for (const fileId of attachmentIds) {
+        const tempPath = path.join(tempDir, fileId);
+        const permanentPath = path.join(permanentDir, fileId);
+
+        try {
+          await fs.copyFile(tempPath, permanentPath);
+          const stats = await fs.stat(permanentPath);
+
+          attachments.push({
+            id: fileId,
+            name: fileId.split('-').slice(1).join('-'), // Remove UUID prefix
+            path: permanentPath,
+            size: stats.size
+          });
+        } catch (error) {
+          console.error(`Error processing attachment ${fileId}:`, error);
+        }
+      }
+    }
+
+    // Send email to support team
+    const emailResult = await sendLogRequestEmail({
+      employee,
+      conversationHistory,
+      conversationId: session.conversationId,
+      requestType: 'button',
+      requestMessage: message || 'User requested LOG via button',
+      attachments
+    });
+
+    // Send acknowledgment email to user (if email provided)
+    let ackResult = null;
+    if (userEmail) {
+      ackResult = await sendAcknowledgmentEmail({
+        userEmail,
+        userName: employee.name,
+        conversationId: session.conversationId,
+        attachmentCount: attachments.length
+      });
+    }
+
+    // Save LOG request to database
+    const { data: logRequest, error: logError } = await req.supabase
+      .from('log_requests')
+      .insert([{
+        conversation_id: session.conversationId,
+        employee_id: employee.id,
+        request_type: 'button',
+        request_message: message || 'User requested LOG via button',
+        user_email: userEmail || null,
+        acknowledgment_sent: ackResult?.success || false,
+        acknowledgment_sent_at: ackResult?.emailSentAt || null,
+        email_sent: true,
+        email_sent_at: emailResult.emailSentAt,
+        attachments: attachments.map(att => ({
+          name: att.name,
+          size: att.size,
+          path: att.path
+        }))
+      }])
+      .select()
+      .single();
+
+    if (logError) {
+      console.error('Error saving LOG request:', logError);
+    }
+
+    // Clean up temp directory
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch (error) {
+      console.error('Error cleaning temp directory:', error);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        logRequestId: logRequest?.id,
+        emailSent: true,
+        attachmentCount: attachments.length,
+        acknowledgmentSent: ackResult?.success || false
+      }
+    });
+
+  } catch (error) {
+    console.error('Error processing LOG request:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to process LOG request'
     });
   }
 });
