@@ -339,13 +339,6 @@ router.post('/request-log', async (req, res) => {
       console.error('Error saving LOG request:', logError);
     }
 
-    // Clean up temp directory
-    try {
-      await fs.rm(tempDir, { recursive: true, force: true });
-    } catch (error) {
-      console.error('Error cleaning temp directory:', error);
-    }
-
     res.json({
       success: true,
       data: {
