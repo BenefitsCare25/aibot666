@@ -1,28 +1,41 @@
 import { Client } from '@microsoft/microsoft-graph-client';
-import { ClientSecretCredential } from '@azure/identity';
+import { UsernamePasswordCredential } from '@azure/identity';
 import fs from 'fs/promises';
 import path from 'path';
 
 const AZURE_CLIENT_ID = process.env.AZURE_CLIENT_ID;
 const AZURE_CLIENT_SECRET = process.env.AZURE_CLIENT_SECRET;
 const AZURE_TENANT_ID = process.env.AZURE_TENANT_ID;
+const AZURE_SERVICE_ACCOUNT_USERNAME = process.env.AZURE_SERVICE_ACCOUNT_USERNAME;
+const AZURE_SERVICE_ACCOUNT_PASSWORD = process.env.AZURE_SERVICE_ACCOUNT_PASSWORD;
 const LOG_REQUEST_EMAIL_FROM = process.env.LOG_REQUEST_EMAIL_FROM;
 const LOG_REQUEST_EMAIL_TO = process.env.LOG_REQUEST_EMAIL_TO;
 
 /**
- * Initialize Microsoft Graph Client with Client Credentials
+ * Initialize Microsoft Graph Client with Delegated Permissions (Username/Password Flow)
+ * Uses a service account for sending emails on behalf of users
  */
 function getGraphClient() {
-  const credential = new ClientSecretCredential(
+  // Use Username/Password Credential for delegated permissions
+  const credential = new UsernamePasswordCredential(
     AZURE_TENANT_ID,
     AZURE_CLIENT_ID,
-    AZURE_CLIENT_SECRET
+    AZURE_SERVICE_ACCOUNT_USERNAME,
+    AZURE_SERVICE_ACCOUNT_PASSWORD,
+    {
+      // Required for delegated permissions
+      authorityHost: 'https://login.microsoftonline.com',
+    }
   );
 
   const client = Client.initWithMiddleware({
     authProvider: {
       getAccessToken: async () => {
-        const token = await credential.getToken('https://graph.microsoft.com/.default');
+        // Request delegated permission scopes
+        const token = await credential.getToken([
+          'https://graph.microsoft.com/Mail.Send',
+          'https://graph.microsoft.com/User.Read'
+        ]);
         return token.token;
       }
     }

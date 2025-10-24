@@ -1,6 +1,6 @@
-# Azure AD Setup Guide for LOG Request Email Feature
+# Azure AD Setup Guide for LOG Request Email Feature (Delegated Permissions)
 
-This guide will help you configure Azure AD permissions to enable email sending via Microsoft Graph API.
+This guide will help you configure Azure AD with **delegated permissions** to enable email sending via Microsoft Graph API using a service account.
 
 ## Current Error
 
@@ -10,50 +10,90 @@ statusCode: 403
 code: ErrorAccessDenied
 ```
 
-This means your Azure AD app doesn't have the required permissions to send emails.
+This means your Azure AD app needs proper delegated permissions configuration with a service account.
+
+---
+
+## 🎯 Authentication Approach: Delegated Permissions with Service Account
+
+Since you're using **Delegated permissions**, we use a **service account** (dedicated user account) to send emails on behalf of the organization.
+
+**How it works:**
+1. Create a dedicated service account (e.g., `notifications@yourcompany.com`)
+2. Configure Azure AD app with delegated `Mail.Send` permission
+3. Application authenticates as the service account using username/password
+4. Emails are sent from the service account's mailbox
 
 ---
 
 ## Step-by-Step Azure AD Configuration
 
-### Step 1: Navigate to Azure Portal
+### Step 1: Create Service Account
+
+1. Go to [Microsoft 365 Admin Center](https://admin.microsoft.com)
+2. Navigate to **Users** → **Active users**
+3. Click **Add a user**
+4. Create account:
+   - **Username**: `notifications@yourcompany.com` (or similar)
+   - **Display name**: "Chatbot Notifications"
+   - **Password**: Set a strong password and **disable password expiration**
+5. Assign a license (at minimum, Exchange Online Plan 1 or Microsoft 365 Business Basic)
+6. **Important**: Disable MFA (Multi-Factor Authentication) for this service account
+   - Go to user → Security → MFA status → Disable
+7. Save the username and password securely
+
+### Step 2: Navigate to Azure Portal
 
 1. Go to [Azure Portal](https://portal.azure.com)
 2. Sign in with your admin account
 3. Search for "App registrations" in the top search bar
 4. Click on **App registrations**
 
-### Step 2: Find Your Application
+### Step 3: Find Your Application
 
 1. Look for your app with Client ID: `d5042b07-f7dc-4706-bf6f-847a7bd1538d`
 2. Click on the app name to open it
 
-### Step 3: Add API Permissions
+### Step 4: Enable Public Client Flow
+
+**⚠️ Required for Username/Password authentication**
+
+1. In the left sidebar, click **Authentication**
+2. Scroll down to **Advanced settings**
+3. Find **Allow public client flows**
+4. Toggle to **Yes**
+5. Click **Save**
+
+### Step 5: Add API Permissions (Delegated)
 
 1. In the left sidebar, click **API permissions**
-2. Click **+ Add a permission**
-3. Select **Microsoft Graph**
-4. Select **Application permissions** (NOT Delegated permissions)
-5. Search for `Mail.Send`
-6. Check the box next to **Mail.Send**
-7. Click **Add permissions**
+2. You should already have delegated permissions. Verify:
+   - **Mail.Send** (Delegated)
+   - **User.Read** (Delegated)
+3. If not present, add them:
+   - Click **+ Add a permission**
+   - Select **Microsoft Graph**
+   - Select **Delegated permissions** (NOT Application)
+   - Search for `Mail.Send` and `User.Read`
+   - Check both boxes
+   - Click **Add permissions**
 
-### Step 4: Grant Admin Consent
-
-**⚠️ CRITICAL STEP - This is what's currently missing!**
+### Step 6: Grant Admin Consent (If Required)
 
 1. Still on the **API permissions** page
-2. Click the button **"Grant admin consent for [Your Organization]"**
-3. Click **Yes** when prompted
-4. Wait for the status to update to **"Granted for [Your Organization]"** with a green checkmark ✅
+2. If you see "Admin consent required" = Yes:
+   - Click **"Grant admin consent for [Your Organization]"**
+   - Click **Yes** when prompted
+3. Wait for the status to show **"Granted for [Your Organization]"** with green checkmark ✅
 
-### Step 5: Verify Permissions
+### Step 7: Verify Permissions
 
-After granting consent, you should see:
+After configuration, you should see:
 
 | Permission | Type | Admin Consent Required | Status |
 |------------|------|------------------------|--------|
-| Mail.Send | Application | Yes | ✅ Granted for [Org] |
+| Mail.Send | Delegated | Yes | ✅ Granted for [Org] |
+| User.Read | Delegated | No | ✅ Granted for [Org] |
 
 ---
 
@@ -86,7 +126,7 @@ New-ApplicationAccessPolicy -AppId d5042b07-f7dc-4706-bf6f-847a7bd1538d -PolicyS
 
 After Azure AD is configured, update your Render environment variables:
 
-### Required Variables
+### Required Variables (Delegated Permissions)
 
 ```bash
 # Azure AD Configuration
@@ -94,11 +134,21 @@ AZURE_CLIENT_ID=d5042b07-f7dc-4706-bf6f-847a7bd1538d
 AZURE_CLIENT_SECRET=<your-client-secret>
 AZURE_TENANT_ID=496f1a0a-6a4a-4436-b4b3-fdb75d235254
 
+# Service Account Credentials (for Delegated Permissions)
+AZURE_SERVICE_ACCOUNT_USERNAME=notifications@yourcompany.com
+AZURE_SERVICE_ACCOUNT_PASSWORD=<service-account-password>
+
 # Email Configuration
 LOG_REQUEST_EMAIL_FROM=notifications@yourcompany.com
 LOG_REQUEST_EMAIL_TO=support-team@yourcompany.com
 LOG_REQUEST_KEYWORDS=request log,send logs,need log
 ```
+
+**Important Notes:**
+- `AZURE_SERVICE_ACCOUNT_USERNAME` = The service account email you created in Step 1
+- `AZURE_SERVICE_ACCOUNT_PASSWORD` = The password for that service account
+- `LOG_REQUEST_EMAIL_FROM` should match the service account email
+- Ensure MFA is disabled for the service account
 
 ### How to Set on Render
 
@@ -159,7 +209,26 @@ Testing Email Service...
 
 ### Issue: "Access is denied" (403)
 
-**Solution**: You forgot to grant admin consent in Step 4. Go back and click "Grant admin consent".
+**Solution**:
+- Verify admin consent granted for delegated permissions (Step 6)
+- Ensure "Allow public client flows" is enabled (Step 4)
+- Verify service account has correct permissions
+
+### Issue: "Invalid username or password" (AADSTS50126)
+
+**Solution**:
+- Double-check `AZURE_SERVICE_ACCOUNT_USERNAME` and `AZURE_SERVICE_ACCOUNT_PASSWORD`
+- Ensure the service account is active in Microsoft 365
+- Verify MFA is disabled for the service account
+
+### Issue: "Multi-factor authentication required" (AADSTS50076)
+
+**Solution**: MFA must be disabled for the service account. Go to Microsoft 365 Admin Center → Users → Select service account → Security → Disable MFA.
+
+### Issue: "Public client flows not allowed" (AADSTS7000218)
+
+**Solution**: Enable public client flows in Azure Portal:
+- App registrations → Your app → Authentication → Allow public client flows = Yes
 
 ### Issue: "Invalid client secret" (401)
 
@@ -175,11 +244,14 @@ Testing Email Service...
 
 ### Issue: Emails not sending but no errors
 
-**Solution**: Check that `LOG_REQUEST_EMAIL_FROM` is a valid mailbox in your organization.
+**Solution**:
+- Check that `LOG_REQUEST_EMAIL_FROM` matches the service account email
+- Verify the service account has an active Exchange Online license
+- Check the service account mailbox is accessible
 
 ### Issue: File upload works but email fails
 
-**Solution**: File upload uses local filesystem, email needs Azure AD. Focus on Azure AD configuration.
+**Solution**: File upload uses local filesystem, email needs Azure AD. Focus on Azure AD configuration and service account setup.
 
 ---
 

@@ -65,10 +65,16 @@ sendLogRequestEmail(testData)
   .catch((error) => {
     console.error('✗ Test failed:', error.message);
     console.error();
-    console.error('Troubleshooting:');
-    console.error('1. Verify Azure credentials in .env file');
-    console.error('2. Check email addresses in .env (FROM and TO)');
-    console.error('3. Ensure Azure AD app has Mail.Send permission');
-    console.error('4. Verify admin consent has been granted');
+    console.error('Troubleshooting (Delegated Permissions):');
+    console.error('1. Verify Azure service account credentials in .env:');
+    console.error('   - AZURE_SERVICE_ACCOUNT_USERNAME');
+    console.error('   - AZURE_SERVICE_ACCOUNT_PASSWORD');
+    console.error('2. Ensure service account exists and is active in Microsoft 365');
+    console.error('3. Verify MFA is disabled for the service account');
+    console.error('4. Check Azure AD app has delegated Mail.Send permission');
+    console.error('5. Ensure "Allow public client flows" is enabled in app settings');
+    console.error('6. Verify admin consent has been granted for delegated permissions');
+    console.error('7. Check that service account has Exchange Online license');
+    console.error('\nSee AZURE-AD-SETUP-GUIDE.md for detailed setup instructions');
     process.exit(1);
   });
