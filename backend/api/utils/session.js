@@ -82,6 +82,24 @@ export async function getSession(sessionId) {
 }
 
 /**
+ * Save/update session data
+ * @param {string} sessionId - Session ID
+ * @param {Object} sessionData - Session data to save
+ * @returns {Promise<boolean>} - Success status
+ */
+export async function saveSession(sessionId, sessionData) {
+  try {
+    const key = `session:${sessionId}`;
+    sessionData.lastActivity = new Date().toISOString();
+    await redis.setex(key, SESSION_TTL, JSON.stringify(sessionData));
+    return true;
+  } catch (error) {
+    console.error('Error saving session:', error);
+    throw new Error('Failed to save session');
+  }
+}
+
+/**
  * Update session activity timestamp
  * @param {string} sessionId - Session ID
  * @returns {Promise<boolean>} - Success status
@@ -341,6 +359,7 @@ export { redis };
 export default {
   createSession,
   getSession,
+  saveSession,
   touchSession,
   deleteSession,
   addMessageToHistory,

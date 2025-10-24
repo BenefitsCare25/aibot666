@@ -4,6 +4,7 @@ import { searchKnowledgeBase, getEmployeeByEmployeeId } from '../services/vector
 import {
   createSession,
   getSession,
+  saveSession,
   touchSession,
   addMessageToHistory,
   getConversationHistory,
