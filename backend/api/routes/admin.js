@@ -18,6 +18,11 @@ import {
 import supabase from '../../config/supabase.js';
 import { getAllCompanies, getCompanyById } from '../services/companySchema.js';
 import { companyContextMiddleware, adminContextMiddleware } from '../middleware/companyContext.js';
+import {
+  createCompanySchema,
+  rollbackCompanyCreation,
+  softDeleteCompany
+} from '../services/schemaAutomation.js';
 
 const router = express.Router();
 
@@ -605,7 +610,7 @@ router.get('/companies/:id', async (req, res) => {
 
 /**
  * POST /api/admin/companies
- * Create new company
+ * Create new company with automatic schema creation
  */
 router.post('/companies', async (req, res) => {
   try {
@@ -618,6 +623,7 @@ router.post('/companies', async (req, res) => {
       });
     }
 
+    // Step 1: Insert company into registry
     const { data: company, error } = await supabase
       .from('companies')
       .insert({
@@ -633,10 +639,46 @@ router.post('/companies', async (req, res) => {
 
     if (error) throw error;
 
-    res.json({
-      success: true,
-      data: company
-    });
+    // Step 2: Automatically create database schema
+    try {
+      const schemaResult = await createCompanySchema({
+        schemaName: schema_name,
+        companyId: company.id,
+        adminUser: req.user?.email || 'admin' // Add admin user tracking if available
+      });
+
+      console.log(`[Admin] Schema created successfully for company ${company.name}: ${schemaResult.schemaName}`);
+
+      res.json({
+        success: true,
+        data: company,
+        schema: {
+          created: true,
+          name: schemaResult.schemaName,
+          duration: schemaResult.duration,
+          logId: schemaResult.logId
+        }
+      });
+    } catch (schemaError) {
+      // Schema creation failed - rollback company creation
+      console.error('[Admin] Schema creation failed, rolling back company:', schemaError);
+
+      try {
+        await rollbackCompanyCreation(company.id);
+        console.log('[Admin] Company rollback completed');
+      } catch (rollbackError) {
+        console.error('[Admin] Rollback failed:', rollbackError);
+        // Return error but note that manual cleanup may be needed
+      }
+
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create database schema',
+        details: schemaError.message,
+        company_rolled_back: true,
+        note: 'Company registry entry has been removed due to schema creation failure'
+      });
+    }
   } catch (error) {
     console.error('Error creating company:', error);
     res.status(400).json({
@@ -688,28 +730,27 @@ router.put('/companies/:id', async (req, res) => {
 
 /**
  * DELETE /api/admin/companies/:id
- * Delete company
+ * Soft delete company (mark as inactive, preserve schema and data)
  */
 router.delete('/companies/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { error } = await supabase
-      .from('companies')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
+    // Use soft delete to preserve schema and data
+    const company = await softDeleteCompany(id, req.user?.email || 'admin');
 
     res.json({
       success: true,
-      message: 'Company deleted successfully'
+      message: 'Company deactivated successfully',
+      data: company,
+      note: 'Company marked as inactive. Database schema and all data preserved.'
     });
   } catch (error) {
     console.error('Error deleting company:', error);
     res.status(400).json({
       success: false,
-      error: 'Failed to delete company'
+      error: 'Failed to delete company',
+      details: error.message
     });
   }
 });

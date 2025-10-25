@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import pkg from 'pg';
+const { Pool } = pkg;
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -9,6 +11,47 @@ const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing Supabase configuration. Check SUPABASE_URL and SUPABASE_SERVICE_KEY in .env file.');
 }
+
+// Extract PostgreSQL connection string from Supabase URL
+// Supabase URL format: https://xxx.supabase.co
+// PostgreSQL URL format: postgresql://postgres:[password]@db.xxx.supabase.co:5432/postgres
+const extractPostgresUrl = () => {
+  const projectRef = supabaseUrl.replace('https://', '').replace('.supabase.co', '');
+  const dbPassword = process.env.SUPABASE_DB_PASSWORD || process.env.DATABASE_PASSWORD;
+
+  if (!dbPassword) {
+    console.warn('[PostgreSQL] SUPABASE_DB_PASSWORD not set. Direct PostgreSQL operations will not be available.');
+    return null;
+  }
+
+  return `postgresql://postgres:${dbPassword}@db.${projectRef}.supabase.co:5432/postgres`;
+};
+
+// PostgreSQL client pool for direct database operations (DDL, schema management)
+let pgPool = null;
+const postgresUrl = extractPostgresUrl();
+
+if (postgresUrl) {
+  pgPool = new Pool({
+    connectionString: postgresUrl,
+    ssl: {
+      rejectUnauthorized: false
+    },
+    max: 10, // Maximum pool connections
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000
+  });
+
+  pgPool.on('error', (err) => {
+    console.error('[PostgreSQL] Unexpected pool error:', err);
+  });
+
+  console.log('[PostgreSQL] Connection pool initialized');
+} else {
+  console.warn('[PostgreSQL] Pool not initialized - SUPABASE_DB_PASSWORD missing');
+}
+
+export const postgres = pgPool;
 
 // Default Supabase client with service role key for admin operations (uses public schema)
 export const supabase = createClient(supabaseUrl, supabaseKey, {

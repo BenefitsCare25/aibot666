@@ -9,6 +9,8 @@ export default function Companies() {
   const [showForm, setShowForm] = useState(false);
   const [editingCompany, setEditingCompany] = useState(null);
   const [showEmbedCode, setShowEmbedCode] = useState(null);
+  const [creatingSchema, setCreatingSchema] = useState(false); // New state for schema creation
+  const [successMessage, setSuccessMessage] = useState(''); // New state for success messages
   const [formData, setFormData] = useState({
     name: '',
     domain: '',
@@ -38,6 +40,8 @@ export default function Companies() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setSuccessMessage('');
 
     try {
       const submitData = {
@@ -50,17 +54,36 @@ export default function Companies() {
 
       if (editingCompany) {
         await companyApi.update(editingCompany.id, submitData);
+        setSuccessMessage('Company updated successfully');
       } else {
-        await companyApi.create(submitData);
+        // Creating new company - show schema creation loading state
+        setCreatingSchema(true);
+        const response = await companyApi.create(submitData);
+
+        // Check if schema was created
+        if (response.data.schema?.created) {
+          setSuccessMessage(
+            `Company created successfully! Database schema "${response.data.schema.name}" created in ${response.data.schema.duration}ms`
+          );
+        } else {
+          setSuccessMessage('Company created successfully');
+        }
       }
 
       setShowForm(false);
       setEditingCompany(null);
       resetForm();
       loadCompanies();
+
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
       console.error('Error saving company:', err);
-      setError(err.response?.data?.error || 'Failed to save company');
+      const errorMessage = err.response?.data?.details || err.response?.data?.error || 'Failed to save company';
+      const errorNote = err.response?.data?.note || '';
+      setError(errorNote ? `${errorMessage}. ${errorNote}` : errorMessage);
+    } finally {
+      setCreatingSchema(false);
     }
   };
 
@@ -78,16 +101,24 @@ export default function Companies() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this company? This action cannot be undone.')) {
+    if (!window.confirm(
+      'Are you sure you want to deactivate this company?\n\n' +
+      'This will mark the company as inactive, but all data and database schema will be preserved. ' +
+      'The company can be reactivated later by changing its status to active.'
+    )) {
       return;
     }
 
     try {
-      await companyApi.delete(id);
+      const response = await companyApi.delete(id);
+      setSuccessMessage(response.data.message || 'Company deactivated successfully');
       loadCompanies();
+
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
       console.error('Error deleting company:', err);
-      setError('Failed to delete company');
+      setError(err.response?.data?.details || 'Failed to delete company');
     }
   };
 
@@ -135,6 +166,12 @@ export default function Companies() {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
           {error}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+          {successMessage}
         </div>
       )}
 
@@ -246,14 +283,34 @@ export default function Companies() {
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                  disabled={creatingSchema}
+                  className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
+                    creatingSchema
+                      ? 'bg-primary-400 text-white cursor-not-allowed'
+                      : 'bg-primary-600 text-white hover:bg-primary-700'
+                  }`}
                 >
-                  {editingCompany ? 'Update Company' : 'Create Company'}
+                  {creatingSchema ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Creating schema...
+                    </span>
+                  ) : (
+                    editingCompany ? 'Update Company' : 'Create Company'
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  disabled={creatingSchema}
+                  className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
+                    creatingSchema
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
                 >
                   Cancel
                 </button>
@@ -379,14 +436,15 @@ export default function Companies() {
       </div>
 
       {/* Help Section */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <h3 className="font-medium text-yellow-900 mb-2">⚠️ Important Notes</h3>
-        <ul className="text-sm text-yellow-800 space-y-1 list-disc list-inside">
-          <li>Schema name cannot be changed after company creation</li>
-          <li>You must manually create the PostgreSQL schema in Supabase before adding a company</li>
-          <li>Use the schema SQL templates in <code>backend/config/supabase-setup/</code></li>
-          <li>Deleting a company does NOT delete the schema or its data</li>
-          <li>Domain normalization removes protocol, www, and port automatically</li>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-medium text-blue-900 mb-2">ℹ️ Schema Management</h3>
+        <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+          <li><strong>Automatic Schema Creation:</strong> Database schemas are created automatically when you add a new company</li>
+          <li><strong>Schema Name:</strong> Cannot be changed after company creation</li>
+          <li><strong>Soft Delete:</strong> Deleting a company marks it as inactive but preserves all data and schema</li>
+          <li><strong>Reactivation:</strong> Inactive companies can be reactivated by updating their status to "active"</li>
+          <li><strong>Domain Normalization:</strong> Protocol, www, and port are removed automatically</li>
+          <li><strong>Schema Template:</strong> All schemas use the template in <code>backend/config/company-schema-template.sql</code></li>
         </ul>
       </div>
 
