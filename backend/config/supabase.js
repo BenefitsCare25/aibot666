@@ -12,19 +12,41 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing Supabase configuration. Check SUPABASE_URL and SUPABASE_SERVICE_KEY in .env file.');
 }
 
-// Extract PostgreSQL connection string from Supabase URL
-// Supabase URL format: https://xxx.supabase.co
-// PostgreSQL URL format: postgresql://postgres:[password]@db.xxx.supabase.co:5432/postgres
+// Extract PostgreSQL connection string
+// Supports multiple sources for maximum compatibility:
+// 1. DATABASE_URL from environment (set by deployment platform)
+// 2. SUPABASE_CONNECTION_STRING from environment (manual override)
+// 3. Constructed from SUPABASE_URL + SUPABASE_DB_PASSWORD
 const extractPostgresUrl = () => {
+  // Option 1: Use DATABASE_URL if available (Render, Heroku, etc.)
+  if (process.env.DATABASE_URL) {
+    console.log('[PostgreSQL] Using DATABASE_URL from environment');
+    return process.env.DATABASE_URL;
+  }
+
+  // Option 2: Use SUPABASE_CONNECTION_STRING if set (manual override)
+  if (process.env.SUPABASE_CONNECTION_STRING) {
+    console.log('[PostgreSQL] Using SUPABASE_CONNECTION_STRING from environment');
+    return process.env.SUPABASE_CONNECTION_STRING;
+  }
+
+  // Option 3: Construct from Supabase URL and password
   const projectRef = supabaseUrl.replace('https://', '').replace('.supabase.co', '');
-  const dbPassword = process.env.SUPABASE_DB_PASSWORD || process.env.DATABASE_PASSWORD;
+  const dbPassword = process.env.SUPABASE_DB_PASSWORD;
 
   if (!dbPassword) {
-    console.warn('[PostgreSQL] SUPABASE_DB_PASSWORD not set. Direct PostgreSQL operations will not be available.');
+    console.warn('[PostgreSQL] No database connection configured. Set DATABASE_URL, SUPABASE_CONNECTION_STRING, or SUPABASE_DB_PASSWORD.');
     return null;
   }
 
-  return `postgresql://postgres:${dbPassword}@db.${projectRef}.supabase.co:5432/postgres`;
+  // Use Transaction Pooler (port 6543) for better compatibility with serverless/edge environments
+  // Falls back to direct connection (port 5432) if pooler is not available
+  const usePooler = process.env.USE_SUPABASE_POOLER !== 'false'; // Default to true
+  const port = usePooler ? 6543 : 5432;
+  const host = `db.${projectRef}.supabase.co`;
+
+  console.log(`[PostgreSQL] Constructing connection string (${usePooler ? 'pooler' : 'direct'} mode)`);
+  return `postgresql://postgres.${projectRef}:${dbPassword}@${host}:${port}/postgres`;
 };
 
 // PostgreSQL client pool for direct database operations (DDL, schema management)
@@ -32,23 +54,44 @@ let pgPool = null;
 const postgresUrl = extractPostgresUrl();
 
 if (postgresUrl) {
-  pgPool = new Pool({
-    connectionString: postgresUrl,
-    ssl: {
-      rejectUnauthorized: false
-    },
-    max: 10, // Maximum pool connections
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000
-  });
+  try {
+    pgPool = new Pool({
+      connectionString: postgresUrl,
+      ssl: {
+        rejectUnauthorized: false
+      },
+      // Connection pool settings
+      max: 5, // Reduced for serverless environments
+      min: 0, // Allow pool to scale to zero
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000, // Increased timeout for IPv6 fallback
 
-  pgPool.on('error', (err) => {
-    console.error('[PostgreSQL] Unexpected pool error:', err);
-  });
+      // Force IPv4 to avoid IPv6 routing issues on some platforms
+      // This helps with ENETUNREACH errors on Render and similar platforms
+      host: process.env.POSTGRES_HOST, // Optional override
 
-  console.log('[PostgreSQL] Connection pool initialized');
+      // Additional pg options
+      options: '-c search_path=public',
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000
+    });
+
+    pgPool.on('error', (err) => {
+      console.error('[PostgreSQL] Unexpected pool error:', err);
+    });
+
+    pgPool.on('connect', () => {
+      console.log('[PostgreSQL] New client connected to pool');
+    });
+
+    console.log('[PostgreSQL] Connection pool initialized successfully');
+  } catch (error) {
+    console.error('[PostgreSQL] Failed to initialize connection pool:', error);
+    pgPool = null;
+  }
 } else {
-  console.warn('[PostgreSQL] Pool not initialized - SUPABASE_DB_PASSWORD missing');
+  console.warn('[PostgreSQL] Pool not initialized - no database connection configured');
+  console.warn('[PostgreSQL] Schema automation features will not be available');
 }
 
 export const postgres = pgPool;

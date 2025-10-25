@@ -13,22 +13,47 @@ The system now automatically:
 
 ## Setup Instructions
 
-### 1. Configure Database Password
+### 1. Configure Database Connection
 
-You need to add your Supabase database password to the `.env` file to enable direct PostgreSQL operations.
+You need to configure PostgreSQL access for automated schema management. **Choose the best option for your platform:**
 
-**Find your database password:**
-1. Go to Supabase Dashboard → Settings → Database
-2. Look for "Connection String" section
-3. Copy the connection string (format: `postgresql://postgres:[YOUR-PASSWORD]@...`)
-4. Extract the password from the connection string
+#### Option 1: Full Connection String (Recommended for Render/Heroku/Serverless)
 
-**Add to `.env` file:**
+**Best for:** Production deployments on Render, Heroku, or other serverless platforms
+
+**Steps:**
+1. Go to Supabase Dashboard → Settings → Database → Connection String
+2. Click on **"Transaction"** mode (uses port 6543 pooler)
+3. Copy the full connection string
+4. Add to your production environment variables:
+
 ```bash
-SUPABASE_DB_PASSWORD=your-database-password-here
+SUPABASE_CONNECTION_STRING=postgresql://postgres.[PROJECT-REF]:[PASSWORD]@db.[PROJECT-REF].supabase.co:6543/postgres
 ```
 
-**IMPORTANT:** Never commit this password to git. The `.env` file is already in `.gitignore`.
+**Why Transaction mode?**
+- ✅ Fixes `ENETUNREACH` IPv6 errors on Render and similar platforms
+- ✅ Better compatibility with serverless environments
+- ✅ More reliable connection pooling
+- ✅ Lower latency
+
+#### Option 2: Password Only (Recommended for Development)
+
+**Best for:** Local development
+
+**Steps:**
+1. Go to Supabase Dashboard → Settings → Database
+2. Look for "Connection String" section
+3. Extract just the password from the string
+4. Add to local `.env` file:
+
+```bash
+SUPABASE_DB_PASSWORD=your-password-here
+```
+
+The system will automatically construct the connection string using the Transaction pooler.
+
+**IMPORTANT:** Never commit passwords or connection strings to git. The `.env` file is already in `.gitignore`.
 
 ### 2. Run Schema Activity Logs Migration
 
@@ -185,9 +210,23 @@ SELECT * FROM get_failed_schema_operations(7); -- last 7 days
 
 ## Troubleshooting
 
+### Error: "ENETUNREACH" or "connect ENETUNREACH" with IPv6 address
+**Cause:** Platform doesn't support IPv6 routing to Supabase (common on Render)
+**Fix:** Use Transaction pooler connection string (Option 1 in Setup):
+```bash
+# In your .env file on Render
+SUPABASE_CONNECTION_STRING=postgresql://postgres.[PROJECT-REF]:[PASSWORD]@db.[PROJECT-REF].supabase.co:6543/postgres
+```
+Then redeploy your application.
+
+**Why this works:** The Transaction pooler (port 6543) has better network routing and handles IPv4/IPv6 fallback automatically.
+
 ### Error: "PostgreSQL connection not available"
-**Cause:** `SUPABASE_DB_PASSWORD` not set in `.env`
-**Fix:** Add the database password (see Setup Step 1)
+**Cause:** No database connection configured
+**Fix:** Add one of the connection options (see Setup Step 1):
+- `SUPABASE_CONNECTION_STRING` (recommended for production)
+- `SUPABASE_DB_PASSWORD` (for development)
+- `DATABASE_URL` (if your platform provides it)
 
 ### Error: "Schema already exists"
 **Cause:** Attempting to create a company with a schema name that's already in the database
