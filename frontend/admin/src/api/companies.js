@@ -24,5 +24,10 @@ export const companyApi = {
   // Delete company
   delete: async (id) => {
     return apiClient.delete(`/api/admin/companies/${id}`);
+  },
+
+  // Get embed code for company
+  getEmbedCode: async (id) => {
+    return apiClient.get(`/api/admin/companies/${id}/embed-code`);
   }
 };

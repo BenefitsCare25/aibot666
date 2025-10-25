@@ -715,6 +715,85 @@ router.delete('/companies/:id', async (req, res) => {
 });
 
 /**
+ * GET /api/admin/companies/:id/embed-code
+ * Get embed code for a company
+ */
+router.get('/companies/:id/embed-code', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const company = await getCompanyById(id);
+
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        error: 'Company not found'
+      });
+    }
+
+    // Get API URL from environment or construct from request
+    const apiUrl = process.env.API_URL || process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
+
+    // Generate embed code snippets
+    const embedCodeAutoInit = `<!-- ${company.name} AI Chatbot Widget -->
+<script
+  src="${apiUrl}/widget.iife.js"
+  data-api-url="${apiUrl}"
+  data-position="bottom-right"
+  data-color="#3b82f6">
+</script>
+<link rel="stylesheet" href="${apiUrl}/widget.css">`;
+
+    const embedCodeManualInit = `<!-- ${company.name} AI Chatbot Widget -->
+<script src="${apiUrl}/widget.iife.js"></script>
+<link rel="stylesheet" href="${apiUrl}/widget.css">
+<script>
+  InsuranceChatWidget.init({
+    apiUrl: '${apiUrl}',
+    position: 'bottom-right',  // Options: 'bottom-right', 'bottom-left'
+    primaryColor: '#3b82f6'    // Customize widget color
+  });
+</script>`;
+
+    const instructions = `Implementation Instructions:
+
+1. Copy one of the embed code snippets below
+2. Paste it just before the closing </body> tag in your HTML
+3. The widget will automatically detect your domain (${company.domain}) and route to your company's chatbot
+4. Users can start chatting immediately - no additional configuration needed
+
+Customization Options:
+- position: 'bottom-right' or 'bottom-left' (where the widget appears)
+- primaryColor: Any valid CSS color (e.g., '#3b82f6', 'rgb(59, 130, 246)', 'blue')
+
+Need help? Contact your system administrator.`;
+
+    res.json({
+      success: true,
+      data: {
+        company: {
+          id: company.id,
+          name: company.name,
+          domain: company.domain,
+          additional_domains: company.additional_domains
+        },
+        embedCode: {
+          autoInit: embedCodeAutoInit,
+          manualInit: embedCodeManualInit
+        },
+        instructions,
+        apiUrl
+      }
+    });
+  } catch (error) {
+    console.error('Error generating embed code:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate embed code'
+    });
+  }
+});
+
+/**
  * GET /api/admin/chat-history
  * Get all chat conversations with metadata
  */

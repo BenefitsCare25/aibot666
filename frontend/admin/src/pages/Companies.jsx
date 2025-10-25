@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { companyApi } from '../api/companies';
+import EmbedCodeModal from '../components/EmbedCodeModal';
 
 export default function Companies() {
   const [companies, setCompanies] = useState([]);
@@ -7,6 +8,7 @@ export default function Companies() {
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingCompany, setEditingCompany] = useState(null);
+  const [showEmbedCode, setShowEmbedCode] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     domain: '',
@@ -330,6 +332,13 @@ export default function Companies() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
+                      onClick={() => setShowEmbedCode(company)}
+                      className="text-blue-600 hover:text-blue-900 mr-4"
+                      title="View embed code"
+                    >
+                      &lt;/&gt;
+                    </button>
+                    <button
                       onClick={() => handleEdit(company)}
                       className="text-primary-600 hover:text-primary-900 mr-4"
                     >
@@ -380,6 +389,14 @@ export default function Companies() {
           <li>Domain normalization removes protocol, www, and port automatically</li>
         </ul>
       </div>
+
+      {/* Embed Code Modal */}
+      {showEmbedCode && (
+        <EmbedCodeModal
+          company={showEmbedCode}
+          onClose={() => setShowEmbedCode(null)}
+        />
+      )}
     </div>
   );
 }
