@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insurance Chatbot - Instant Q&A Demo</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .demo-container {
+      max-width: 800px;
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      margin: 0 0 10px;
+      color: #1a202c;
+      font-size: 32px;
+    }
+    .subtitle {
+      color: #718096;
+      margin-bottom: 30px;
+      font-size: 18px;
+    }
+    .feature-badge {
+      display: inline-block;
+      background: #48bb78;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .feature-list {
+      background: #f7fafc;
+      border-left: 4px solid #667eea;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+    }
+    .feature-list h3 {
+      margin: 0 0 15px;
+      color: #2d3748;
+      font-size: 18px;
+    }
+    .feature-list ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .feature-list li {
+      margin-bottom: 10px;
+      color: #4a5568;
+      line-height: 1.6;
+    }
+    .instructions {
+      background: #edf2f7;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .instructions h3 {
+      margin: 0 0 15px;
+      color: #2d3748;
+      font-size: 16px;
+    }
+    .instructions ol {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .instructions li {
+      margin-bottom: 8px;
+      color: #4a5568;
+    }
+    .code-block {
+      background: #1a202c;
+      color: #68d391;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      overflow-x: auto;
+      margin-bottom: 20px;
+    }
+    .warning {
+      background: #fef5e7;
+      border-left: 4px solid #f59e0b;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .warning strong {
+      color: #d97706;
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-container">
+    <span class="feature-badge">✨ NEW FEATURE</span>
+    <h1>Instant Q&A Chatbot</h1>
+    <p class="subtitle">Enhanced with pre-defined answers for lightning-fast responses</p>
+
+    <div class="feature-list">
+      <h3>🚀 What's New</h3>
+      <ul>
+        <li><strong>Instant Answers:</strong> Click any quick question and get immediate answers - no API calls, no waiting!</li>
+        <li><strong>27 Pre-loaded Q&As:</strong> All questions from your Excel file are now stored in the widget</li>
+        <li><strong>Works Offline:</strong> Answers display even if backend is down</li>
+        <li><strong>Seamless UX:</strong> Questions and answers appear naturally in the chat flow</li>
+        <li><strong>Backward Compatible:</strong> Typed questions still go through AI for dynamic responses</li>
+      </ul>
+    </div>
+
+    <div class="instructions">
+      <h3>📋 How to Test</h3>
+      <ol>
+        <li>Click the chat button in the bottom-right corner</li>
+        <li>Login with employee ID (e.g., EMP001)</li>
+        <li>Click the question mark icon (?) in the header to show Quick Questions</li>
+        <li>Expand any category (Benefit Coverage, Portal Matters, etc.)</li>
+        <li>Click any question → Answer appears INSTANTLY in the chat!</li>
+        <li>Notice: No loading spinner, no delay - pure speed! ⚡</li>
+      </ol>
+    </div>
+
+    <div class="warning">
+      <strong>⚠️ Important:</strong> This demo uses test credentials. For production, configure your actual API endpoint and employee database.
+    </div>
+
+    <div class="code-block">
+      // Widget is configured to connect to:<br>
+      API: http://localhost:3000<br>
+      Employee IDs: EMP001, EMP002, EMP003
+    </div>
+  </div>
+
+  <!-- Load the chatbot widget -->
+  <script src="./dist/widget.iife.js"></script>
+  <script>
+    // Initialize the chatbot widget with instant Q&A enabled
+    window.InsuranceChatWidget.init({
+      apiUrl: 'http://localhost:3000',
+      position: 'bottom-right',
+      primaryColor: '#667eea',
+      domain: 'demo.insuranceportal.com'
+    });
+
+    console.log('🎉 Chatbot initialized with instant Q&A feature!');
+    console.log('📚 27 questions with pre-loaded answers');
+    console.log('⚡ Click questions to see instant responses');
+  </script>
+</body>
+</html>

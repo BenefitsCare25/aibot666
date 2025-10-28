@@ -55,15 +55,42 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
     }
   };
 
-  const handleQuestionSelect = async (question) => {
+  const handleQuestionSelect = async (questionData) => {
     setShowQuickQuestions(false);
-    setInputValue(question);
 
-    // Automatically send the selected question
-    try {
-      await sendMessage(question);
-    } catch (error) {
-      console.error('Failed to send selected question:', error);
+    // Check if this is a Q&A object with pre-defined answer
+    if (questionData && typeof questionData === 'object' && questionData.q && questionData.a) {
+      // Add user message
+      const userMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: questionData.q,
+        timestamp: new Date().toISOString()
+      };
+
+      // Add assistant message with instant answer
+      const assistantMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: questionData.a,
+        timestamp: new Date().toISOString(),
+        isInstantAnswer: true
+      };
+
+      // Update messages in store directly
+      useChatStore.setState(state => ({
+        messages: [...state.messages, userMessage, assistantMessage]
+      }));
+    } else {
+      // Legacy format or typed question - send to API
+      const message = typeof questionData === 'string' ? questionData : questionData.q || questionData;
+      setInputValue(message);
+
+      try {
+        await sendMessage(message);
+      } catch (error) {
+        console.error('Failed to send selected question:', error);
+      }
     }
   };
 
