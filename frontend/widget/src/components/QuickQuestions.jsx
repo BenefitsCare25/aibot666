@@ -22,8 +22,8 @@ const QUICK_QUESTIONS = [
       { q: 'Can I claim for a scope?', a: 'There must be signs & symptoms that necessitate the scope being performed. If not, the scope may not be covered. Kindly provide your referral or order form for us to assist you.' },
       { q: 'How much is my coverage if I need to do a cataract surgery?', a: 'Kindly be advised that this would depend on if the surgery us done in a private or a government restructured hospital. Kindly provide us with the care cost form/financial cost form for us to advise you further.' },
       { q: 'Why do I need to authorise my Medisave when I\'m admitted to the hospital?', a: 'Yes, you need to authorise your Medisave when admitted to the hospital as it may be used to cover part of your medical expenses.' },
-      { q: 'For hospital & surgical claims, will the insurance company pay back to my Medisave account?', a: 'If you had used the LOG at the hospital, the insurer would first pay to the hospital, then to you if you had made any cheque or cash payment, and finally to your Medisave account less any incurred expenses not covered. If you had settled the bill directly at the hospital and utilized your Medisave account, the insurer will first pay to you the cheque or cash payment and finally to your Medisave account less any incurred expenses not covered.' },
-      { q: 'How does the co-payment work for hospital admission? Can I use my personal insurance?', a: 'Yes, you may utilise your Medisave or Personal Insurance for the co-payment amount.' },
+      { q: 'For hospital & surgical claims, will the company pay back to my Medisave account?', a: 'If you had used the LOG at the hospital, the insurer would first pay to the hospital, then to you if you had made any cheque or cash payment, and finally to your Medisave account less any incurred expenses not covered. If you had settled the bill directly at the hospital and utilized your Medisave account, the insurer will first pay to you the cheque or cash payment and finally to your Medisave account less any incurred expenses not covered.' },
+      { q: 'How does the co-payment work for hospital admission? Can I use my personal coverage?', a: 'Yes, you may utilise your Medisave or Personal Coverage for the co-payment amount.' },
       { q: 'How much will be covered and what do I have to pay?', a: 'We are unable to advise on the interim, kindly provide the referral letter and/or invoice for us to assist you further.' }
     ]
   },
@@ -48,7 +48,7 @@ const QUICK_QUESTIONS = [
       </svg>
     ),
     questions: [
-      { q: 'How do I submit medical claims?', a: 'Kindly be advised that employee would have to submit the claims on your behalf through the portal at https://benefits.inspro.com.sg/.\n\nYou may submit your claim under New Claims > Select incurred date using the calendar icon > Claim Category: Insurance' },
+      { q: 'How do I submit medical claims?', a: 'Kindly be advised that employee would have to submit the claims on your behalf through the portal at https://benefits.inspro.com.sg/.\n\nYou may submit your claim under New Claims > Select incurred date using the calendar icon > Claim Category: Medical' },
       { q: 'I cannot log in, what is my User ID?', a: 'For User ID assistance, please contact our helpdesk at helpdesk@inpro.com.sg with your details for verification.' },
       { q: 'I cannot log in, how do I reset my password?', a: 'Kindly click on the "First Time Login/Forgot your password" link on the login page.' },
       { q: 'How Can I change my phone number For the OTP?', a: 'Please be advised to email to us at helpdesk@inpro.com.sg with your new contact details for us to update.' },

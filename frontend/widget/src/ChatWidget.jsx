@@ -14,7 +14,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     initialize(apiUrl, domain);
 
     // Check if user has existing session in localStorage
-    const storedSession = localStorage.getItem('insurance_chat_session');
+    const storedSession = localStorage.getItem('chat_session');
     if (storedSession) {
       try {
         const session = JSON.parse(storedSession);
@@ -28,7 +28,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         }
       } catch (error) {
         console.error('Failed to restore session:', error);
-        localStorage.removeItem('insurance_chat_session');
+        localStorage.removeItem('chat_session');
       }
     }
   }, [apiUrl, domain, initialize]);
@@ -45,7 +45,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
   const handleLogin = (sessionData) => {
     setIsAuthenticated(true);
     // Store session in localStorage for persistence
-    localStorage.setItem('insurance_chat_session', JSON.stringify({
+    localStorage.setItem('chat_session', JSON.stringify({
       sessionId: sessionData.sessionId,
       employeeId: sessionData.employee.id,
       employeeName: sessionData.employee.name
@@ -54,7 +54,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    localStorage.removeItem('insurance_chat_session');
+    localStorage.removeItem('chat_session');
     useChatStore.getState().reset();
     setIsOpen(false);
   };

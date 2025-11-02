@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Insurance Chatbot - Admin Dashboard</title>
+    <title>Chatbot - Admin Dashboard</title>
   </head>
   <body class="bg-gray-50">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
 
-    <!-- Insurance Chat Widget -->
+    <!-- Chat Widget -->
     <script>
       // Load widget after DOM is ready
       window.addEventListener('DOMContentLoaded', function() {
@@ -41,7 +41,7 @@
         };
 
         widgetScript.onerror = function() {
-          console.warn('Insurance Chat Widget failed to load. Make sure the widget is deployed.');
+          console.warn('Chat Widget failed to load. Make sure the widget is deployed.');
         };
 
         document.body.appendChild(widgetScript);

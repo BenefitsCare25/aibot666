@@ -22,7 +22,7 @@ export default function Layout() {
         <div className="p-4">
           <h1 className="text-xl font-bold flex items-center gap-2">
             <span>🏥</span>
-            Insurance Admin
+            Admin
           </h1>
         </div>
 
