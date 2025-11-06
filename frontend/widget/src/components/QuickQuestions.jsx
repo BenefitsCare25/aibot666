@@ -10,21 +10,24 @@ const QUICK_QUESTIONS = [
       </svg>
     ),
     questions: [
-      { q: 'How do I check how much balance I have left? (RHB/LGI/Companies with benefit limit)', a: 'Kindly drop us a message in the portal to check on your utilisation records.' },
-      { q: 'Why is my claim up to $40/$60 only?', a: 'You would be required to access your Benefits Portal and present the E-card upon registration otherwise the consultation reimbursement would fall under Non-panel GP benefit limit.' },
-      { q: 'How do I claim GPA?', a: 'Please find the Personal Accident form in the portal under Benefits > Documents, to submit for claims.' },
+      { q: 'How do I check how much balance I have left for Specialist?', a: 'Kindly drop us a message in the portal to check on your utilisation records.' },
+      { q: 'Why is my claim up to $60 only?', a: 'Please be informed of the possible reasons below.\n\n(a) For Panel Clinics, you would be required to access your Benefits Portal and present the Ecard upon registration otherwise the consultation reimbursement would fall under Non-panel GP benefit limit, up to $60.\n(b) For Non Panel clinics, reimbursement is up to $60 only.' },
+      { q: 'How do I claim GPA?', a: 'Please download the Group Personal Accident form in the portal under Benefits > Documents then complete the claim form (Page 1-3 only, ignore the medical report) and email back to us at helpdesk@inspro.com.sg.\n\nKindly note Policyholder is the company name and endorse the claim form with HR’s signature together with the company stamp.' },
       { q: 'How long is my referral valid for?', a: 'Referral letter to Panel or Non-Panel Specialist from Panel GP will be valid till discharge by Specialist. However, do note that an updated memo is required if the last visit is more than 1 year ago.' },
-      { q: 'Do I need a referral letter for visit to Gynae?', a: 'Referral letter is waived for visits to gynaecologist for conditions not normally treated by GP.' },
-      { q: 'I have been to my specialist but I would like a second opinion.', a: 'Please be advised that 2nd opinion is not covered.' },
-      { q: 'I don’t have a referral letter, the polyclinic has given me a booking to the GRH for further treatment?', a: 'You may contact the hospital/clinic to provide you with the copy of the referral letter.' },
+      { q: 'Do I need a referral letter for visit to Gynae?', a: 'Referral letter is waived for visits to gynaecologist for medical conditions not normally treated by GP.' },
+      { q: 'I have been to my specialist but I would like a second opinion.', a: 'Please be advised that 2nd opinion is not covered under the policy.' },
+      { q: 'I don’t have a referral letter, the polyclinic has given me a booking to the GRH for further treatment?', a: 'You may do as below.\n\n(a) Contact the specialist hospital/clinic to provide you with the copy of the referral letter. Please note that expenses and costs incurred for obtaining documents such as referral letters or memos would not be payable.\n(b) Request the referral letter from the specialist on your next visit to the specialist.' },
       { q: 'What is the dateline of claims?', a: 'Please be advised that claims are to be submitted within 30 days of incurred.' },
       { q: 'What is surgical schedule?', a: 'A Surgical schedule is surgical percentage being applied to derive the payable surgeon fees for procedures done in a private hospital.' },
-      { q: 'Can I claim for a scope?', a: 'There must be signs & symptoms that necessitate the scope being performed. If not, the scope may not be covered. Kindly provide your referral or order form for us to assist you.' },
-      { q: 'How much is my coverage if I need to do a cataract surgery?', a: 'Kindly be advised that this would depend on if the surgery us done in a private or a government restructured hospital. Kindly provide us with the care cost form/financial cost form for us to advise you further.' },
-      { q: 'Why do I need to authorise my Medisave when I’m admitted to the hospital?', a: 'Yes.' },
-      { q: 'For hospital & surgical claims, will the insurance company pay back to my Medisave account?', a: 'If you had used the LOG at the hospital, the insurer would first pay to the hospital, then to you if you had made any \ncheque or cash payment, and finally to your Medisave account less any incurred expenses not covered. If you had \nsettled the bill directly at the hospital and utilized your Medisave account, the insurer will first pay to you the cheque \nor cash payment and finally to your Medisave account less any incurred expenses not covered.' },
-      { q: 'How does the co-payment work for hospital admission? Can I use my personal insurance?', a: 'Yes, you may utilise your Medisave or Personal Insurance for the co-payment amount.' },
-      { q: 'How much will be covered and what do I have to pay?', a: 'We are unable to advise on the interim, kindly provide the referral letter and/or invoice for us to assist you further.' }
+      { q: 'Can I claim for a scope?', a: 'Please be informed that the scope procedure is covered under the policy and all claims will be subjected to insurer’s assessment however it will not be covered should the claim falls under the exclusion of the below. \n\n(a) Health screening / Investigative procedure\n(b) Pre-existing condition for new hirers below 12 months coverage' },
+      { q: 'How much is my coverage if I need to do a cataract surgery?', a: 'Kindly be advised that this would depend on if the surgery us done in a private or a government restructured hospital. Kindly provide us with the financial counselling form/ care cost form for us to advise you further.' },
+      { q: 'Why do I need to authorise my Medisave when I’m admitted to the hospital?', a: 'Please be informed that ustilising a  Letter of Gaurantee would require activation of Medisave as per the rules and regulations of Insurer and Hospital.' },
+      { q: 'For hospital & surgical claims, will the insurance company pay back to my Medisave account?', a: 'If you had used the LOG at the hospital, the insurer would first pay to the hospital, then to you if you had made any cheque or cash payment, and finally to your Medisave account less any incurred expenses not covered. If you had settled the bill directly at the hospital and utilized your Medisave account, the insurer will first pay to you the cheque or cash payment and finally to your Medisave account less any incurred expenses not covered.' },
+      { q: 'Can I use my personal insurance for hospital admission?', a: 'You may utilise your Medisave or Personal Insurance for hospital admission.' },
+      { q: 'How much will be covered and what do I have to pay?', a: 'We are unable to advise on the interim, kindly provide the referral letter and/or invoice for us to assist you further.' },
+      { q: 'Also to check understand our family like parent, children, husband or wife they can claim under my company insurance, May I know which of the category they able to claim?', a: 'Please find that the Group Insurance is extended to employee\'s only. \nKindly be advised that both employee and their direct family members can enjoy the Familycare services for preferred rates under Fullerton Health. You may wish to locate the information guide for Familycare program via the portal under Benefits > Documents.' },
+      { q: 'I am looking into Health screening plans under Fullerton Health. May check if there is any special rate for CBRE employee?', a: 'Yes, there is a customised package A for CBRE employees. KIndly log in to our portal to download the deck under Benefit > Documents > CBRE Fullerton Health - Executive Customised Health Screening Package A.' },
+      { q: 'I’m checking to see if the influenza vaccine is part of the insurance benefits.', a: 'Please be informed that preventive care, vaccination, immunization, general check-up, health screening or genetic screening is not covered under the policy.' }
     ]
   },
   {
@@ -36,7 +39,7 @@ const QUICK_QUESTIONS = [
       </svg>
     ),
     questions: [
-      { q: 'How do I request for a Letter of Guarantee?', a: 'Please assist to advise us on the following at least 1 week before your procedure:\n\n-	Admission Date:\n-	Hospital Name (The surgery must be performing in the hospital operating theatre):\n-	Diagnosis: \n\nDo provide us with the referral letter, pre admission letter, and/or financial cost form where applicable.' }
+      { q: 'How do I request for a Letter of Guarantee?', a: 'Please assist to provide us with the referral letter, pre admission letter and financial cost form (private hospital) / care cost form (restructured hospital) via this chat or drop us a message in the portal for us to assist you further.' }
     ]
   },
   {
@@ -48,28 +51,14 @@ const QUICK_QUESTIONS = [
       </svg>
     ),
     questions: [
-      { q: 'How do I submit medical claims?', a: 'Kindly be advised that employee would have to submit the claims on your behalf through the portal at https://benefits.inspro.com.sg/. \n\nYou may submit your claim under New Claims > Select incurred date using the calendar icon > Claim Category: Insurance' },
+      { q: 'How do I submit medical claims?', a: 'Kindly submit the claims by logging in to the portal under New Claims > Select incurred date using the calendar icon > Claim Category: Insurance' },
       { q: 'I cannot log in, what is my User ID?', a: '' },
-      { q: 'I cannot log in, how do I reset my password?', a: 'Kindly click on the “First Time Login/Forgot your password”' },
+      { q: 'I cannot log in, how do I reset my password?', a: 'Kindly click on the “First Time Login/Forgot your password” to reset your password.' },
       { q: 'How Can I change my phone number For the OTP?', a: 'Please be advised to email to us at helpdesk@inpro.com.sg with your new contact details for us to update.' },
       { q: 'I am unable to submit the claim, “consent statement” required? Where is the consent statement?', a: 'Kindly use the calendar icon to select the date for more fields to appear. The consent statement is a toggle button just above the Submit button.' },
-      { q: 'Where can I find my GP Panel List?', a: 'Please be advised that the GP Listing is updated monthly and it is not advisable to circulate the listing. \n\nEmployee has to access the portal and click on Ecard > Find your nearest clinic, to locate GP under the Panel.' },
-      { q: 'Where can I find my Specialist Panel list?', a: 'Please furnish your referral for us to assist you further. Please be informed that for a Specialist visit, you may contact the Tokyo Marine concierge at 3129 3002 to make an appointment for Panel Specialist.' },
-      { q: 'Why do I have to make payment at Panel clinic?', a: 'Kindly advise if you have provided the eCard upon registration. Please be advised that Panel clinic may request payment for the following reasons:\n(a) Conditions not covered E.g. Prevention – if you are travelling and you ask for flu or diarrhoea medication\nalthough you are not suffering from these medical conditions\n(b) Medication not related to the medical condition you are seeking treatment for. E.g. You have flu, but you\nask for cream for your skin\n(c) Collection of medicine with no consultation E.g. Calling the doctor to ask for Panadol tablets\n(d) Obtaining Referral Letter / Medical Certificate (MC) only. Some doctors will charge even if there is no\nmedication given as the doctor’s time is taken to issue these documents' }
-    ]
-  },
-  {
-    id: 'claims-status',
-    title: 'Claims Status',
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-5 ic-h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-      </svg>
-    ),
-    questions: [
-      { q: 'When will my claims be reimbursed?', a: 'Please be informed that all claims processing time will take about 17 working days to a calendar month upon receiving full documentation. You will be notified on the outcome once the insurer has assessed the claim.' },
-      { q: 'The status is “paid”, but I haven’t received it on my end.', a: 'Please be advised that bank processing may take up to 7 working days.' },
-      { q: 'My flexible claims has been submitted for a long time, is there something wrong?', a: 'Please be informed that for Flexible benefits claims, the claim processing time will take place after the last day of submission and claims will be approved into the following months\' payroll' }
+      { q: 'Where can I find my GP Panel List?', a: 'Click on "Find your nearest clinic" to locate GP clinic under the Panel.' },
+      { q: 'Where can I find my Specialist Panel list?', a: 'Kindly contact the Tokyo Marine concierge at 3129 3002 to make an appointment for Panel Specialist.' },
+      { q: 'Why do I have to make payment at Panel clinic?', a: 'Kindly advise if you have provided the eCard upon registration. Please be advised that Panel clinic may request payment for the following reasons:\n\n(a) Conditions not covered E.g. Prevention – if you are travelling and you ask for flu or diarrhoea medication although you are not suffering from these medical conditions\n(b) Medication not related to the medical condition you are seeking treatment for. E.g. You have flu, but you ask for cream for your skin\n(c) Collection of medicine with no consultation E.g. Calling the doctor to ask for Panadol tablets\n(d) Obtaining Referral Letter / Medical Certificate (MC) only. Some doctors will charge even if there is no medication given as the doctor’s time is taken to issue these documents' }
     ]
   }
 ];

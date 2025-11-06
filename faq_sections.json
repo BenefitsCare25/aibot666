@@ -2,18 +2,18 @@
   "Benefit Coverage": [
     {
       "number": 1,
-      "question": "How do I check how much balance I have left? (RHB/LGI/Companies with benefit limit)",
+      "question": "How do I check how much balance I have left for Specialist?",
       "answer": "Kindly drop us a message in the portal to check on your utilisation records."
     },
     {
       "number": 2,
-      "question": "Why is my claim up to $40/$60 only?",
-      "answer": "You would be required to access your Benefits Portal and present the E-card upon registration otherwise the consultation reimbursement would fall under Non-panel GP benefit limit."
+      "question": "Why is my claim up to $60 only?",
+      "answer": "Please be informed of the possible reasons below.\n\n(a) For Panel Clinics, you would be required to access your Benefits Portal and present the Ecard upon registration otherwise the consultation reimbursement would fall under Non-panel GP benefit limit, up to $60.\n(b) For Non Panel clinics, reimbursement is up to $60 only."
     },
     {
       "number": 3,
       "question": "How do I claim GPA?",
-      "answer": "Please find the Personal Accident form in the portal under Benefits > Documents, to submit for claims."
+      "answer": "Please download the Group Personal Accident form in the portal under Benefits > Documents then complete the claim form (Page 1-3 only, ignore the medical report) and email back to us at helpdesk@inspro.com.sg.\n\nKindly note Policyholder is the company name and endorse the claim form with HR’s signature together with the company stamp."
     },
     {
       "number": 4,
@@ -23,17 +23,17 @@
     {
       "number": 5,
       "question": "Do I need a referral letter for visit to Gynae?",
-      "answer": "Referral letter is waived for visits to gynaecologist for conditions not normally treated by GP."
+      "answer": "Referral letter is waived for visits to gynaecologist for medical conditions not normally treated by GP."
     },
     {
       "number": 6,
       "question": "I have been to my specialist but I would like a second opinion.",
-      "answer": "Please be advised that 2nd opinion is not covered."
+      "answer": "Please be advised that 2nd opinion is not covered under the policy."
     },
     {
       "number": 7,
       "question": "I don’t have a referral letter, the polyclinic has given me a booking to the GRH for further treatment?",
-      "answer": "You may contact the hospital/clinic to provide you with the copy of the referral letter."
+      "answer": "You may do as below.\n\n(a) Contact the specialist hospital/clinic to provide you with the copy of the referral letter. Please note that expenses and costs incurred for obtaining documents such as referral letters or memos would not be payable.\n(b) Request the referral letter from the specialist on your next visit to the specialist."
     },
     {
       "number": 8,
@@ -48,46 +48,61 @@
     {
       "number": 10,
       "question": "Can I claim for a scope?",
-      "answer": "There must be signs & symptoms that necessitate the scope being performed. If not, the scope may not be covered. Kindly provide your referral or order form for us to assist you."
+      "answer": "Please be informed that the scope procedure is covered under the policy and all claims will be subjected to insurer’s assessment however it will not be covered should the claim falls under the exclusion of the below. \n\n(a) Health screening / Investigative procedure\n(b) Pre-existing condition for new hirers below 12 months coverage"
     },
     {
       "number": 11,
       "question": "How much is my coverage if I need to do a cataract surgery?",
-      "answer": "Kindly be advised that this would depend on if the surgery us done in a private or a government restructured hospital. Kindly provide us with the care cost form/financial cost form for us to advise you further."
+      "answer": "Kindly be advised that this would depend on if the surgery us done in a private or a government restructured hospital. Kindly provide us with the financial counselling form/ care cost form for us to advise you further."
     },
     {
       "number": 12,
       "question": "Why do I need to authorise my Medisave when I’m admitted to the hospital?",
-      "answer": "Yes."
+      "answer": "Please be informed that ustilising a  Letter of Gaurantee would require activation of Medisave as per the rules and regulations of Insurer and Hospital."
     },
     {
       "number": 13,
       "question": "For hospital & surgical claims, will the insurance company pay back to my Medisave account?",
-      "answer": "If you had used the LOG at the hospital, the insurer would first pay to the hospital, then to you if you had made any \ncheque or cash payment, and finally to your Medisave account less any incurred expenses not covered. If you had \nsettled the bill directly at the hospital and utilized your Medisave account, the insurer will first pay to you the cheque \nor cash payment and finally to your Medisave account less any incurred expenses not covered."
+      "answer": "If you had used the LOG at the hospital, the insurer would first pay to the hospital, then to you if you had made any cheque or cash payment, and finally to your Medisave account less any incurred expenses not covered. If you had settled the bill directly at the hospital and utilized your Medisave account, the insurer will first pay to you the cheque or cash payment and finally to your Medisave account less any incurred expenses not covered."
     },
     {
       "number": 14,
-      "question": "How does the co-payment work for hospital admission? Can I use my personal insurance?",
-      "answer": "Yes, you may utilise your Medisave or Personal Insurance for the co-payment amount."
+      "question": "Can I use my personal insurance for hospital admission?",
+      "answer": "You may utilise your Medisave or Personal Insurance for hospital admission."
     },
     {
       "number": 15,
       "question": "How much will be covered and what do I have to pay?",
       "answer": "We are unable to advise on the interim, kindly provide the referral letter and/or invoice for us to assist you further."
+    },
+    {
+      "number": 16,
+      "question": "Also to check understand our family like parent, children, husband or wife they can claim under my company insurance, May I know which of the category they able to claim?",
+      "answer": "Please find that the Group Insurance is extended to employee's only. \nKindly be advised that both employee and their direct family members can enjoy the Familycare services for preferred rates under Fullerton Health. You may wish to locate the information guide for Familycare program via the portal under Benefits > Documents."
+    },
+    {
+      "number": 17,
+      "question": "I am looking into Health screening plans under Fullerton Health. May check if there is any special rate for CBRE employee?",
+      "answer": "Yes, there is a customised package A for CBRE employees. KIndly log in to our portal to download the deck under Benefit > Documents > CBRE Fullerton Health - Executive Customised Health Screening Package A."
+    },
+    {
+      "number": 18,
+      "question": "I’m checking to see if the influenza vaccine is part of the insurance benefits.",
+      "answer": "Please be informed that preventive care, vaccination, immunization, general check-up, health screening or genetic screening is not covered under the policy."
     }
   ],
   "Letter of Guarantee (LOG)": [
     {
       "number": 1,
       "question": "How do I request for a Letter of Guarantee?",
-      "answer": "Please assist to advise us on the following at least 1 week before your procedure:\n\n-\tAdmission Date:\n-\tHospital Name (The surgery must be performing in the hospital operating theatre):\n-\tDiagnosis: \n\nDo provide us with the referral letter, pre admission letter, and/or financial cost form where applicable."
+      "answer": "Please assist to provide us with the referral letter, pre admission letter and financial cost form (private hospital) / care cost form (restructured hospital) via this chat or drop us a message in the portal for us to assist you further."
     }
   ],
   "Portal Matters": [
     {
       "number": 1,
       "question": "How do I submit medical claims?",
-      "answer": "Kindly be advised that employee would have to submit the claims on your behalf through the portal at https://benefits.inspro.com.sg/. \n\nYou may submit your claim under New Claims > Select incurred date using the calendar icon > Claim Category: Insurance"
+      "answer": "Kindly submit the claims by logging in to the portal under New Claims > Select incurred date using the calendar icon > Claim Category: Insurance"
     },
     {
       "number": 2,
@@ -97,7 +112,7 @@
     {
       "number": 3,
       "question": "I cannot log in, how do I reset my password?",
-      "answer": "Kindly click on the “First Time Login/Forgot your password”"
+      "answer": "Kindly click on the “First Time Login/Forgot your password” to reset your password."
     },
     {
       "number": 4,
@@ -112,34 +127,17 @@
     {
       "number": 6,
       "question": "Where can I find my GP Panel List?",
-      "answer": "Please be advised that the GP Listing is updated monthly and it is not advisable to circulate the listing. \n\nEmployee has to access the portal and click on Ecard > Find your nearest clinic, to locate GP under the Panel."
+      "answer": "Click on \"Find your nearest clinic\" to locate GP clinic under the Panel."
     },
     {
       "number": 7,
       "question": "Where can I find my Specialist Panel list?",
-      "answer": "Please furnish your referral for us to assist you further. Please be informed that for a Specialist visit, you may contact the Tokyo Marine concierge at 3129 3002 to make an appointment for Panel Specialist."
+      "answer": "Kindly contact the Tokyo Marine concierge at 3129 3002 to make an appointment for Panel Specialist."
     },
     {
       "number": 8,
       "question": "Why do I have to make payment at Panel clinic?",
-      "answer": "Kindly advise if you have provided the eCard upon registration. Please be advised that Panel clinic may request payment for the following reasons:\n(a) Conditions not covered E.g. Prevention – if you are travelling and you ask for flu or diarrhoea medication\nalthough you are not suffering from these medical conditions\n(b) Medication not related to the medical condition you are seeking treatment for. E.g. You have flu, but you\nask for cream for your skin\n(c) Collection of medicine with no consultation E.g. Calling the doctor to ask for Panadol tablets\n(d) Obtaining Referral Letter / Medical Certificate (MC) only. Some doctors will charge even if there is no\nmedication given as the doctor’s time is taken to issue these documents"
-    }
-  ],
-  "Claims Status": [
-    {
-      "number": 1,
-      "question": "When will my claims be reimbursed?",
-      "answer": "Please be informed that all claims processing time will take about 17 working days to a calendar month upon receiving full documentation. You will be notified on the outcome once the insurer has assessed the claim."
-    },
-    {
-      "number": 2,
-      "question": "The status is “paid”, but I haven’t received it on my end.",
-      "answer": "Please be advised that bank processing may take up to 7 working days."
-    },
-    {
-      "number": 3,
-      "question": "My flexible claims has been submitted for a long time, is there something wrong?",
-      "answer": "Please be informed that for Flexible benefits claims, the claim processing time will take place after the last day of submission and claims will be approved into the following months' payroll"
+      "answer": "Kindly advise if you have provided the eCard upon registration. Please be advised that Panel clinic may request payment for the following reasons:\n\n(a) Conditions not covered E.g. Prevention – if you are travelling and you ask for flu or diarrhoea medication although you are not suffering from these medical conditions\n(b) Medication not related to the medical condition you are seeking treatment for. E.g. You have flu, but you ask for cream for your skin\n(c) Collection of medicine with no consultation E.g. Calling the doctor to ask for Panadol tablets\n(d) Obtaining Referral Letter / Medical Certificate (MC) only. Some doctors will charge even if there is no medication given as the doctor’s time is taken to issue these documents"
     }
   ]
 }
