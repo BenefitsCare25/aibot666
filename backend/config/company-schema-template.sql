@@ -164,6 +164,29 @@ CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_qq_category ON {{SCHEMA_NAME}}.qu
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_qq_active ON {{SCHEMA_NAME}}.quick_questions(is_active);
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_qq_order ON {{SCHEMA_NAME}}.quick_questions(category_id, display_order);
 
+-- Log requests table: Store LOG (conversation history + attachments) requests sent to support team
+CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.log_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID NOT NULL,
+  employee_id UUID REFERENCES {{SCHEMA_NAME}}.employees(id) ON DELETE SET NULL,
+  request_type VARCHAR(20) NOT NULL CHECK (request_type IN ('keyword', 'button')),
+  request_message TEXT,
+  user_email VARCHAR(255),
+  acknowledgment_sent BOOLEAN DEFAULT false,
+  acknowledgment_sent_at TIMESTAMP WITH TIME ZONE,
+  email_sent BOOLEAN DEFAULT false,
+  email_sent_at TIMESTAMP WITH TIME ZONE,
+  email_error TEXT,
+  attachments JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes for log requests
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_log_requests_conversation ON {{SCHEMA_NAME}}.log_requests(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_log_requests_employee ON {{SCHEMA_NAME}}.log_requests(employee_id);
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_log_requests_created ON {{SCHEMA_NAME}}.log_requests(created_at DESC);
+
 -- ==========================================
 -- TRIGGERS AND FUNCTIONS
 -- ==========================================
@@ -191,6 +214,9 @@ CREATE TRIGGER update_employee_embeddings_updated_at BEFORE UPDATE ON {{SCHEMA_N
   FOR EACH ROW EXECUTE FUNCTION {{SCHEMA_NAME}}.update_updated_at_column();
 
 CREATE TRIGGER update_analytics_updated_at BEFORE UPDATE ON {{SCHEMA_NAME}}.analytics
+  FOR EACH ROW EXECUTE FUNCTION {{SCHEMA_NAME}}.update_updated_at_column();
+
+CREATE TRIGGER update_log_requests_updated_at BEFORE UPDATE ON {{SCHEMA_NAME}}.log_requests
   FOR EACH ROW EXECUTE FUNCTION {{SCHEMA_NAME}}.update_updated_at_column();
 
 -- ==========================================
@@ -311,6 +337,16 @@ CREATE POLICY "employee_embeddings_service_role_only" ON {{SCHEMA_NAME}}.employe
   FOR ALL
   USING (current_setting('app.service_role', true)::boolean = true);
 
+-- Enable RLS on log_requests table
+ALTER TABLE {{SCHEMA_NAME}}.log_requests ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Service role can manage all log requests
+CREATE POLICY "log_requests_service_role_all" ON {{SCHEMA_NAME}}.log_requests
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
 -- ==========================================
 -- PERMISSIONS AND ACCESS GRANTS
 -- ==========================================
@@ -339,7 +375,7 @@ RESET search_path;
 -- SCHEMA CREATION COMPLETE
 -- ==========================================
 -- Schema {{SCHEMA_NAME}} has been created with:
--- - 6 tables (employees, knowledge_base, chat_history, escalations, employee_embeddings, analytics)
+-- - 8 tables (employees, knowledge_base, chat_history, escalations, employee_embeddings, analytics, quick_questions, log_requests)
 -- - Vector similarity search with HNSW indexes
 -- - Row-level security policies
 -- - Automatic updated_at triggers
