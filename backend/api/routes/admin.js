@@ -1372,4 +1372,52 @@ router.post('/quick-questions/bulk-import', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/admin/quick-questions/upload-excel
+ * Upload and import quick questions from Excel file
+ */
+router.post('/quick-questions/upload-excel', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No file uploaded'
+      });
+    }
+
+    const { replace } = req.body;
+    const schemaName = req.companySchema;
+
+    // Import from Excel
+    const { importQuickQuestionsFromExcel } = await import('../services/excelQuickQuestions.js');
+    const result = await importQuickQuestionsFromExcel(
+      req.file.path,
+      schemaName,
+      replace === 'true'
+    );
+
+    // Delete uploaded file
+    fs.unlinkSync(req.file.path);
+
+    res.json({
+      success: true,
+      message: `Successfully imported ${result.imported} questions from ${result.categories.length} categories`,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error uploading Excel file:', error);
+
+    // Clean up file if it exists
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
+    res.status(400).json({
+      success: false,
+      error: 'Failed to import quick questions from Excel',
+      details: error.message
+    });
+  }
+});
+
 export default router;

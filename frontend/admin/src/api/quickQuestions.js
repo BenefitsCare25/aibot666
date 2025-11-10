@@ -29,5 +29,18 @@ export const quickQuestionsApi = {
   // Bulk import quick questions
   bulkImport: async (questions, replace = false) => {
     return apiClient.post('/api/admin/quick-questions/bulk-import', { questions, replace });
+  },
+
+  // Upload Excel file
+  uploadExcel: async (file, replace = false) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('replace', replace.toString());
+
+    return apiClient.post('/api/admin/quick-questions/upload-excel', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
   }
 };
