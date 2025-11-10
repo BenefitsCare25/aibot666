@@ -128,3 +128,57 @@ GRANT EXECUTE ON FUNCTION public.delete_all_quick_questions(TEXT) TO postgres, a
 -- Test the functions
 -- SELECT * FROM public.get_quick_questions_by_schema('cbre');
 -- SELECT * FROM public.get_all_quick_questions_by_schema('cbre');
+
+-- ========================================================================
+-- Knowledge Base Cross-Schema Functions
+-- ========================================================================
+
+-- Drop existing functions first (if they exist)
+DROP FUNCTION IF EXISTS public.insert_knowledge_entry(TEXT, TEXT, TEXT, TEXT, TEXT);
+DROP FUNCTION IF EXISTS public.delete_all_knowledge_entries(TEXT);
+
+-- Create function to insert knowledge base entries
+CREATE OR REPLACE FUNCTION public.insert_knowledge_entry(
+    schema_name TEXT,
+    p_title TEXT,
+    p_content TEXT,
+    p_category TEXT DEFAULT 'general',
+    p_subcategory TEXT DEFAULT NULL
+)
+RETURNS UUID AS $$
+DECLARE
+    new_id UUID;
+BEGIN
+    IF schema_name !~ '^[a-z_][a-z0-9_]*$' THEN
+        RAISE EXCEPTION 'Invalid schema name';
+    END IF;
+
+    EXECUTE format(
+        'INSERT INTO %I.knowledge_base
+         (title, content, category, subcategory)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id',
+        schema_name
+    ) USING p_title, p_content, p_category, p_subcategory
+    INTO new_id;
+
+    RETURN new_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.insert_knowledge_entry(TEXT, TEXT, TEXT, TEXT, TEXT) TO postgres, anon, authenticated, service_role;
+
+-- Create function to delete all knowledge base entries (for replace functionality)
+CREATE OR REPLACE FUNCTION public.delete_all_knowledge_entries(schema_name TEXT)
+RETURNS VOID AS $$
+BEGIN
+    IF schema_name !~ '^[a-z_][a-z0-9_]*$' THEN
+        RAISE EXCEPTION 'Invalid schema name';
+    END IF;
+
+    -- Add WHERE clause to satisfy PostgreSQL safety requirement
+    EXECUTE format('DELETE FROM %I.knowledge_base WHERE id IS NOT NULL', schema_name);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.delete_all_knowledge_entries(TEXT) TO postgres, anon, authenticated, service_role;

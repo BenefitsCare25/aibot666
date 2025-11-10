@@ -25,5 +25,18 @@ export const knowledgeApi = {
   // Delete knowledge entry
   delete: async (id) => {
     return apiClient.delete(`/api/admin/knowledge/${id}`);
+  },
+
+  // Upload Excel file
+  uploadExcel: async (file, replace = false) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('replace', replace.toString());
+
+    return apiClient.post('/api/admin/knowledge/upload-excel', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
   }
 };

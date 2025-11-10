@@ -20,6 +20,10 @@ export default function KnowledgeBase() {
     subcategory: ''
   });
   const [savingId, setSavingId] = useState(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [replaceExisting, setReplaceExisting] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadEntries();
@@ -99,6 +103,42 @@ export default function KnowledgeBase() {
     }
   };
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
+      if (!validTypes.includes(file.type) && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+        toast.error('Please upload a valid Excel file (.xlsx or .xls)');
+        return;
+      }
+      setUploadFile(file);
+    }
+  };
+
+  const handleUploadExcel = async () => {
+    if (!uploadFile) {
+      toast.error('Please select a file to upload');
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const response = await knowledgeApi.uploadExcel(uploadFile, replaceExisting);
+      toast.success(response.data.message || 'Excel file uploaded successfully');
+      setShowUploadModal(false);
+      setUploadFile(null);
+      setReplaceExisting(false);
+      loadEntries();
+    } catch (error) {
+      console.error('Error uploading Excel file:', error);
+      const errorMessage = error.message || error.response?.data?.details || 'Failed to upload Excel file';
+      toast.error(errorMessage);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -106,13 +146,24 @@ export default function KnowledgeBase() {
           <h1 className="text-3xl font-bold text-gray-900">Knowledge Base</h1>
           <p className="text-gray-600 mt-1">Manage AI training content and policies</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
-        >
-          <span>➕</span>
-          Add Entry
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            Upload Excel
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
+          >
+            <span>➕</span>
+            Add Entry
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -235,6 +286,93 @@ export default function KnowledgeBase() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Upload Excel Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h2 className="text-xl font-bold mb-4">Upload Knowledge Base Excel</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Excel File (.xlsx or .xls)
+                </label>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleFileSelect}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+                {uploadFile && (
+                  <p className="text-sm text-green-600 mt-2">
+                    Selected: {uploadFile.name}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="replace-existing"
+                  checked={replaceExisting}
+                  onChange={(e) => setReplaceExisting(e.target.checked)}
+                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                />
+                <label htmlFor="replace-existing" className="ml-2 text-sm text-gray-700">
+                  Replace all existing entries
+                </label>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                <h4 className="text-sm font-medium text-blue-900 mb-1">Excel Format:</h4>
+                <ul className="text-xs text-blue-800 space-y-1">
+                  <li>• Column A: Title (required)</li>
+                  <li>• Column B: Content (required)</li>
+                  <li>• Column C: Category (optional, defaults to 'general')</li>
+                  <li>• Column D: Subcategory (optional)</li>
+                  <li>• First row is treated as header and skipped</li>
+                </ul>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={handleUploadExcel}
+                  disabled={uploading || !uploadFile}
+                  className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
+                    uploading || !uploadFile
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
+                >
+                  {uploading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Uploading...
+                    </span>
+                  ) : (
+                    'Upload & Import'
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setUploadFile(null);
+                    setReplaceExisting(false);
+                  }}
+                  disabled={uploading}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
