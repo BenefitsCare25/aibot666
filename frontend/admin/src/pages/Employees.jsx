@@ -13,6 +13,10 @@ export default function Employees() {
   const [isUploading, setIsUploading] = useState(false);
   const [duplicateAction, setDuplicateAction] = useState('skip');
   const [uploadResult, setUploadResult] = useState(null);
+  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState(null);
 
   useEffect(() => {
     loadEmployees();
@@ -91,6 +95,42 @@ export default function Employees() {
       toast.success('Template downloaded!');
     } catch (error) {
       toast.error('Failed to download template');
+    }
+  };
+
+  const handleEditClick = (employee) => {
+    setEditingEmployee({ ...employee });
+    setShowEditModal(true);
+  };
+
+  const handleEditSave = async () => {
+    try {
+      await employeeApi.update(editingEmployee.id, editingEmployee);
+      toast.success('Employee updated successfully!');
+      setShowEditModal(false);
+      setEditingEmployee(null);
+      loadEmployees();
+    } catch (error) {
+      toast.error('Failed to update employee');
+      console.error(error);
+    }
+  };
+
+  const handleDeleteClick = (employee) => {
+    setEmployeeToDelete(employee);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      await employeeApi.delete(employeeToDelete.id);
+      toast.success('Employee deleted successfully!');
+      setShowDeleteConfirm(false);
+      setEmployeeToDelete(null);
+      loadEmployees();
+    } catch (error) {
+      toast.error('Failed to delete employee');
+      console.error(error);
     }
   };
 
@@ -257,6 +297,9 @@ export default function Employees() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Coverage
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -281,6 +324,24 @@ export default function Employees() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         ${employee.coverage_limit?.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEditClick(employee)}
+                            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                            title="Edit employee"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(employee)}
+                            className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                            title="Delete employee"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -313,6 +374,125 @@ export default function Employees() {
           </>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && editingEmployee && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Edit Employee</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
+                <input
+                  type="text"
+                  value={editingEmployee.employee_id || ''}
+                  onChange={(e) => setEditingEmployee({ ...editingEmployee, employee_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                <input
+                  type="text"
+                  value={editingEmployee.user_id || ''}
+                  onChange={(e) => setEditingEmployee({ ...editingEmployee, user_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={editingEmployee.name || ''}
+                  onChange={(e) => setEditingEmployee({ ...editingEmployee, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editingEmployee.email || ''}
+                  onChange={(e) => setEditingEmployee({ ...editingEmployee, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Policy Type</label>
+                <input
+                  type="text"
+                  value={editingEmployee.policy_type || ''}
+                  onChange={(e) => setEditingEmployee({ ...editingEmployee, policy_type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Coverage Limit</label>
+                <input
+                  type="number"
+                  value={editingEmployee.coverage_limit || ''}
+                  onChange={(e) => setEditingEmployee({ ...editingEmployee, coverage_limit: parseFloat(e.target.value) })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingEmployee(null);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSave}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && employeeToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Confirm Delete</h2>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete <strong>{employeeToDelete.name}</strong> ({employeeToDelete.employee_id})?
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setEmployeeToDelete(null);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

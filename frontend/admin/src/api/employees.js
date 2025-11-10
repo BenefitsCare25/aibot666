@@ -17,6 +17,16 @@ export const employeeApi = {
     return apiClient.post('/api/admin/employees', employeeData);
   },
 
+  // Update employee
+  update: async (id, employeeData) => {
+    return apiClient.put(`/api/admin/employees/${id}`, employeeData);
+  },
+
+  // Delete employee
+  delete: async (id) => {
+    return apiClient.delete(`/api/admin/employees/${id}`);
+  },
+
   // Upload employees via Excel
   uploadExcel: async (file, duplicateAction = 'skip', onProgress) => {
     const formData = new FormData();

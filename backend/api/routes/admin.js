@@ -289,6 +289,74 @@ router.post('/employees', async (req, res) => {
 });
 
 /**
+ * PUT /api/admin/employees/:id
+ * Update employee by ID
+ */
+router.put('/employees/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    const { data: employee, error } = await req.supabase
+      .from('employees')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: employee
+    });
+  } catch (error) {
+    console.error('Error updating employee:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to update employee',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/admin/employees/:id
+ * Delete employee by ID
+ */
+router.delete('/employees/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await req.supabase
+      .from('employees')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'Employee deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting employee:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to delete employee',
+      details: error.message
+    });
+  }
+});
+
+/**
  * POST /api/admin/knowledge
  * Add knowledge base entry
  */
