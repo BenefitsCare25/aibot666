@@ -40,12 +40,20 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
   const [loading, setLoading] = useState(true);
   const [expandedCategory, setExpandedCategory] = useState(null);
   const apiUrl = useChatStore((state) => state.apiUrl);
+  const domain = useChatStore((state) => state.domain);
 
   useEffect(() => {
     // Load quick questions from API
     const loadQuickQuestions = async () => {
       try {
-        const response = await fetch(`${apiUrl}/api/admin/quick-questions`);
+        // Use domain override if provided, otherwise extract from current page URL
+        const currentDomain = domain || window.location.hostname;
+
+        const response = await fetch(`${apiUrl}/api/admin/quick-questions`, {
+          headers: {
+            'X-Widget-Domain': currentDomain
+          }
+        });
         if (response.ok) {
           const result = await response.json();
           if (result.success && result.data) {
@@ -69,7 +77,7 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
     if (apiUrl) {
       loadQuickQuestions();
     }
-  }, [apiUrl]);
+  }, [apiUrl, domain]);
 
   const toggleCategory = (categoryId) => {
     setExpandedCategory(expandedCategory === categoryId ? null : categoryId);
