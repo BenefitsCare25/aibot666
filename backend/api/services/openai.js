@@ -83,6 +83,9 @@ function createRAGPrompt(query, contexts, employeeData) {
   const employeeInfo = employeeData ? `
 Employee Information:
 - Name: ${employeeData.name}
+- Employee ID: ${employeeData.employee_id || 'N/A'}
+- User ID: ${employeeData.user_id || 'N/A'}
+- Email: ${employeeData.email || 'N/A'}
 - Policy Type: ${employeeData.policy_type}
 - Coverage Limit: $${employeeData.coverage_limit}
 - Annual Claim Limit: $${employeeData.annual_claim_limit}

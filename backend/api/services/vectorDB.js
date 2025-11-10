@@ -335,6 +335,9 @@ export async function addEmployee(employeeData, supabaseClient = null) {
     // Generate embedding content
     const embeddingContent = `
       Employee: ${employeeData.name}
+      Employee ID: ${employeeData.employee_id || 'N/A'}
+      User ID: ${employeeData.user_id || 'N/A'}
+      Email: ${employeeData.email || 'N/A'}
       Department: ${employeeData.department}
       Policy Type: ${employeeData.policy_type}
       Coverage Limit: ${employeeData.coverage_limit}
@@ -389,6 +392,9 @@ export async function addEmployeesBatch(employeesData, supabaseClient = null) {
     // Generate embeddings for all employees
     const embeddingContents = employees.map(emp => `
       Employee: ${emp.name}
+      Employee ID: ${emp.employee_id || 'N/A'}
+      User ID: ${emp.user_id || 'N/A'}
+      Email: ${emp.email || 'N/A'}
       Department: ${emp.department}
       Policy Type: ${emp.policy_type}
       Coverage Limit: ${emp.coverage_limit}
