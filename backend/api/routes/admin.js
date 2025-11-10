@@ -1385,6 +1385,28 @@ router.post('/quick-questions/bulk-import', async (req, res) => {
 });
 
 /**
+ * GET /api/admin/quick-questions/download-template
+ * Download Excel template for quick questions
+ */
+router.get('/quick-questions/download-template', async (req, res) => {
+  try {
+    const { generateQuickQuestionsTemplate } = await import('../services/excelTemplateGenerator.js');
+    const buffer = await generateQuickQuestionsTemplate();
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=QuickQuestions_Template.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    console.error('Error generating template:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate template',
+      details: error.message
+    });
+  }
+});
+
+/**
  * POST /api/admin/quick-questions/upload-excel
  * Upload and import quick questions from Excel file
  */

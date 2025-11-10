@@ -29,7 +29,8 @@
       "Bash(del parse_excel.py)",
       "Bash(awk:*)",
       "Bash(gh auth switch:*)",
-      "Bash(nul)"
+      "Bash(nul)",
+      "Bash(pip install:*)"
     ],
     "deny": [],
     "ask": []

@@ -4,9 +4,9 @@ import { supabase } from '../../config/supabase.js';
 /**
  * Parse FAQ Excel file and extract quick questions
  * Expected format:
- * - Column with questions (may be labeled "Benefit Coverage" or similar)
- * - Column with answers
- * - Section headers to denote categories (e.g., "Letter of Guarantee (LOG)", "Portal Matters")
+ * - 3 columns: No, Category/Question, Answer
+ * - Category headers: Row where column A = "No", column B = category name, column C = "Answer"
+ * - Question rows: Row where column A = number, column B = question, column C = answer
  */
 export async function parseQuickQuestionsExcel(filePath, schemaName) {
   const workbook = new ExcelJS.Workbook();
@@ -25,6 +25,7 @@ export async function parseQuickQuestionsExcel(filePath, schemaName) {
     'letter of guarantee': 'document',
     'log': 'document',
     'portal': 'computer',
+    'system': 'computer',
     'claims': 'clipboard',
     'claim': 'clipboard'
   };
@@ -49,31 +50,29 @@ export async function parseQuickQuestionsExcel(filePath, schemaName) {
       .replace(/\s+/g, '-');
   };
 
-  // Try to find the CBRE sheet or use first sheet
-  let worksheet = workbook.getWorksheet('CBRE') || workbook.worksheets[0];
+  // Try to find worksheet - prioritize CBRE, then FAQ Questions, then first sheet
+  let worksheet = workbook.getWorksheet('CBRE') ||
+                  workbook.getWorksheet('FAQ Questions') ||
+                  workbook.worksheets[0];
 
   console.log(`Processing worksheet: ${worksheet.name}`);
 
   worksheet.eachRow((row, rowNumber) => {
-    // Skip first few rows (headers)
-    if (rowNumber < 3) return;
-
     const cells = row.values;
 
-    // Try to get question and answer from columns
-    // Column 2 usually has the question, Column 3 has the answer
-    const questionText = cells[2];
-    const answerText = cells[3];
+    // Get column values (1-indexed array, so cells[1] = column A, cells[2] = column B, cells[3] = column C)
+    const colA = cells[1];
+    const colB = cells[2];
+    const colC = cells[3];
 
-    // Skip empty rows
-    if (!questionText || questionText === 'nan' || questionText.toString().trim() === '') {
+    // Skip completely empty rows
+    if (!colA && !colB && !colC) {
       return;
     }
 
-    // Check if this is a category header (has "Answer" in answer column or answer is "Answer")
-    if (answerText === 'Answer' || answerText === 'answer' || (!answerText || answerText === 'nan')) {
-      // This is a category header
-      currentCategory = questionText.toString().trim();
+    // Detect category header: Column A = "No", Column B = category name, Column C = "Answer"
+    if (colA === 'No' && colB && (colC === 'Answer' || colC === 'answer')) {
+      currentCategory = colB.toString().trim();
       currentCategoryId = createCategoryId(currentCategory);
       currentCategoryIcon = detectIcon(currentCategory);
       displayOrder = 0; // Reset display order for new category
@@ -81,21 +80,30 @@ export async function parseQuickQuestionsExcel(filePath, schemaName) {
       return;
     }
 
-    // This is a question-answer pair
-    if (currentCategory && answerText && answerText !== 'nan') {
+    // Detect question row: Column A = number, Column B = question text
+    if (typeof colA === 'number' && colB) {
+      const questionText = colB.toString().trim();
+      const answerText = colC ? colC.toString().trim() : '';
+
+      // Skip if no category has been set yet
+      if (!currentCategory) {
+        console.log(`Warning: Question found before category (row ${rowNumber}): ${questionText}`);
+        return;
+      }
+
       questions.push({
-        category_id: currentCategoryId || 'general',
-        category_title: currentCategory || 'General Questions',
+        category_id: currentCategoryId,
+        category_title: currentCategory,
         category_icon: currentCategoryIcon,
-        question: questionText.toString().trim(),
-        answer: answerText.toString().trim(),
+        question: questionText,
+        answer: answerText || 'Answer not provided',
         display_order: displayOrder++,
         is_active: true
       });
     }
   });
 
-  console.log(`Parsed ${questions.length} questions from ${currentCategory ? 'categorized' : 'uncategorized'} data`);
+  console.log(`Parsed ${questions.length} questions from categorized data`);
   return questions;
 }
 
