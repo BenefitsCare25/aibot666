@@ -75,6 +75,9 @@ export default function Companies() {
       resetForm();
       loadCompanies();
 
+      // Dispatch event to refresh company selector
+      window.dispatchEvent(new Event('company-changed'));
+
       // Clear success message after 5 seconds
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
@@ -129,6 +132,9 @@ export default function Companies() {
       setSuccessMessage(response.data.message || 'Company permanently deleted');
       loadCompanies();
 
+      // Dispatch event to refresh company selector
+      window.dispatchEvent(new Event('company-changed'));
+
       // Clear success message after 5 seconds
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
@@ -154,6 +160,9 @@ export default function Companies() {
       const response = await companyApi.updateStatus(id, newStatus);
       setSuccessMessage(`Company status updated to ${newStatus}`);
       loadCompanies();
+
+      // Dispatch event to refresh company selector
+      window.dispatchEvent(new Event('company-changed'));
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(''), 3000);

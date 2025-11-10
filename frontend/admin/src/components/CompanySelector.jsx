@@ -14,6 +14,18 @@ export default function CompanySelector() {
     if (saved) {
       setSelectedCompany(saved);
     }
+
+    // Listen for company changes (create/update/delete)
+    const handleCompanyChange = () => {
+      console.log('[CompanySelector] Received company-changed event, reloading...');
+      loadCompanies();
+    };
+
+    window.addEventListener('company-changed', handleCompanyChange);
+
+    return () => {
+      window.removeEventListener('company-changed', handleCompanyChange);
+    };
   }, []);
 
   const loadCompanies = async () => {
