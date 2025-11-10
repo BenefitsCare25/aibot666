@@ -50,7 +50,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
               d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
             />
           </svg>
-          <h3 className="ic-text-lg ic-font-semibold">Support</h3>
+          <h3 className="ic-text-lg ic-font-semibold">Support (Beta)</h3>
         </div>
         <button
           onClick={onClose}
@@ -145,7 +145,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
 
         <div className="ic-mt-4 ic-pt-4 ic-border-t ic-border-gray-200">
           <p className="ic-text-xs ic-text-gray-500 ic-text-center">
-            Need help? Contact HR at hr@company.com
+            helpdesk@inpro.com.sg
           </p>
         </div>
       </div>
