@@ -59,3 +59,8 @@ coverage/
 *.pem
 *.key
 *.crt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
