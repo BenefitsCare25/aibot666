@@ -17,7 +17,7 @@ import {
 } from '../services/vectorDB.js';
 import supabase from '../../config/supabase.js';
 import { getAllCompanies, getCompanyById } from '../services/companySchema.js';
-import { companyContextMiddleware, adminContextMiddleware } from '../middleware/companyContext.js';
+import { companyContextMiddleware, adminContextMiddleware, invalidateCompanyCache } from '../middleware/companyContext.js';
 import {
   createCompanySchema,
   rollbackCompanyCreation,
@@ -726,6 +726,13 @@ router.put('/companies/:id', async (req, res) => {
     const { id } = req.params;
     const { name, domain, additional_domains, settings, status } = req.body;
 
+    // Get old company data first (to invalidate old domain cache)
+    const { data: oldCompany } = await supabase
+      .from('companies')
+      .select('domain, additional_domains')
+      .eq('id', id)
+      .single();
+
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (domain !== undefined) updates.domain = domain;
@@ -741,6 +748,24 @@ router.put('/companies/:id', async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // Invalidate cache for old domain(s)
+    if (oldCompany) {
+      await invalidateCompanyCache(oldCompany.domain);
+      if (oldCompany.additional_domains) {
+        for (const additionalDomain of oldCompany.additional_domains) {
+          await invalidateCompanyCache(additionalDomain);
+        }
+      }
+    }
+
+    // Invalidate cache for new domain(s)
+    await invalidateCompanyCache(company.domain);
+    if (company.additional_domains) {
+      for (const additionalDomain of company.additional_domains) {
+        await invalidateCompanyCache(additionalDomain);
+      }
+    }
 
     res.json({
       success: true,
@@ -765,10 +790,27 @@ router.delete('/companies/:id', async (req, res) => {
     const { id } = req.params;
     const { permanent } = req.query; // Check if permanent deletion is requested
 
+    // Get company data first (to invalidate cache)
+    const { data: companyToDelete } = await supabase
+      .from('companies')
+      .select('domain, additional_domains')
+      .eq('id', id)
+      .single();
+
     if (permanent === 'true') {
       // Hard delete: permanently delete schema and company record
       const { hardDeleteCompany } = await import('../services/schemaAutomation.js');
       const result = await hardDeleteCompany(id, req.user?.email || 'admin');
+
+      // Invalidate cache for deleted company's domains
+      if (companyToDelete) {
+        await invalidateCompanyCache(companyToDelete.domain);
+        if (companyToDelete.additional_domains) {
+          for (const additionalDomain of companyToDelete.additional_domains) {
+            await invalidateCompanyCache(additionalDomain);
+          }
+        }
+      }
 
       res.json({
         success: true,
@@ -780,6 +822,16 @@ router.delete('/companies/:id', async (req, res) => {
       // Soft delete: preserve schema and data
       const { softDeleteCompany } = await import('../services/schemaAutomation.js');
       const company = await softDeleteCompany(id, req.user?.email || 'admin');
+
+      // Invalidate cache for soft deleted company's domains
+      if (companyToDelete) {
+        await invalidateCompanyCache(companyToDelete.domain);
+        if (companyToDelete.additional_domains) {
+          for (const additionalDomain of companyToDelete.additional_domains) {
+            await invalidateCompanyCache(additionalDomain);
+          }
+        }
+      }
 
       res.json({
         success: true,
