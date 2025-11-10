@@ -36,10 +36,23 @@ export default function CompanySelector() {
         setCompanies(response.data);
         // Auto-select first company if none selected (but don't reload)
         const saved = localStorage.getItem('selected_company_domain');
+
+        // Check if saved domain still exists in the company list
+        const savedCompanyExists = saved && response.data.some(c => c.domain === saved);
+
         if (!saved && response.data.length > 0) {
+          // No saved selection, auto-select first company
           const firstDomain = response.data[0].domain;
           setSelectedCompany(firstDomain);
           localStorage.setItem('selected_company_domain', firstDomain);
+        } else if (saved && !savedCompanyExists && response.data.length > 0) {
+          // Saved domain no longer exists, clear it and select first company
+          console.warn(`[CompanySelector] Saved domain "${saved}" no longer exists. Selecting first available company.`);
+          const firstDomain = response.data[0].domain;
+          setSelectedCompany(firstDomain);
+          localStorage.setItem('selected_company_domain', firstDomain);
+          // Reload to apply new company context
+          window.location.reload();
         }
       }
     } catch (err) {
