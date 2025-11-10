@@ -131,8 +131,11 @@ router.post('/employees/upload', upload.single('file'), async (req, res) => {
       console.log('[Excel Upload] Warnings:', validation.warnings);
     }
 
+    // Get duplicate handling action from request (skip or update)
+    const duplicateAction = req.body.duplicateAction || 'skip';
+
     // Import employees with company-specific client
-    const result = await importEmployeesFromExcel(filePath, req.supabase);
+    const result = await importEmployeesFromExcel(filePath, req.supabase, duplicateAction);
 
     // Clean up uploaded file
     fs.unlinkSync(filePath);
@@ -149,6 +152,9 @@ router.post('/employees/upload', upload.single('file'), async (req, res) => {
       success: true,
       data: {
         imported: result.imported,
+        updated: result.updated,
+        skipped: result.skipped,
+        duplicates: result.duplicates,
         message: result.message
       }
     });

@@ -18,9 +18,10 @@ export const employeeApi = {
   },
 
   // Upload employees via Excel
-  uploadExcel: async (file, onProgress) => {
+  uploadExcel: async (file, duplicateAction = 'skip', onProgress) => {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('duplicateAction', duplicateAction);
 
     return apiClient.post('/api/admin/employees/upload', formData, {
       headers: {

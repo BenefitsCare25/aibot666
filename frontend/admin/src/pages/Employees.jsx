@@ -11,6 +11,8 @@ export default function Employees() {
   const [totalPages, setTotalPages] = useState(1);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [duplicateAction, setDuplicateAction] = useState('skip');
+  const [uploadResult, setUploadResult] = useState(null);
 
   useEffect(() => {
     loadEmployees();
@@ -41,13 +43,29 @@ export default function Employees() {
 
     setIsUploading(true);
     setUploadProgress(0);
+    setUploadResult(null);
 
     try {
-      await employeeApi.uploadExcel(file, (progress) => {
+      const result = await employeeApi.uploadExcel(file, duplicateAction, (progress) => {
         setUploadProgress(progress);
       });
 
-      toast.success('Employees uploaded successfully!');
+      setUploadResult(result);
+
+      // Show success message
+      if (result.imported > 0 || result.updated > 0) {
+        toast.success(result.message || 'Employees processed successfully!');
+      }
+
+      // Show warnings for duplicates
+      if (result.duplicates && result.duplicates.length > 0) {
+        if (duplicateAction === 'skip') {
+          toast.warning(`${result.skipped} duplicate(s) were skipped`);
+        } else {
+          toast.success(`${result.updated} duplicate(s) were updated`);
+        }
+      }
+
       loadEmployees();
     } catch (error) {
       toast.error(error.message || 'Failed to upload employees');
@@ -96,6 +114,37 @@ export default function Employees() {
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Upload Employee Data</h2>
 
+        {/* Duplicate Handling Option */}
+        <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            How to handle duplicate Employee IDs:
+          </label>
+          <div className="flex gap-4">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="duplicateAction"
+                value="skip"
+                checked={duplicateAction === 'skip'}
+                onChange={(e) => setDuplicateAction(e.target.value)}
+                className="mr-2"
+              />
+              <span className="text-sm text-gray-700">Skip duplicates (keep existing)</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="duplicateAction"
+                value="update"
+                checked={duplicateAction === 'update'}
+                onChange={(e) => setDuplicateAction(e.target.value)}
+                className="mr-2"
+              />
+              <span className="text-sm text-gray-700">Update existing employees</span>
+            </label>
+          </div>
+        </div>
+
         <div
           {...getRootProps()}
           className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
@@ -127,6 +176,36 @@ export default function Employees() {
             </>
           )}
         </div>
+
+        {/* Upload Result Summary */}
+        {uploadResult && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="font-medium text-blue-900 mb-2">Upload Summary</h3>
+            <div className="text-sm text-blue-800 space-y-1">
+              <p>✅ New employees imported: <strong>{uploadResult.imported}</strong></p>
+              {uploadResult.updated > 0 && (
+                <p>🔄 Existing employees updated: <strong>{uploadResult.updated}</strong></p>
+              )}
+              {uploadResult.skipped > 0 && (
+                <p>⏭️ Duplicates skipped: <strong>{uploadResult.skipped}</strong></p>
+              )}
+              {uploadResult.duplicates && uploadResult.duplicates.length > 0 && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer font-medium">
+                    View {uploadResult.duplicates.length} duplicate(s)
+                  </summary>
+                  <ul className="mt-2 ml-4 space-y-1">
+                    {uploadResult.duplicates.map((dup, idx) => (
+                      <li key={idx}>
+                        {dup.employee_id} - {dup.name} ({dup.email})
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Search and Filter */}

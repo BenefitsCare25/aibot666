@@ -189,9 +189,10 @@ function parseExcelDate(dateValue) {
  * Import employees from Excel file to database
  * @param {string} filePath - Path to Excel file
  * @param {Object} supabaseClient - Company-specific Supabase client
+ * @param {string} duplicateAction - How to handle duplicates: 'skip' or 'update' (default: 'skip')
  * @returns {Promise<Object>} - Import results
  */
-export async function importEmployeesFromExcel(filePath, supabaseClient) {
+export async function importEmployeesFromExcel(filePath, supabaseClient, duplicateAction = 'skip') {
   try {
     console.log('Parsing Excel file...');
     const employees = await parseEmployeeExcel(filePath);
@@ -202,25 +203,104 @@ export async function importEmployeesFromExcel(filePath, supabaseClient) {
       return {
         success: true,
         imported: 0,
+        updated: 0,
+        skipped: 0,
+        duplicates: [],
         errors: [],
         message: 'No employees to import'
       };
     }
 
-    console.log('Importing to database with embeddings...');
-    const imported = await addEmployeesBatch(employees, supabaseClient);
+    // Check for existing employees
+    console.log('Checking for duplicate employee IDs...');
+    const employeeIds = employees.map(e => e.employee_id);
+
+    const { data: existingEmployees, error: checkError } = await supabaseClient
+      .from('employees')
+      .select('employee_id, name, email')
+      .in('employee_id', employeeIds);
+
+    if (checkError) {
+      throw new Error(`Failed to check for duplicates: ${checkError.message}`);
+    }
+
+    const existingIds = new Set(existingEmployees?.map(e => e.employee_id) || []);
+    const duplicates = employees.filter(e => existingIds.has(e.employee_id));
+    const newEmployees = employees.filter(e => !existingIds.has(e.employee_id));
+
+    console.log(`Found ${duplicates.length} duplicates, ${newEmployees.length} new employees`);
+
+    let imported = [];
+    let updated = [];
+    let skipped = [];
+
+    // Handle new employees
+    if (newEmployees.length > 0) {
+      console.log(`Importing ${newEmployees.length} new employees...`);
+      imported = await addEmployeesBatch(newEmployees, supabaseClient);
+    }
+
+    // Handle duplicates based on action
+    if (duplicates.length > 0) {
+      if (duplicateAction === 'update') {
+        console.log(`Updating ${duplicates.length} existing employees...`);
+        for (const emp of duplicates) {
+          try {
+            const { data, error } = await supabaseClient
+              .from('employees')
+              .update({
+                name: emp.name,
+                email: emp.email,
+                department: emp.department,
+                policy_type: emp.policy_type,
+                coverage_limit: emp.coverage_limit,
+                annual_claim_limit: emp.annual_claim_limit,
+                outpatient_limit: emp.outpatient_limit,
+                dental_limit: emp.dental_limit,
+                optical_limit: emp.optical_limit,
+                updated_at: new Date().toISOString()
+              })
+              .eq('employee_id', emp.employee_id)
+              .select()
+              .single();
+
+            if (!error && data) {
+              updated.push(data);
+            }
+          } catch (updateError) {
+            console.error(`Failed to update employee ${emp.employee_id}:`, updateError);
+          }
+        }
+      } else {
+        console.log(`Skipping ${duplicates.length} duplicate employees`);
+        skipped = duplicates;
+      }
+    }
+
+    const totalProcessed = imported.length + updated.length + skipped.length;
+    const duplicateInfo = duplicates.map(e => ({
+      employee_id: e.employee_id,
+      name: e.name,
+      email: e.email
+    }));
 
     return {
       success: true,
       imported: imported.length,
+      updated: updated.length,
+      skipped: skipped.length,
+      duplicates: duplicateInfo,
       errors: [],
-      message: `Successfully imported ${imported.length} employees`
+      message: `Processed ${totalProcessed} employees: ${imported.length} imported, ${updated.length} updated, ${skipped.length} skipped`
     };
   } catch (error) {
     console.error('Error importing employees:', error);
     return {
       success: false,
       imported: 0,
+      updated: 0,
+      skipped: 0,
+      duplicates: [],
       errors: [error.message],
       message: 'Import failed'
     };
