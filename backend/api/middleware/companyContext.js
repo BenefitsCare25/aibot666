@@ -70,6 +70,9 @@ export async function companyContextMiddleware(req, res, next) {
       metadata: company.metadata || {}
     };
 
+    // Add schema name directly for easy access
+    req.companySchema = company.schema_name;
+
     // Add schema-specific Supabase client to request
     req.supabase = schemaClient;
 
