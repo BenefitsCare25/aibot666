@@ -37,9 +37,18 @@ export const employeeApi = {
 
   // Download Excel template
   downloadTemplate: async () => {
-    const response = await apiClient.get('/api/admin/employees/template', {
-      responseType: 'blob'
-    });
+    // Use axios directly to bypass response interceptor that unwraps response.data
+    const axios = (await import('axios')).default;
+    const response = await axios.get(
+      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/employees/template`,
+      {
+        responseType: 'blob',
+        headers: {
+          'Authorization': localStorage.getItem('admin_token') ? `Bearer ${localStorage.getItem('admin_token')}` : '',
+          'X-Widget-Domain': localStorage.getItem('selected_company_domain') || ''
+        }
+      }
+    );
 
     const blob = new Blob([response.data], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

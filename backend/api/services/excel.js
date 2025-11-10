@@ -188,9 +188,10 @@ function parseExcelDate(dateValue) {
 /**
  * Import employees from Excel file to database
  * @param {string} filePath - Path to Excel file
+ * @param {Object} supabaseClient - Company-specific Supabase client
  * @returns {Promise<Object>} - Import results
  */
-export async function importEmployeesFromExcel(filePath) {
+export async function importEmployeesFromExcel(filePath, supabaseClient) {
   try {
     console.log('Parsing Excel file...');
     const employees = await parseEmployeeExcel(filePath);
@@ -207,7 +208,7 @@ export async function importEmployeesFromExcel(filePath) {
     }
 
     console.log('Importing to database with embeddings...');
-    const imported = await addEmployeesBatch(employees);
+    const imported = await addEmployeesBatch(employees, supabaseClient);
 
     return {
       success: true,

@@ -131,8 +131,8 @@ router.post('/employees/upload', upload.single('file'), async (req, res) => {
       console.log('[Excel Upload] Warnings:', validation.warnings);
     }
 
-    // Import employees
-    const result = await importEmployeesFromExcel(filePath);
+    // Import employees with company-specific client
+    const result = await importEmployeesFromExcel(filePath, req.supabase);
 
     // Clean up uploaded file
     fs.unlinkSync(filePath);

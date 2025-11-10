@@ -366,12 +366,15 @@ export async function addEmployee(employeeData) {
 /**
  * Add multiple employees in batch
  * @param {Array} employeesData - Array of employee objects
+ * @param {Object} supabaseClient - Company-specific Supabase client
  * @returns {Promise<Array>} - Array of created employees
  */
-export async function addEmployeesBatch(employeesData) {
+export async function addEmployeesBatch(employeesData, supabaseClient = null) {
+  const client = supabaseClient || supabase;
+
   try {
     // Insert employees
-    const { data: employees, error: empError } = await supabase
+    const { data: employees, error: empError } = await client
       .from('employees')
       .insert(employeesData)
       .select();
@@ -402,7 +405,7 @@ export async function addEmployeesBatch(employeesData) {
     }));
 
     // Insert embeddings
-    const { error: embError } = await supabase
+    const { error: embError } = await client
       .from('employee_embeddings')
       .insert(employeeEmbeddings);
 
