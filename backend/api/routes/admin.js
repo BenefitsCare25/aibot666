@@ -735,21 +735,74 @@ router.put('/companies/:id', async (req, res) => {
 router.delete('/companies/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const { permanent } = req.query; // Check if permanent deletion is requested
 
-    // Use soft delete to preserve schema and data
-    const company = await softDeleteCompany(id, req.user?.email || 'admin');
+    if (permanent === 'true') {
+      // Hard delete: permanently delete schema and company record
+      const { hardDeleteCompany } = await import('../services/schemaAutomation.js');
+      const result = await hardDeleteCompany(id, req.user?.email || 'admin');
 
-    res.json({
-      success: true,
-      message: 'Company deactivated successfully',
-      data: company,
-      note: 'Company marked as inactive. Database schema and all data preserved.'
-    });
+      res.json({
+        success: true,
+        message: 'Company permanently deleted',
+        data: result,
+        note: `Schema "${result.schemaName}" and all data have been permanently deleted. This action cannot be undone.`
+      });
+    } else {
+      // Soft delete: preserve schema and data
+      const { softDeleteCompany } = await import('../services/schemaAutomation.js');
+      const company = await softDeleteCompany(id, req.user?.email || 'admin');
+
+      res.json({
+        success: true,
+        message: 'Company deactivated successfully',
+        data: company,
+        note: 'Company marked as inactive. Database schema and all data preserved.'
+      });
+    }
   } catch (error) {
     console.error('Error deleting company:', error);
     res.status(400).json({
       success: false,
       error: 'Failed to delete company',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * PATCH /api/admin/companies/:id/status
+ * Update company status (active/inactive/suspended)
+ */
+router.patch('/companies/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Validate status value
+    const validStatuses = ['active', 'inactive', 'suspended'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid status',
+        details: `Status must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    // Update company status
+    const { updateCompany } = await import('../services/companySchema.js');
+    const company = await updateCompany(id, { status });
+
+    res.json({
+      success: true,
+      message: `Company status updated to ${status}`,
+      data: company
+    });
+  } catch (error) {
+    console.error('Error updating company status:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to update company status',
       details: error.message
     });
   }

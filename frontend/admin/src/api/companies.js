@@ -21,9 +21,17 @@ export const companyApi = {
     return apiClient.put(`/api/admin/companies/${id}`, companyData);
   },
 
-  // Delete company
-  delete: async (id) => {
-    return apiClient.delete(`/api/admin/companies/${id}`);
+  // Delete company (soft delete by default)
+  delete: async (id, permanent = false) => {
+    const url = permanent
+      ? `/api/admin/companies/${id}?permanent=true`
+      : `/api/admin/companies/${id}`;
+    return apiClient.delete(url);
+  },
+
+  // Update company status
+  updateStatus: async (id, status) => {
+    return apiClient.patch(`/api/admin/companies/${id}/status`, { status });
   },
 
   // Get embed code for company

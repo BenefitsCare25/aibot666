@@ -321,3 +321,111 @@ export async function softDeleteCompany(companyId, adminUser = 'system') {
 
   return data;
 }
+
+/**
+ * Hard delete company (permanently delete schema and company record)
+ * @param {string} companyId - Company ID to hard delete
+ * @param {string} adminUser - Admin user performing the action
+ * @returns {Promise<Object>} - Result with deletion details
+ */
+export async function hardDeleteCompany(companyId, adminUser = 'system') {
+  console.log(`[SchemaAutomation] Hard deleting company: ${companyId}`);
+
+  // Get company details for logging
+  const { data: company, error: fetchError } = await supabase
+    .from('companies')
+    .select('id, name, schema_name')
+    .eq('id', companyId)
+    .single();
+
+  if (fetchError || !company) {
+    throw new Error(`Company not found: ${companyId}`);
+  }
+
+  // Create activity log (pending status)
+  const log = await logSchemaActivity({
+    action: 'delete_schema',
+    schema_name: company.schema_name,
+    company_id: companyId,
+    admin_user: adminUser,
+    status: 'pending',
+    metadata: {
+      action_type: 'hard_delete',
+      company_name: company.name,
+      note: 'Permanent deletion of schema and all data'
+    }
+  });
+
+  try {
+    // Update log to in_progress
+    await updateSchemaActivityLog(log.id, 'in_progress');
+
+    // Drop the schema and all its objects
+    await dropCompanySchema(company.schema_name);
+
+    // Delete company record from registry
+    const { error: deleteError } = await supabase
+      .from('companies')
+      .delete()
+      .eq('id', companyId);
+
+    if (deleteError) {
+      throw new Error(`Failed to delete company record: ${deleteError.message}`);
+    }
+
+    // Update log to completed
+    await updateSchemaActivityLog(log.id, 'completed', null);
+
+    console.log(`[SchemaAutomation] Company hard deleted: ${company.name}`);
+
+    return {
+      success: true,
+      companyId,
+      companyName: company.name,
+      schemaName: company.schema_name,
+      logId: log.id
+    };
+  } catch (error) {
+    console.error('[SchemaAutomation] Hard delete failed:', error);
+
+    // Update log with error
+    await updateSchemaActivityLog(log.id, 'failed', error.message);
+
+    throw error;
+  }
+}
+
+/**
+ * Drop database schema completely
+ * @param {string} schemaName - Schema name to drop
+ * @returns {Promise<void>}
+ */
+export async function dropCompanySchema(schemaName) {
+  if (!postgres) {
+    throw new Error('PostgreSQL connection not available. Check SUPABASE_DB_PASSWORD in environment variables.');
+  }
+
+  // Validate schema name to prevent SQL injection
+  const validation = validateSchemaName(schemaName);
+  if (!validation.valid) {
+    throw new Error(`Invalid schema name: ${validation.error}`);
+  }
+
+  // Check if schema exists
+  const exists = await schemaExists(schemaName);
+  if (!exists) {
+    console.warn(`[SchemaAutomation] Schema "${schemaName}" does not exist, skipping drop`);
+    return;
+  }
+
+  // Drop schema cascade (removes all objects in the schema)
+  const dropSQL = `DROP SCHEMA IF EXISTS "${schemaName}" CASCADE;`;
+
+  try {
+    await postgres.query(dropSQL);
+    console.log(`[SchemaAutomation] Schema "${schemaName}" dropped successfully`);
+  } catch (error) {
+    console.error('[SchemaAutomation] Schema drop error:', error);
+    throw new Error(`Failed to drop schema "${schemaName}": ${error.message}`);
+  }
+}

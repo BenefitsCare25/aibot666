@@ -100,18 +100,33 @@ export default function Companies() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm(
-      'Are you sure you want to deactivate this company?\n\n' +
-      'This will mark the company as inactive, but all data and database schema will be preserved. ' +
-      'The company can be reactivated later by changing its status to active.'
-    )) {
+  const handleDelete = async (id, companyName) => {
+    // Confirm permanent deletion
+    const confirmMessage = `⚠️ PERMANENT DELETION WARNING ⚠️\n\n` +
+      `You are about to PERMANENTLY DELETE:\n` +
+      `Company: ${companyName}\n\n` +
+      `This will:\n` +
+      `• Delete the entire database schema and ALL data\n` +
+      `• Remove the company from the registry\n` +
+      `• This action CANNOT be undone\n\n` +
+      `Type "DELETE" to confirm permanent deletion:`;
+
+    const userInput = window.prompt(confirmMessage);
+
+    if (userInput !== 'DELETE') {
+      if (userInput !== null) {
+        setError('Deletion cancelled. You must type "DELETE" exactly to confirm.');
+      }
       return;
     }
 
     try {
-      const response = await companyApi.delete(id);
-      setSuccessMessage(response.data.message || 'Company deactivated successfully');
+      setSuccessMessage('');
+      setError('');
+
+      // Perform hard delete with permanent=true
+      const response = await companyApi.delete(id, true);
+      setSuccessMessage(response.data.message || 'Company permanently deleted');
       loadCompanies();
 
       // Clear success message after 5 seconds
@@ -119,6 +134,32 @@ export default function Companies() {
     } catch (err) {
       console.error('Error deleting company:', err);
       setError(err.response?.data?.details || 'Failed to delete company');
+    }
+  };
+
+  const handleStatusToggle = async (id, currentStatus) => {
+    // Determine next status in cycle: active -> inactive -> suspended -> active
+    const statusCycle = {
+      'active': 'inactive',
+      'inactive': 'suspended',
+      'suspended': 'active'
+    };
+
+    const newStatus = statusCycle[currentStatus] || 'active';
+
+    try {
+      setSuccessMessage('');
+      setError('');
+
+      const response = await companyApi.updateStatus(id, newStatus);
+      setSuccessMessage(`Company status updated to ${newStatus}`);
+      loadCompanies();
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Error updating status:', err);
+      setError(err.response?.data?.details || 'Failed to update company status');
     }
   };
 
@@ -390,19 +431,32 @@ export default function Companies() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
                       onClick={() => setShowEmbedCode(company)}
-                      className="text-blue-600 hover:text-blue-900 mr-4"
+                      className="text-blue-600 hover:text-blue-900 mr-3"
                       title="View embed code"
                     >
                       &lt;/&gt;
                     </button>
                     <button
+                      onClick={() => handleStatusToggle(company.id, company.status)}
+                      className={`mr-3 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                        company.status === 'active'
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          : company.status === 'suspended'
+                          ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                      }`}
+                      title="Click to toggle status"
+                    >
+                      Status
+                    </button>
+                    <button
                       onClick={() => handleEdit(company)}
-                      className="text-primary-600 hover:text-primary-900 mr-4"
+                      className="text-primary-600 hover:text-primary-900 mr-3"
                     >
                       Edit
                     </button>
                     <button
-                      onClick={() => handleDelete(company.id)}
+                      onClick={() => handleDelete(company.id, company.name)}
                       className="text-red-600 hover:text-red-900"
                     >
                       Delete
@@ -437,12 +491,13 @@ export default function Companies() {
 
       {/* Help Section */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-medium text-blue-900 mb-2">ℹ️ Schema Management</h3>
+        <h3 className="font-medium text-blue-900 mb-2">ℹ️ Company Management</h3>
         <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
           <li><strong>Automatic Schema Creation:</strong> Database schemas are created automatically when you add a new company</li>
           <li><strong>Schema Name:</strong> Cannot be changed after company creation</li>
-          <li><strong>Soft Delete:</strong> Deleting a company marks it as inactive but preserves all data and schema</li>
-          <li><strong>Reactivation:</strong> Inactive companies can be reactivated by updating their status to "active"</li>
+          <li><strong>Status Toggle:</strong> Click the "Status" button to cycle between Active → Inactive → Suspended → Active</li>
+          <li><strong>Permanent Delete:</strong> Delete button permanently removes the company, schema, and ALL data (requires typing "DELETE" to confirm)</li>
+          <li><strong>Status Management:</strong> Use status toggle to temporarily deactivate companies without losing data</li>
           <li><strong>Domain Normalization:</strong> Protocol, www, and port are removed automatically</li>
           <li><strong>Schema Template:</strong> All schemas use the template in <code>backend/config/company-schema-template.sql</code></li>
         </ul>
