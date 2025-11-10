@@ -8,9 +8,9 @@
 CREATE OR REPLACE FUNCTION public.get_quick_questions_by_schema(schema_name TEXT)
 RETURNS TABLE (
     id UUID,
-    category_id TEXT,
-    category_title TEXT,
-    category_icon TEXT,
+    category_id VARCHAR(100),
+    category_title VARCHAR(255),
+    category_icon VARCHAR(50),
     question TEXT,
     answer TEXT,
     display_order INTEGER,
@@ -43,9 +43,9 @@ GRANT EXECUTE ON FUNCTION public.get_quick_questions_by_schema(TEXT) TO postgres
 CREATE OR REPLACE FUNCTION public.get_all_quick_questions_by_schema(schema_name TEXT)
 RETURNS TABLE (
     id UUID,
-    category_id TEXT,
-    category_title TEXT,
-    category_icon TEXT,
+    category_id VARCHAR(100),
+    category_title VARCHAR(255),
+    category_icon VARCHAR(50),
     question TEXT,
     answer TEXT,
     display_order INTEGER,
@@ -112,7 +112,8 @@ BEGIN
         RAISE EXCEPTION 'Invalid schema name';
     END IF;
 
-    EXECUTE format('DELETE FROM %I.quick_questions', schema_name);
+    -- Add WHERE clause to satisfy PostgreSQL safety requirement
+    EXECUTE format('DELETE FROM %I.quick_questions WHERE id IS NOT NULL', schema_name);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
