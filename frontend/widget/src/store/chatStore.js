@@ -8,6 +8,7 @@ export const useChatStore = create((set, get) => ({
   sessionId: null,
   employeeId: null,
   employeeName: '',
+  employeeEmail: null, // Store employee email from database
   messages: [],
   isLoading: false,
   error: null,
@@ -30,6 +31,7 @@ export const useChatStore = create((set, get) => ({
       sessionId: null,
       employeeId: null,
       employeeName: '',
+      employeeEmail: null,
       messages: [],
       isLoading: false,
       error: null,
@@ -68,6 +70,7 @@ export const useChatStore = create((set, get) => ({
           sessionId,
           employeeId: employee.id,
           employeeName: employee.name,
+          employeeEmail: employee.email || null,
           messages: [],
           isLoading: false
         });
@@ -268,7 +271,34 @@ export const useChatStore = create((set, get) => ({
 
   // Enter LOG request mode
   enterLogMode: () => {
-    set({ isLogMode: true, showEmailInput: true });
+    const { employeeEmail, messages } = get();
+
+    // Auto-populate email if available from employee database
+    const autoEmail = employeeEmail || '';
+
+    // Create the bot message with document requirements
+    const botMessage = {
+      id: `assistant-log-${Date.now()}`,
+      role: 'assistant',
+      content: `For LOG request, you may attached the following documents:
+- Financial care cost form or
+- Pre-admission hospital form
+
+Alternatively, you may provide the following information:
+- Date of Admission:
+- Name of Hospital:
+- Medical Condition:`,
+      timestamp: new Date().toISOString(),
+      isSystemMessage: true
+    };
+
+    // Update state with LOG mode, email, and bot message
+    set({
+      isLogMode: true,
+      showEmailInput: true,
+      userEmail: autoEmail,
+      messages: [...messages, botMessage]
+    });
   },
 
   // Exit LOG request mode (cancel)

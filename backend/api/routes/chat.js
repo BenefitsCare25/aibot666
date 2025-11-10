@@ -106,7 +106,8 @@ router.post('/session', async (req, res) => {
         employee: {
           id: employee.id,
           name: employee.name,
-          policyType: employee.policy_type
+          policyType: employee.policy_type,
+          email: employee.email || null
         },
         company: {
           name: req.company.name
