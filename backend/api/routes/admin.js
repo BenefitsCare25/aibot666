@@ -1145,17 +1145,23 @@ router.get('/analytics', async (req, res) => {
  */
 router.get('/quick-questions', async (req, res) => {
   try {
-    const { data: questions, error } = await req.supabase
-      .from('quick_questions')
-      .select('*')
-      .eq('is_active', true)
-      .order('category_id, display_order');
+    const schemaName = req.companySchema;
+    console.log(`[Supabase] Querying quick_questions in schema: ${schemaName}`);
 
-    if (error) throw error;
+    // Use RPC function to query across schemas without manual exposure
+    const { data: questions, error } = await supabase
+      .rpc('get_quick_questions_by_schema', { schema_name: schemaName });
+
+    if (error) {
+      console.error('Error fetching quick questions:', error);
+      throw error;
+    }
+
+    console.log(`[Supabase] Found ${questions?.length || 0} active quick questions`);
 
     // Group by category
     const categorized = {};
-    questions.forEach(q => {
+    questions?.forEach(q => {
       if (!categorized[q.category_id]) {
         categorized[q.category_id] = {
           id: q.category_id,
@@ -1180,7 +1186,8 @@ router.get('/quick-questions', async (req, res) => {
     console.error('Error fetching quick questions:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch quick questions'
+      error: 'Failed to fetch quick questions',
+      details: error.message
     });
   }
 });
@@ -1191,12 +1198,17 @@ router.get('/quick-questions', async (req, res) => {
  */
 router.get('/quick-questions/all', async (req, res) => {
   try {
-    const { data: questions, error } = await req.supabase
-      .from('quick_questions')
-      .select('*')
-      .order('category_id, display_order');
+    const schemaName = req.companySchema;
+    console.log(`[Supabase] Querying all quick_questions in schema: ${schemaName}`);
 
-    if (error) throw error;
+    // Use RPC function to query all questions (including inactive)
+    const { data: questions, error } = await supabase
+      .rpc('get_all_quick_questions_by_schema', { schema_name: schemaName });
+
+    if (error) {
+      console.error('Error fetching all quick questions:', error);
+      throw error;
+    }
 
     res.json({
       success: true,
