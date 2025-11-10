@@ -6,6 +6,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: '📊' },
   { name: 'Employees', href: '/employees', icon: '👥' },
   { name: 'Knowledge Base', href: '/knowledge', icon: '📚' },
+  { name: 'Quick Questions', href: '/quick-questions', icon: '❓' },
   { name: 'Chat History', href: '/chat-history', icon: '💬' },
   { name: 'Escalations', href: '/escalations', icon: '🚨' },
   { name: 'Analytics', href: '/analytics', icon: '📈' },

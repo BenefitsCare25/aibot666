@@ -1,79 +1,103 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useChatStore } from '../store/chatStore';
 
-const QUICK_QUESTIONS = [
-  {
-    id: 'benefit-coverage',
-    title: 'Benefit Coverage',
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-5 ic-h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-      </svg>
-    ),
-    questions: [
-      { q: 'How do I check how much balance I have left for Specialist?', a: 'Kindly drop us a message in the portal to check on your utilisation records.' },
-      { q: 'Why is my claim up to $60 only?', a: 'Please be informed of the possible reasons below.\n\n(a) For Panel Clinics, you would be required to access your Benefits Portal and present the Ecard upon registration otherwise the consultation reimbursement would fall under Non-panel GP benefit limit, up to $60.\n(b) For Non Panel clinics, reimbursement is up to $60 only.' },
-      { q: 'How do I claim GPA?', a: 'Please download the Group Personal Accident form in the portal under Benefits > Documents then complete the claim form (Page 1-3 only, ignore the medical report) and email back to us at helpdesk@inspro.com.sg.\n\nKindly note Policyholder is the company name and endorse the claim form with HR’s signature together with the company stamp.' },
-      { q: 'How long is my referral valid for?', a: 'Referral letter to Panel or Non-Panel Specialist from Panel GP will be valid till discharge by Specialist. However, do note that an updated memo is required if the last visit is more than 1 year ago.' },
-      { q: 'Do I need a referral letter for visit to Gynae?', a: 'Referral letter is waived for visits to gynaecologist for medical conditions not normally treated by GP.' },
-      { q: 'I have been to my specialist but I would like a second opinion.', a: 'Please be advised that 2nd opinion is not covered under the policy.' },
-      { q: 'I don’t have a referral letter, the polyclinic has given me a booking to the GRH for further treatment?', a: 'You may do as below.\n\n(a) Contact the specialist hospital/clinic to provide you with the copy of the referral letter. Please note that expenses and costs incurred for obtaining documents such as referral letters or memos would not be payable.\n(b) Request the referral letter from the specialist on your next visit to the specialist.' },
-      { q: 'What is the dateline of claims?', a: 'Please be advised that claims are to be submitted within 30 days of incurred.' },
-      { q: 'What is surgical schedule?', a: 'A Surgical schedule is surgical percentage being applied to derive the payable surgeon fees for procedures done in a private hospital.' },
-      { q: 'Can I claim for a scope?', a: 'Please be informed that the scope procedure is covered under the policy and all claims will be subjected to insurer’s assessment however it will not be covered should the claim falls under the exclusion of the below. \n\n(a) Health screening / Investigative procedure\n(b) Pre-existing condition for new hirers below 12 months coverage' },
-      { q: 'How much is my coverage if I need to do a cataract surgery?', a: 'Kindly be advised that this would depend on if the surgery us done in a private or a government restructured hospital. Kindly provide us with the financial counselling form/ care cost form for us to advise you further.' },
-      { q: 'Why do I need to authorise my Medisave when I’m admitted to the hospital?', a: 'Please be informed that ustilising a  Letter of Gaurantee would require activation of Medisave as per the rules and regulations of Insurer and Hospital.' },
-      { q: 'For hospital & surgical claims, will the insurance company pay back to my Medisave account?', a: 'If you had used the LOG at the hospital, the insurer would first pay to the hospital, then to you if you had made any cheque or cash payment, and finally to your Medisave account less any incurred expenses not covered. If you had settled the bill directly at the hospital and utilized your Medisave account, the insurer will first pay to you the cheque or cash payment and finally to your Medisave account less any incurred expenses not covered.' },
-      { q: 'Can I use my personal insurance for hospital admission?', a: 'You may utilise your Medisave or Personal Insurance for hospital admission.' },
-      { q: 'How much will be covered and what do I have to pay?', a: 'We are unable to advise on the interim, kindly provide the referral letter and/or invoice for us to assist you further.' },
-      { q: 'Also to check understand our family like parent, children, husband or wife they can claim under my company insurance, May I know which of the category they able to claim?', a: 'Please find that the Group Insurance is extended to employee\'s only. \nKindly be advised that both employee and their direct family members can enjoy the Familycare services for preferred rates under Fullerton Health. You may wish to locate the information guide for Familycare program via the portal under Benefits > Documents.' },
-      { q: 'I am looking into Health screening plans under Fullerton Health. May check if there is any special rate for CBRE employee?', a: 'Yes, there is a customised package A for CBRE employees. KIndly log in to our portal to download the deck under Benefit > Documents > CBRE Fullerton Health - Executive Customised Health Screening Package A.' },
-      { q: 'I’m checking to see if the influenza vaccine is part of the insurance benefits.', a: 'Please be informed that preventive care, vaccination, immunization, general check-up, health screening or genetic screening is not covered under the policy.' }
-    ]
-  },
-  {
-    id: 'letter-of-guarantee',
-    title: 'Letter of Guarantee (LOG)',
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-5 ic-h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    ),
-    questions: [
-      { q: 'How do I request for a Letter of Guarantee?', a: 'Please assist to provide us with the referral letter, pre admission letter and financial cost form (private hospital) / care cost form (restructured hospital) via this chat or drop us a message in the portal for us to assist you further.' }
-    ]
-  },
-  {
-    id: 'portal-matters',
-    title: 'Portal Matters',
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-5 ic-h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>
-    ),
-    questions: [
-      { q: 'How do I submit medical claims?', a: 'Kindly submit the claims by logging in to the portal under New Claims > Select incurred date using the calendar icon > Claim Category: Insurance' },
-      { q: 'I cannot log in, what is my User ID?', a: '' },
-      { q: 'I cannot log in, how do I reset my password?', a: 'Kindly click on the “First Time Login/Forgot your password” to reset your password.' },
-      { q: 'How Can I change my phone number For the OTP?', a: 'Please be advised to email to us at helpdesk@inpro.com.sg with your new contact details for us to update.' },
-      { q: 'I am unable to submit the claim, “consent statement” required? Where is the consent statement?', a: 'Kindly use the calendar icon to select the date for more fields to appear. The consent statement is a toggle button just above the Submit button.' },
-      { q: 'Where can I find my GP Panel List?', a: 'Click on "Find your nearest clinic" to locate GP clinic under the Panel.' },
-      { q: 'Where can I find my Specialist Panel list?', a: 'Kindly contact the Tokyo Marine concierge at 3129 3002 to make an appointment for Panel Specialist.' },
-      { q: 'Why do I have to make payment at Panel clinic?', a: 'Kindly advise if you have provided the eCard upon registration. Please be advised that Panel clinic may request payment for the following reasons:\n\n(a) Conditions not covered E.g. Prevention – if you are travelling and you ask for flu or diarrhoea medication although you are not suffering from these medical conditions\n(b) Medication not related to the medical condition you are seeking treatment for. E.g. You have flu, but you ask for cream for your skin\n(c) Collection of medicine with no consultation E.g. Calling the doctor to ask for Panadol tablets\n(d) Obtaining Referral Letter / Medical Certificate (MC) only. Some doctors will charge even if there is no medication given as the doctor’s time is taken to issue these documents' }
-    ]
-  }
-];
+// Icon mapping - renders SVG based on icon name
+const ICON_MAP = {
+  shield: (
+    <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-5 ic-h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    </svg>
+  ),
+  document: (
+    <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-5 ic-h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  ),
+  computer: (
+    <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-5 ic-h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+    </svg>
+  ),
+  clipboard: (
+    <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-5 ic-h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+    </svg>
+  ),
+  question: (
+    <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-5 ic-h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  info: (
+    <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-5 ic-h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
+};
 
 export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
+  const [quickQuestions, setQuickQuestions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [expandedCategory, setExpandedCategory] = useState(null);
+  const apiUrl = useChatStore((state) => state.apiUrl);
+
+  useEffect(() => {
+    // Load quick questions from API
+    const loadQuickQuestions = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/api/admin/quick-questions`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data) {
+            // Transform data to match expected format
+            const transformedData = result.data.map(category => ({
+              id: category.id,
+              title: category.title,
+              icon: ICON_MAP[category.icon] || ICON_MAP.question,
+              questions: category.questions
+            }));
+            setQuickQuestions(transformedData);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load quick questions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (apiUrl) {
+      loadQuickQuestions();
+    }
+  }, [apiUrl]);
 
   const toggleCategory = (categoryId) => {
     setExpandedCategory(expandedCategory === categoryId ? null : categoryId);
   };
 
   const handleQuestionClick = (questionData) => {
-    // Pass both question and answer to parent
     onQuestionSelect(questionData);
   };
+
+  if (loading) {
+    return (
+      <div className="ic-flex-1 ic-overflow-y-auto ic-p-4 ic-bg-gray-50">
+        <div className="ic-text-center ic-py-8 ic-text-gray-500">
+          Loading questions...
+        </div>
+      </div>
+    );
+  }
+
+  if (quickQuestions.length === 0) {
+    return (
+      <div className="ic-flex-1 ic-overflow-y-auto ic-p-4 ic-bg-gray-50">
+        <div className="ic-text-center ic-py-8 ic-text-gray-500">
+          No quick questions available
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="ic-flex-1 ic-overflow-y-auto ic-p-4 ic-space-y-3 ic-bg-gray-50">
@@ -91,7 +115,7 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
         </p>
       </div>
 
-      {QUICK_QUESTIONS.map((category) => (
+      {quickQuestions.map((category) => (
         <div key={category.id} className="ic-bg-white ic-rounded-lg ic-shadow-sm ic-overflow-hidden ic-border ic-border-gray-200 ic-transition-all">
           {/* Category Header */}
           <button
@@ -132,7 +156,7 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
             <div className="ic-border-t ic-border-gray-200 ic-bg-gray-50 ic-animate-fade-in">
               {category.questions.map((questionData, index) => (
                 <button
-                  key={index}
+                  key={questionData.id || index}
                   onClick={() => handleQuestionClick(questionData)}
                   className="ic-w-full ic-text-left ic-px-4 ic-py-3 ic-text-sm ic-text-gray-700 hover:ic-bg-white hover:ic-shadow-sm ic-transition-all ic-duration-200 ic-border-b ic-border-gray-100 last:ic-border-b-0 ic-flex ic-items-start ic-gap-2 ic-group"
                   style={{

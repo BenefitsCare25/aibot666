@@ -145,6 +145,25 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.analytics (
 -- Create unique index for daily analytics
 CREATE UNIQUE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_analytics_date ON {{SCHEMA_NAME}}.analytics(date);
 
+-- Quick questions table: Store predefined quick questions for chatbot widget
+CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.quick_questions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category_id VARCHAR(100) NOT NULL,
+  category_title VARCHAR(255) NOT NULL,
+  category_icon VARCHAR(50) DEFAULT 'question',
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  display_order INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes for quick questions
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_qq_category ON {{SCHEMA_NAME}}.quick_questions(category_id);
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_qq_active ON {{SCHEMA_NAME}}.quick_questions(is_active);
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_qq_order ON {{SCHEMA_NAME}}.quick_questions(category_id, display_order);
+
 -- ==========================================
 -- TRIGGERS AND FUNCTIONS
 -- ==========================================

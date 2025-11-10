@@ -1139,4 +1139,237 @@ router.get('/analytics', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/admin/quick-questions
+ * Get all quick questions grouped by category
+ */
+router.get('/quick-questions', async (req, res) => {
+  try {
+    const { data: questions, error } = await req.supabase
+      .from('quick_questions')
+      .select('*')
+      .eq('is_active', true)
+      .order('category_id, display_order');
+
+    if (error) throw error;
+
+    // Group by category
+    const categorized = {};
+    questions.forEach(q => {
+      if (!categorized[q.category_id]) {
+        categorized[q.category_id] = {
+          id: q.category_id,
+          title: q.category_title,
+          icon: q.category_icon,
+          questions: []
+        };
+      }
+      categorized[q.category_id].questions.push({
+        id: q.id,
+        q: q.question,
+        a: q.answer,
+        display_order: q.display_order
+      });
+    });
+
+    res.json({
+      success: true,
+      data: Object.values(categorized)
+    });
+  } catch (error) {
+    console.error('Error fetching quick questions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch quick questions'
+    });
+  }
+});
+
+/**
+ * GET /api/admin/quick-questions/all
+ * Get all quick questions (admin view with inactive)
+ */
+router.get('/quick-questions/all', async (req, res) => {
+  try {
+    const { data: questions, error } = await req.supabase
+      .from('quick_questions')
+      .select('*')
+      .order('category_id, display_order');
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: questions
+    });
+  } catch (error) {
+    console.error('Error fetching all quick questions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch quick questions'
+    });
+  }
+});
+
+/**
+ * POST /api/admin/quick-questions
+ * Create a new quick question
+ */
+router.post('/quick-questions', async (req, res) => {
+  try {
+    const { category_id, category_title, category_icon, question, answer, display_order } = req.body;
+
+    // Validate required fields
+    if (!category_id || !category_title || !question || !answer) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: category_id, category_title, question, answer'
+      });
+    }
+
+    const { data, error } = await req.supabase
+      .from('quick_questions')
+      .insert({
+        category_id,
+        category_title,
+        category_icon: category_icon || 'question',
+        question,
+        answer,
+        display_order: display_order || 0
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'Quick question created successfully',
+      data
+    });
+  } catch (error) {
+    console.error('Error creating quick question:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to create quick question',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * PUT /api/admin/quick-questions/:id
+ * Update a quick question
+ */
+router.put('/quick-questions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { category_id, category_title, category_icon, question, answer, display_order, is_active } = req.body;
+
+    const updateData = {};
+    if (category_id !== undefined) updateData.category_id = category_id;
+    if (category_title !== undefined) updateData.category_title = category_title;
+    if (category_icon !== undefined) updateData.category_icon = category_icon;
+    if (question !== undefined) updateData.question = question;
+    if (answer !== undefined) updateData.answer = answer;
+    if (display_order !== undefined) updateData.display_order = display_order;
+    if (is_active !== undefined) updateData.is_active = is_active;
+    updateData.updated_at = new Date().toISOString();
+
+    const { data, error } = await req.supabase
+      .from('quick_questions')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'Quick question updated successfully',
+      data
+    });
+  } catch (error) {
+    console.error('Error updating quick question:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to update quick question',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/admin/quick-questions/:id
+ * Delete a quick question
+ */
+router.delete('/quick-questions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await req.supabase
+      .from('quick_questions')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'Quick question deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting quick question:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to delete quick question',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/admin/quick-questions/bulk-import
+ * Bulk import quick questions from JSON
+ */
+router.post('/quick-questions/bulk-import', async (req, res) => {
+  try {
+    const { questions, replace } = req.body;
+
+    if (!Array.isArray(questions)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Questions must be an array'
+      });
+    }
+
+    // If replace is true, delete existing questions first
+    if (replace) {
+      await req.supabase.from('quick_questions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    }
+
+    // Insert new questions
+    const { data, error } = await req.supabase
+      .from('quick_questions')
+      .insert(questions)
+      .select();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: `Successfully imported ${data.length} quick questions`,
+      data
+    });
+  } catch (error) {
+    console.error('Error bulk importing quick questions:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to bulk import quick questions',
+      details: error.message
+    });
+  }
+});
+
 export default router;

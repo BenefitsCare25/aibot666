@@ -7,6 +7,7 @@ import ChatHistory from './pages/ChatHistory';
 import Escalations from './pages/Escalations';
 import Analytics from './pages/Analytics';
 import Companies from './pages/Companies';
+import QuickQuestions from './pages/QuickQuestions';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="employees" element={<Employees />} />
         <Route path="knowledge" element={<KnowledgeBase />} />
+        <Route path="quick-questions" element={<QuickQuestions />} />
         <Route path="chat-history" element={<ChatHistory />} />
         <Route path="escalations" element={<Escalations />} />
         <Route path="analytics" element={<Analytics />} />
