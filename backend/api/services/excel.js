@@ -215,16 +215,29 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
     console.log('Checking for duplicate employee IDs...');
     const employeeIds = employees.map(e => e.employee_id);
 
-    const { data: existingEmployees, error: checkError } = await supabaseClient
-      .from('employees')
-      .select('employee_id, name, email')
-      .in('employee_id', employeeIds);
+    // Batch the duplicate check to avoid URL length limits (max 500 IDs per batch)
+    const BATCH_SIZE = 500;
+    let existingEmployees = [];
 
-    if (checkError) {
-      throw new Error(`Failed to check for duplicates: ${checkError.message}`);
+    for (let i = 0; i < employeeIds.length; i += BATCH_SIZE) {
+      const batch = employeeIds.slice(i, i + BATCH_SIZE);
+      console.log(`Checking batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(employeeIds.length / BATCH_SIZE)} (${batch.length} IDs)`);
+
+      const { data, error: checkError } = await supabaseClient
+        .from('employees')
+        .select('employee_id, name, email')
+        .in('employee_id', batch);
+
+      if (checkError) {
+        throw new Error(`Failed to check for duplicates in batch: ${checkError.message}`);
+      }
+
+      if (data) {
+        existingEmployees = existingEmployees.concat(data);
+      }
     }
 
-    const existingIds = new Set(existingEmployees?.map(e => e.employee_id) || []);
+    const existingIds = new Set(existingEmployees.map(e => e.employee_id));
     const duplicates = employees.filter(e => existingIds.has(e.employee_id));
     const newEmployees = employees.filter(e => !existingIds.has(e.employee_id));
 
@@ -234,10 +247,23 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
     let updated = [];
     let skipped = [];
 
-    // Handle new employees
+    // Handle new employees in batches to avoid payload size limits
     if (newEmployees.length > 0) {
-      console.log(`Importing ${newEmployees.length} new employees...`);
-      imported = await addEmployeesBatch(newEmployees, supabaseClient);
+      console.log(`Importing ${newEmployees.length} new employees in batches...`);
+      const INSERT_BATCH_SIZE = 100; // Smaller batches for inserts due to embedding generation
+
+      for (let i = 0; i < newEmployees.length; i += INSERT_BATCH_SIZE) {
+        const batch = newEmployees.slice(i, i + INSERT_BATCH_SIZE);
+        console.log(`Importing batch ${Math.floor(i / INSERT_BATCH_SIZE) + 1}/${Math.ceil(newEmployees.length / INSERT_BATCH_SIZE)} (${batch.length} employees)`);
+
+        try {
+          const batchImported = await addEmployeesBatch(batch, supabaseClient);
+          imported = imported.concat(batchImported);
+        } catch (error) {
+          console.error(`Error importing batch ${Math.floor(i / INSERT_BATCH_SIZE) + 1}:`, error);
+          throw error;
+        }
+      }
     }
 
     // Handle duplicates based on action
