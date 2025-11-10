@@ -426,24 +426,44 @@ router.post('/employees/bulk-delete', async (req, res) => {
       });
     }
 
-    const { error, count } = await req.supabase
-      .from('employees')
-      .delete()
-      .in('id', employeeIds);
+    console.log(`[Bulk Delete] Attempting to delete ${employeeIds.length} employee(s)`);
 
-    if (error) throw error;
+    // Delete in batches to avoid Supabase .in() method limitations
+    const batchSize = 500; // Safe batch size for .in() queries
+    let totalDeleted = 0;
+
+    for (let i = 0; i < employeeIds.length; i += batchSize) {
+      const batch = employeeIds.slice(i, i + batchSize);
+
+      console.log(`[Bulk Delete] Processing batch ${Math.floor(i / batchSize) + 1}, deleting ${batch.length} records`);
+
+      const { error, count } = await req.supabase
+        .from('employees')
+        .delete()
+        .in('id', batch);
+
+      if (error) {
+        console.error(`[Bulk Delete] Error in batch ${Math.floor(i / batchSize) + 1}:`, error);
+        throw error;
+      }
+
+      totalDeleted += batch.length;
+      console.log(`[Bulk Delete] Batch ${Math.floor(i / batchSize) + 1} completed. Total deleted so far: ${totalDeleted}`);
+    }
+
+    console.log(`[Bulk Delete] Successfully deleted ${totalDeleted} employee(s)`);
 
     res.json({
       success: true,
-      message: `${employeeIds.length} employee(s) deleted successfully`,
-      deleted: employeeIds.length
+      message: `${totalDeleted} employee(s) deleted successfully`,
+      deleted: totalDeleted
     });
   } catch (error) {
     console.error('Error bulk deleting employees:', error);
     res.status(400).json({
       success: false,
       error: 'Failed to bulk delete employees',
-      details: error.message
+      details: error.message || 'Unknown error occurred'
     });
   }
 });
