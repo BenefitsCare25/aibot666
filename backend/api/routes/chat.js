@@ -202,6 +202,66 @@ router.post('/upload-attachment', upload.single('file'), async (req, res) => {
 });
 
 /**
+ * POST /api/chat/save-system-message
+ * Save system message (like LOG request prompt) to chat history
+ */
+router.post('/save-system-message', async (req, res) => {
+  try {
+    const { sessionId, message, messageType } = req.body;
+
+    if (!sessionId || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Session ID and message are required'
+      });
+    }
+
+    // Get session
+    const session = await getSession(sessionId);
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found or expired'
+      });
+    }
+
+    // Save system message to database
+    const { error } = await req.supabase
+      .from('chat_history')
+      .insert([{
+        conversation_id: session.conversationId,
+        employee_id: session.employeeId,
+        role: 'assistant',
+        content: message,
+        metadata: {
+          isSystemMessage: true,
+          messageType: messageType || 'system'
+        }
+      }]);
+
+    if (error) {
+      console.error('Error saving system message:', error);
+      throw error;
+    }
+
+    // Update session activity
+    await touchSession(sessionId);
+
+    res.json({
+      success: true,
+      message: 'System message saved'
+    });
+  } catch (error) {
+    console.error('Error saving system message:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to save system message'
+    });
+  }
+});
+
+/**
  * POST /api/chat/request-log
  * Request LOG (conversation history + attachments) via email
  */
@@ -224,6 +284,21 @@ router.post('/request-log', async (req, res) => {
         success: false,
         error: 'Session not found or expired'
       });
+    }
+
+    // Save user's message to database if provided
+    if (message && message.trim() && message !== 'User requested LOG via button') {
+      await req.supabase
+        .from('chat_history')
+        .insert([{
+          conversation_id: session.conversationId,
+          employee_id: session.employeeId,
+          role: 'user',
+          content: message,
+          metadata: {
+            messageType: 'log_request_details'
+          }
+        }]);
     }
 
     // Check if LOG already requested for this conversation

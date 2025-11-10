@@ -272,8 +272,8 @@ export const useChatStore = create((set, get) => ({
   },
 
   // Enter LOG request mode
-  enterLogMode: () => {
-    const { employeeEmail, messages } = get();
+  enterLogMode: async () => {
+    const { employeeEmail, messages, sessionId, apiUrl, domain: domainOverride } = get();
 
     console.log('[ChatStore] Entering LOG mode - Employee email from state:', employeeEmail);
 
@@ -283,17 +283,19 @@ export const useChatStore = create((set, get) => ({
     console.log('[ChatStore] Auto-populating email field with:', autoEmail);
 
     // Create the bot message with document requirements
-    const botMessage = {
-      id: `assistant-log-${Date.now()}`,
-      role: 'assistant',
-      content: `For LOG request, you may attached the following documents:
+    const botMessageContent = `For LOG request, you may attached the following documents:
 - Financial care cost form or
 - Pre-admission hospital form
 
 Alternatively, you may provide the following information:
 - Date of Admission:
 - Name of Hospital:
-- Medical Condition:`,
+- Medical Condition:`;
+
+    const botMessage = {
+      id: `assistant-log-${Date.now()}`,
+      role: 'assistant',
+      content: botMessageContent,
       timestamp: new Date().toISOString(),
       isSystemMessage: true
     };
@@ -305,6 +307,24 @@ Alternatively, you may provide the following information:
       userEmail: autoEmail,
       messages: [...messages, botMessage]
     });
+
+    // Save bot message to database
+    const domain = domainOverride || window.location.hostname;
+    try {
+      await axios.post(`${apiUrl}/api/chat/save-system-message`, {
+        sessionId,
+        message: botMessageContent,
+        messageType: 'log_request_prompt'
+      }, {
+        headers: {
+          'X-Widget-Domain': domain
+        }
+      });
+      console.log('[ChatStore] Bot message saved to database');
+    } catch (error) {
+      console.error('[ChatStore] Error saving bot message:', error);
+      // Don't block the UI if saving fails
+    }
   },
 
   // Exit LOG request mode (cancel)
@@ -319,7 +339,7 @@ Alternatively, you may provide the following information:
 
   // Request LOG
   requestLog: async (message = '') => {
-    const { sessionId, attachments, logRequested, userEmail, apiUrl, domain: domainOverride } = get();
+    const { sessionId, attachments, logRequested, userEmail, apiUrl, domain: domainOverride, messages: currentMessages } = get();
 
     if (logRequested) {
       console.log('LOG already requested for this conversation');
@@ -331,10 +351,26 @@ Alternatively, you may provide the following information:
     // Use domain override if provided, otherwise extract from current page URL
     const domain = domainOverride || window.location.hostname;
 
+    // Add user message to chat if they provided additional information
+    const userMessageContent = message && message.trim() ? message.trim() : '';
+
+    if (userMessageContent) {
+      const userMessage = {
+        id: `user-log-${Date.now()}`,
+        role: 'user',
+        content: userMessageContent,
+        timestamp: new Date().toISOString()
+      };
+
+      set({
+        messages: [...currentMessages, userMessage]
+      });
+    }
+
     try {
       const response = await axios.post(`${apiUrl}/api/chat/request-log`, {
         sessionId,
-        message: message || 'User requested LOG via button',
+        message: userMessageContent || 'User requested LOG via button',
         attachmentIds: attachments.map(att => att.id),
         userEmail: userEmail || null
       }, {
@@ -362,6 +398,7 @@ Alternatively, you may provide the following information:
 
         set(state => ({
           messages: [...state.messages, {
+            id: `assistant-log-confirm-${Date.now()}`,
             role: 'assistant',
             content: `✅ Your LOG request has been sent to our support team. They will review your conversation and get back to you shortly.${emailConfirmation}`,
             timestamp: new Date().toISOString()
