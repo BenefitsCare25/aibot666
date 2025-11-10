@@ -32,6 +32,12 @@ export const employeeApi = {
     return apiClient.post('/api/admin/employees/bulk-delete', { employeeIds });
   },
 
+  // Get all employee IDs (with optional search filter)
+  getAllIds: async (params = {}) => {
+    const { search = '' } = params;
+    return apiClient.get('/api/admin/employees/ids', { params: { search } });
+  },
+
   // Upload employees via Excel
   uploadExcel: async (file, duplicateAction = 'skip', onProgress) => {
     const formData = new FormData();

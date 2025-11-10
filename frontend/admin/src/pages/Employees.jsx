@@ -19,6 +19,7 @@ export default function Employees() {
   const [employeeToDelete, setEmployeeToDelete] = useState(null);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [selectAllMode, setSelectAllMode] = useState(false); // true = all records, false = current page
 
   useEffect(() => {
     loadEmployees();
@@ -136,15 +137,30 @@ export default function Employees() {
     }
   };
 
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedEmployees(employees.map(emp => emp.id));
-    } else {
-      setSelectedEmployees([]);
+  const handleSelectAllCurrentPage = () => {
+    setSelectedEmployees(employees.map(emp => emp.id));
+    setSelectAllMode(false);
+  };
+
+  const handleSelectAllRecords = async () => {
+    try {
+      const response = await employeeApi.getAllIds({ search: searchTerm });
+      setSelectedEmployees(response.data.employeeIds);
+      setSelectAllMode(true);
+      toast.success(`Selected all ${response.data.employeeIds.length} employee(s)`);
+    } catch (error) {
+      toast.error('Failed to select all employees');
+      console.error(error);
     }
   };
 
+  const handleDeselectAll = () => {
+    setSelectedEmployees([]);
+    setSelectAllMode(false);
+  };
+
   const handleSelectEmployee = (employeeId) => {
+    setSelectAllMode(false); // Exit "select all" mode when manually toggling
     setSelectedEmployees(prev => {
       if (prev.includes(employeeId)) {
         return prev.filter(id => id !== employeeId);
@@ -314,6 +330,22 @@ export default function Employees() {
         </div>
       </div>
 
+      {/* Selection Banner */}
+      {selectedEmployees.length > 0 && selectAllMode && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+          <p className="text-sm text-blue-800">
+            <strong>All {selectedEmployees.length} employee(s)</strong> are selected across all pages
+            {searchTerm && <span> (matching search: "{searchTerm}")</span>}
+          </p>
+          <button
+            onClick={handleDeselectAll}
+            className="text-sm text-blue-600 hover:text-blue-800 underline"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+
       {/* Employee Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         {loading ? (
@@ -332,12 +364,40 @@ export default function Employees() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={selectedEmployees.length === employees.length && employees.length > 0}
-                        onChange={handleSelectAll}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                      />
+                      <div className="relative group">
+                        <input
+                          type="checkbox"
+                          checked={selectedEmployees.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              handleSelectAllCurrentPage();
+                            } else {
+                              handleDeselectAll();
+                            }
+                          }}
+                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                        />
+                        <div className="absolute left-0 top-8 hidden group-hover:block bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-48">
+                          <button
+                            onClick={handleSelectAllCurrentPage}
+                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            Select page ({employees.length})
+                          </button>
+                          <button
+                            onClick={handleSelectAllRecords}
+                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            Select all records
+                          </button>
+                          <button
+                            onClick={handleDeselectAll}
+                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            Deselect all
+                          </button>
+                        </div>
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Employee ID

@@ -195,6 +195,43 @@ router.get('/employees/template', (req, res) => {
 });
 
 /**
+ * GET /api/admin/employees/ids
+ * Get all employee IDs (for bulk operations)
+ */
+router.get('/employees/ids', async (req, res) => {
+  try {
+    const { search = '' } = req.query;
+
+    let query = req.supabase
+      .from('employees')
+      .select('id');
+
+    // Add search filter if provided
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,employee_id.ilike.%${search}%,user_id.ilike.%${search}%`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: {
+        employeeIds: data.map(emp => emp.id),
+        count: data.length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching employee IDs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch employee IDs'
+    });
+  }
+});
+
+/**
  * GET /api/admin/employees
  * Get all employees (with pagination)
  */
