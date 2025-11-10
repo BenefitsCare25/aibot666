@@ -61,6 +61,10 @@ function mapEmployeeData(row) {
     'employee_id', 'Employee ID', 'EmployeeID', 'EmpID', 'ID'
   ]);
 
+  const userId = getField(row, [
+    'user_id', 'User ID', 'UserID', 'UserId'
+  ]);
+
   const name = getField(row, [
     'name', 'Name', 'Full Name', 'FullName', 'Employee Name', 'EmployeeName'
   ]);
@@ -130,6 +134,7 @@ function mapEmployeeData(row) {
 
   return {
     employee_id: String(employeeId).trim(),
+    user_id: userId ? String(userId).trim() : null,
     name: String(name).trim(),
     email: String(email).trim().toLowerCase(),
     department: department ? String(department).trim() : null,
@@ -289,6 +294,7 @@ export function generateExcelTemplate() {
   const template = [
     {
       'employee_id': 'EMP001',
+      'user_id': 'USER001',
       'name': 'John Doe',
       'email': 'john.doe@company.com',
       'department': 'Engineering',
@@ -303,6 +309,7 @@ export function generateExcelTemplate() {
     },
     {
       'employee_id': 'EMP002',
+      'user_id': 'USER002',
       'name': 'Jane Smith',
       'email': 'jane.smith@company.com',
       'department': 'Marketing',
@@ -324,6 +331,7 @@ export function generateExcelTemplate() {
   // Add column widths
   worksheet['!cols'] = [
     { wch: 12 }, // employee_id
+    { wch: 12 }, // user_id
     { wch: 20 }, // name
     { wch: 30 }, // email
     { wch: 15 }, // department

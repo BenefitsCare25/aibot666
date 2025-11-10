@@ -22,6 +22,7 @@ SET search_path TO {{SCHEMA_NAME}}, public, extensions;
 CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.employees (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_id VARCHAR(50) UNIQUE NOT NULL,
+  user_id VARCHAR(100),
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
   department VARCHAR(100),
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.employees (
 -- Create indexes for faster employee lookups
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_employees_employee_id ON {{SCHEMA_NAME}}.employees(employee_id);
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_employees_email ON {{SCHEMA_NAME}}.employees(email);
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_employees_user_id ON {{SCHEMA_NAME}}.employees(user_id);
 
 -- Knowledge base table: Store insurance policies, FAQs, and procedures
 CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.knowledge_base (

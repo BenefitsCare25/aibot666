@@ -175,7 +175,7 @@ router.get('/employees', async (req, res) => {
 
     // Add search filter if provided
     if (search) {
-      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,employee_id.ilike.%${search}%`);
+      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,employee_id.ilike.%${search}%,user_id.ilike.%${search}%`);
     }
 
     query = query
