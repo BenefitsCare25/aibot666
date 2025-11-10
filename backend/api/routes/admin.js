@@ -49,14 +49,38 @@ router.get('/quick-questions/download-template', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/admin/knowledge/download-template
+ * Download Excel template for knowledge base (no auth/company context required)
+ */
+router.get('/knowledge/download-template', async (req, res) => {
+  try {
+    const { generateKnowledgeBaseTemplate } = await import('../services/excelTemplateGenerator.js');
+    const buffer = await generateKnowledgeBaseTemplate();
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=KnowledgeBase_Template.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    console.error('Error generating template:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate template',
+      details: error.message
+    });
+  }
+});
+
 // Apply company context middleware to routes that need schema-specific data
 // Company management routes use adminContextMiddleware (public schema)
 router.use('/companies', adminContextMiddleware);
 
 // All other admin routes use companyContextMiddleware (company-specific schema)
 router.use((req, res, next) => {
-  // Skip middleware for company routes and template download
-  if (req.path.startsWith('/companies') || req.path === '/quick-questions/download-template') {
+  // Skip middleware for company routes and template downloads
+  if (req.path.startsWith('/companies') ||
+      req.path === '/quick-questions/download-template' ||
+      req.path === '/knowledge/download-template') {
     return next();
   }
   // Apply company context for all other routes

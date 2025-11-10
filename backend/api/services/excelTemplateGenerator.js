@@ -137,3 +137,122 @@ export async function generateQuickQuestionsTemplate() {
   const buffer = await workbook.xlsx.writeBuffer();
   return buffer;
 }
+
+/**
+ * Generate Excel template for Knowledge Base
+ * Returns a buffer that can be sent as download
+ */
+export async function generateKnowledgeBaseTemplate() {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Knowledge Base Template');
+
+  // Set column widths
+  worksheet.columns = [
+    { key: 'title', width: 40 },
+    { key: 'content', width: 80 },
+    { key: 'category', width: 20 },
+    { key: 'subcategory', width: 20 }
+  ];
+
+  // Add title and instructions
+  worksheet.mergeCells('A1:D1');
+  worksheet.getCell('A1').value = 'KNOWLEDGE BASE TEMPLATE';
+  worksheet.getCell('A1').font = { bold: true, size: 16 };
+  worksheet.getCell('A1').alignment = { horizontal: 'center' };
+
+  worksheet.mergeCells('A2:D2');
+  worksheet.getCell('A2').value = 'Instructions: Fill in the columns below with your knowledge base entries. First row is the header.';
+  worksheet.getCell('A2').font = { italic: true, size: 10 };
+
+  worksheet.addRow([]);
+
+  // Header row
+  const headerRow = worksheet.addRow(['Title', 'Content', 'Category', 'Subcategory']);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF4472C4' }
+  };
+
+  // Example rows
+  worksheet.addRow([
+    'Medical Benefits Policy',
+    'All employees are covered for medical expenses up to $50,000 per year. This includes hospitalization, outpatient treatment, and specialist consultations. Pre-approval is required for procedures exceeding $5,000.',
+    'benefits',
+    'medical'
+  ]);
+
+  worksheet.addRow([
+    'Dental Coverage Guidelines',
+    'Dental coverage includes routine checkups, cleanings, and basic dental work. Maximum annual limit is $1,500. Cosmetic procedures are not covered unless medically necessary.',
+    'benefits',
+    'dental'
+  ]);
+
+  worksheet.addRow([
+    'Claim Submission Process',
+    'To submit a claim:\n1. Log in to the portal\n2. Navigate to New Claims section\n3. Select the claim date\n4. Upload supporting documents\n5. Submit for processing\n\nClaims are typically processed within 5-7 business days.',
+    'claims',
+    'reimbursement'
+  ]);
+
+  worksheet.addRow([
+    'Letter of Guarantee Requirements',
+    'To request a Letter of Guarantee (LOG), you must provide:\n- Valid referral letter from your GP\n- Pre-admission letter from hospital\n- Cost estimate form\n- Employee ID card\n\nLOG requests should be submitted at least 3 working days before admission.',
+    'procedures',
+    'log'
+  ]);
+
+  worksheet.addRow([
+    'Escalation Procedure',
+    'If your issue is not resolved within 48 hours:\n1. Contact your HR representative\n2. Provide case reference number\n3. Escalate to Benefits Manager if needed\n4. Final escalation to Director of HR\n\nAll escalations are tracked and reviewed weekly.',
+    'policies',
+    'escalation'
+  ]);
+
+  worksheet.addRow([
+    'Portal Password Reset',
+    'If you forgot your password:\n1. Click "Forgot Password" on login page\n2. Enter your registered email\n3. Check your inbox for reset link\n4. Create a new password (minimum 8 characters)\n\nFor first-time users, click "First Time Login" instead.',
+    'procedures',
+    'portal'
+  ]);
+
+  worksheet.addRow([]); // Empty row
+
+  // Add instructions at the bottom
+  const instructionsRow = worksheet.addRow(['HOW TO USE THIS TEMPLATE:', '', '', '']);
+  instructionsRow.font = { bold: true, size: 12 };
+
+  worksheet.addRow(['1. Title (Column A): Short, descriptive title for the knowledge entry (Required)', '', '', '']);
+  worksheet.addRow(['2. Content (Column B): Detailed information, policies, or procedures (Required)', '', '', '']);
+  worksheet.addRow(['3. Category (Column C): Main category like benefits, claims, policies, procedures, escalations', '', '', '']);
+  worksheet.addRow(['4. Subcategory (Column D): Optional subcategory like medical, dental, portal, etc.', '', '', '']);
+  worksheet.addRow(['5. First row (row 4) is the header and will be skipped during import', '', '', '']);
+  worksheet.addRow(['6. You can use \\n in content for line breaks', '', '', '']);
+  worksheet.addRow(['7. If category is left blank, it will default to "general"', '', '', '']);
+
+  // Apply borders to example data
+  for (let row = 4; row <= 10; row++) {
+    for (let col = 1; col <= 4; col++) {
+      const cell = worksheet.getRow(row).getCell(col);
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    }
+  }
+
+  // Wrap text for better readability
+  worksheet.eachRow((row) => {
+    row.eachCell((cell) => {
+      cell.alignment = { vertical: 'top', wrapText: true };
+    });
+  });
+
+  // Generate buffer
+  const buffer = await workbook.xlsx.writeBuffer();
+  return buffer;
+}

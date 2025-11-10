@@ -139,6 +139,27 @@ export default function KnowledgeBase() {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const selectedCompany = localStorage.getItem('selected_company_domain');
+
+      // Create a temporary link to download the file
+      const link = document.createElement('a');
+      link.href = `${apiUrl}/api/admin/knowledge/download-template`;
+      if (selectedCompany) {
+        link.href += `?domain=${encodeURIComponent(selectedCompany)}`;
+      }
+      link.download = 'KnowledgeBase_Template.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading template:', error);
+      toast.error('Failed to download template');
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -147,6 +168,15 @@ export default function KnowledgeBase() {
           <p className="text-gray-600 mt-1">Manage AI training content and policies</p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={handleDownloadTemplate}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Download Template
+          </button>
           <button
             onClick={() => setShowUploadModal(true)}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
