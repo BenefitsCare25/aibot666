@@ -27,6 +27,7 @@ export const employeeApi = {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
+      timeout: 600000, // 10 minutes for large uploads with batching
       onUploadProgress: (progressEvent) => {
         if (onProgress) {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
