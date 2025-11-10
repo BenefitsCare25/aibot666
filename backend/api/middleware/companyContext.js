@@ -43,7 +43,8 @@ export async function companyContextMiddleware(req, res, next) {
         return res.status(404).json({
           success: false,
           error: 'Company not found for this domain',
-          domain: normalizedDomain
+          domain: normalizedDomain,
+          hint: 'Please ensure a company is registered with this domain in the admin panel. Check the Company Selector to verify the correct domain is selected.'
         });
       }
     }

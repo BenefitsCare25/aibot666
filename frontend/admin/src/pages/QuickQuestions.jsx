@@ -157,7 +157,9 @@ export default function QuickQuestions() {
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
       console.error('Error uploading Excel file:', err);
-      setError(err.response?.data?.details || 'Failed to upload Excel file');
+      const errorMessage = err.message || err.response?.data?.details || 'Failed to upload Excel file';
+      const hint = err.response?.data?.hint;
+      setError(hint ? `${errorMessage}\n\n${hint}` : errorMessage);
     } finally {
       setUploading(false);
     }
