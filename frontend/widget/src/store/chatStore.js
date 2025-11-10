@@ -66,6 +66,8 @@ export const useChatStore = create((set, get) => ({
       if (response.data.success) {
         const { sessionId, conversationId, employee } = response.data.data;
 
+        console.log('[ChatStore] Session created - Employee email:', employee.email);
+
         set({
           sessionId,
           employeeId: employee.id,
@@ -273,8 +275,12 @@ export const useChatStore = create((set, get) => ({
   enterLogMode: () => {
     const { employeeEmail, messages } = get();
 
+    console.log('[ChatStore] Entering LOG mode - Employee email from state:', employeeEmail);
+
     // Auto-populate email if available from employee database
     const autoEmail = employeeEmail || '';
+
+    console.log('[ChatStore] Auto-populating email field with:', autoEmail);
 
     // Create the bot message with document requirements
     const botMessage = {
