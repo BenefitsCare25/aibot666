@@ -202,24 +202,42 @@ router.get('/employees/ids', async (req, res) => {
   try {
     const { search = '' } = req.query;
 
-    let query = req.supabase
-      .from('employees')
-      .select('id');
+    // Fetch all employee IDs in batches to handle large datasets
+    let allEmployees = [];
+    let from = 0;
+    const batchSize = 1000;
+    let hasMore = true;
 
-    // Add search filter if provided
-    if (search) {
-      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,employee_id.ilike.%${search}%,user_id.ilike.%${search}%`);
+    while (hasMore) {
+      let query = req.supabase
+        .from('employees')
+        .select('id')
+        .range(from, from + batchSize - 1);
+
+      // Add search filter if provided
+      if (search) {
+        query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,employee_id.ilike.%${search}%,user_id.ilike.%${search}%`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      allEmployees = allEmployees.concat(data);
+
+      // If we got less than batchSize, we've reached the end
+      if (data.length < batchSize) {
+        hasMore = false;
+      } else {
+        from += batchSize;
+      }
     }
-
-    const { data, error } = await query;
-
-    if (error) throw error;
 
     res.json({
       success: true,
       data: {
-        employeeIds: data.map(emp => emp.id),
-        count: data.length
+        employeeIds: allEmployees.map(emp => emp.id),
+        count: allEmployees.length
       }
     });
   } catch (error) {
