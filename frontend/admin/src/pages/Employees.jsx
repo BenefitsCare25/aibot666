@@ -20,6 +20,7 @@ export default function Employees() {
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [selectAllMode, setSelectAllMode] = useState(false); // true = all records, false = current page
+  const [showSelectMenu, setShowSelectMenu] = useState(false);
 
   useEffect(() => {
     loadEmployees();
@@ -364,7 +365,7 @@ export default function Employees() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-3 text-left">
-                      <div className="relative group">
+                      <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
                           checked={selectedEmployees.length > 0}
@@ -377,25 +378,53 @@ export default function Employees() {
                           }}
                           className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
                         />
-                        <div className="absolute left-0 top-8 hidden group-hover:block bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-48">
+                        <div className="relative">
                           <button
-                            onClick={handleSelectAllCurrentPage}
-                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            onClick={() => setShowSelectMenu(!showSelectMenu)}
+                            className="text-gray-500 hover:text-gray-700"
+                            title="Selection options"
                           >
-                            Select page ({employees.length})
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
                           </button>
-                          <button
-                            onClick={handleSelectAllRecords}
-                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            Select all records
-                          </button>
-                          <button
-                            onClick={handleDeselectAll}
-                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            Deselect all
-                          </button>
+                          {showSelectMenu && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-10"
+                                onClick={() => setShowSelectMenu(false)}
+                              ></div>
+                              <div className="absolute left-0 top-6 bg-white border border-gray-200 rounded-lg shadow-lg z-20 w-56">
+                                <button
+                                  onClick={() => {
+                                    handleSelectAllCurrentPage();
+                                    setShowSelectMenu(false);
+                                  }}
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg"
+                                >
+                                  Select page ({employees.length})
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    handleSelectAllRecords();
+                                    setShowSelectMenu(false);
+                                  }}
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-t"
+                                >
+                                  Select all records
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    handleDeselectAll();
+                                    setShowSelectMenu(false);
+                                  }}
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-t rounded-b-lg"
+                                >
+                                  Deselect all
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </th>
