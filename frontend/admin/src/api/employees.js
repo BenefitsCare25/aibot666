@@ -27,6 +27,11 @@ export const employeeApi = {
     return apiClient.delete(`/api/admin/employees/${id}`);
   },
 
+  // Bulk delete employees
+  bulkDelete: async (employeeIds) => {
+    return apiClient.post('/api/admin/employees/bulk-delete', { employeeIds });
+  },
+
   // Upload employees via Excel
   uploadExcel: async (file, duplicateAction = 'skip', onProgress) => {
     const formData = new FormData();

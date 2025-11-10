@@ -17,6 +17,8 @@ export default function Employees() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState(null);
+  const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   useEffect(() => {
     loadEmployees();
@@ -130,6 +132,45 @@ export default function Employees() {
       loadEmployees();
     } catch (error) {
       toast.error('Failed to delete employee');
+      console.error(error);
+    }
+  };
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedEmployees(employees.map(emp => emp.id));
+    } else {
+      setSelectedEmployees([]);
+    }
+  };
+
+  const handleSelectEmployee = (employeeId) => {
+    setSelectedEmployees(prev => {
+      if (prev.includes(employeeId)) {
+        return prev.filter(id => id !== employeeId);
+      } else {
+        return [...prev, employeeId];
+      }
+    });
+  };
+
+  const handleBulkDeleteClick = () => {
+    if (selectedEmployees.length === 0) {
+      toast.error('Please select employees to delete');
+      return;
+    }
+    setShowBulkDeleteConfirm(true);
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    try {
+      await employeeApi.bulkDelete(selectedEmployees);
+      toast.success(`${selectedEmployees.length} employee(s) deleted successfully!`);
+      setShowBulkDeleteConfirm(false);
+      setSelectedEmployees([]);
+      loadEmployees();
+    } catch (error) {
+      toast.error('Failed to delete employees');
       console.error(error);
     }
   };
@@ -250,16 +291,27 @@ export default function Employees() {
 
       {/* Search and Filter */}
       <div className="bg-white rounded-lg shadow p-4">
-        <input
-          type="text"
-          placeholder="Search by name, email, employee ID, or user ID..."
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            setCurrentPage(1);
-          }}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-        />
+        <div className="flex items-center justify-between gap-4">
+          <input
+            type="text"
+            placeholder="Search by name, email, employee ID, or user ID..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          />
+          {selectedEmployees.length > 0 && (
+            <button
+              onClick={handleBulkDeleteClick}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+            >
+              <span>🗑️</span>
+              Delete Selected ({selectedEmployees.length})
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Employee Table */}
@@ -279,6 +331,14 @@ export default function Employees() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
+                    <th className="px-6 py-3 text-left">
+                      <input
+                        type="checkbox"
+                        checked={selectedEmployees.length === employees.length && employees.length > 0}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Employee ID
                     </th>
@@ -305,6 +365,14 @@ export default function Employees() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {employees.map((employee) => (
                     <tr key={employee.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={selectedEmployees.includes(employee.id)}
+                          onChange={() => handleSelectEmployee(employee.id)}
+                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {employee.employee_id}
                       </td>
@@ -488,6 +556,35 @@ export default function Employees() {
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Confirm Bulk Delete</h2>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete <strong>{selectedEmployees.length} employee(s)</strong>?
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowBulkDeleteConfirm(false);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkDeleteConfirm}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Delete All
               </button>
             </div>
           </div>

@@ -357,6 +357,43 @@ router.delete('/employees/:id', async (req, res) => {
 });
 
 /**
+ * POST /api/admin/employees/bulk-delete
+ * Delete multiple employees by IDs
+ */
+router.post('/employees/bulk-delete', async (req, res) => {
+  try {
+    const { employeeIds } = req.body;
+
+    if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'employeeIds array is required'
+      });
+    }
+
+    const { error, count } = await req.supabase
+      .from('employees')
+      .delete()
+      .in('id', employeeIds);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: `${employeeIds.length} employee(s) deleted successfully`,
+      deleted: employeeIds.length
+    });
+  } catch (error) {
+    console.error('Error bulk deleting employees:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to bulk delete employees',
+      details: error.message
+    });
+  }
+});
+
+/**
  * POST /api/admin/knowledge
  * Add knowledge base entry
  */
