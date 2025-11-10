@@ -458,17 +458,28 @@ export async function getEmployeeByEmployeeId(employeeId, supabaseClient = null)
     // Use provided client or fallback to default
     const client = supabaseClient || supabase;
 
+    // Query without .single() to handle potential duplicates
     const { data, error } = await client
       .from('employees')
       .select('*')
       .eq('employee_id', employeeId)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
     if (error) {
-      throw new Error(`Employee not found: ${error.message}`);
+      throw new Error(`Employee lookup failed: ${error.message}`);
     }
 
-    return data;
+    if (!data || data.length === 0) {
+      throw new Error(`Employee not found with ID: ${employeeId}`);
+    }
+
+    // If duplicates exist, warn but use most recent
+    if (data.length > 1) {
+      console.warn(`[Warning] Multiple employees found with employee_id: ${employeeId}. Using most recent entry.`);
+    }
+
+    return data[0];
   } catch (error) {
     console.error('Error getting employee:', error.message);
     throw error;
@@ -485,17 +496,28 @@ export async function getEmployeeByEmail(email, supabaseClient = null) {
   const client = supabaseClient || supabase;
 
   try {
+    // Query without .single() to handle potential duplicates
     const { data, error } = await client
       .from('employees')
       .select('*')
       .eq('email', email)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
     if (error) {
-      throw new Error(`Employee not found: ${error.message}`);
+      throw new Error(`Employee lookup failed: ${error.message}`);
     }
 
-    return data;
+    if (!data || data.length === 0) {
+      throw new Error(`Employee not found with email: ${email}`);
+    }
+
+    // If duplicates exist, warn but use most recent
+    if (data.length > 1) {
+      console.warn(`[Warning] Multiple employees found with email: ${email}. Using most recent entry.`);
+    }
+
+    return data[0];
   } catch (error) {
     console.error('Error getting employee by email:', error.message);
     throw error;
