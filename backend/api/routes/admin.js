@@ -26,14 +26,37 @@ import {
 
 const router = express.Router();
 
+// Routes that don't require company context (must be defined BEFORE middleware)
+/**
+ * GET /api/admin/quick-questions/download-template
+ * Download Excel template for quick questions (no auth/company context required)
+ */
+router.get('/quick-questions/download-template', async (req, res) => {
+  try {
+    const { generateQuickQuestionsTemplate } = await import('../services/excelTemplateGenerator.js');
+    const buffer = await generateQuickQuestionsTemplate();
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=QuickQuestions_Template.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    console.error('Error generating template:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate template',
+      details: error.message
+    });
+  }
+});
+
 // Apply company context middleware to routes that need schema-specific data
 // Company management routes use adminContextMiddleware (public schema)
 router.use('/companies', adminContextMiddleware);
 
 // All other admin routes use companyContextMiddleware (company-specific schema)
 router.use((req, res, next) => {
-  // Skip middleware for company routes
-  if (req.path.startsWith('/companies')) {
+  // Skip middleware for company routes and template download
+  if (req.path.startsWith('/companies') || req.path === '/quick-questions/download-template') {
     return next();
   }
   // Apply company context for all other routes
@@ -1379,28 +1402,6 @@ router.post('/quick-questions/bulk-import', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to bulk import quick questions',
-      details: error.message
-    });
-  }
-});
-
-/**
- * GET /api/admin/quick-questions/download-template
- * Download Excel template for quick questions
- */
-router.get('/quick-questions/download-template', async (req, res) => {
-  try {
-    const { generateQuickQuestionsTemplate } = await import('../services/excelTemplateGenerator.js');
-    const buffer = await generateQuickQuestionsTemplate();
-
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=QuickQuestions_Template.xlsx');
-    res.send(buffer);
-  } catch (error) {
-    console.error('Error generating template:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to generate template',
       details: error.message
     });
   }
