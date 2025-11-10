@@ -22,6 +22,7 @@ export async function companyContextMiddleware(req, res, next) {
 
     // Normalize domain for consistent lookup
     const normalizedDomain = normalizeDomain(domain);
+    console.log(`[Company Lookup] Original domain: ${domain} -> Normalized: ${normalizedDomain}`);
 
     // Try to get from cache first
     const cachedCompany = await getCachedCompany(normalizedDomain);

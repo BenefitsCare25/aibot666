@@ -225,21 +225,13 @@ export function normalizeDomain(domain) {
   // Remove www
   normalized = normalized.replace(/^www\./, '');
 
-  // Remove port (but preserve path)
-  // Split by : and take first part before port, but keep everything after /
-  const parts = normalized.split(':');
-  if (parts.length > 1) {
-    // Check if there's a port number (not IPv6)
-    const portAndPath = parts[1];
-    const pathMatch = portAndPath.match(/^(\d+)(\/.*)?$/);
-    if (pathMatch) {
-      // Remove port but keep path
-      normalized = parts[0] + (pathMatch[2] || '');
-    }
-  }
+  // Remove port and path - only keep the base domain
+  // Split by : to remove port, then split by / to remove path
+  normalized = normalized.split(':')[0]; // Remove port
+  normalized = normalized.split('/')[0]; // Remove path
 
-  // Remove trailing slash only (preserve path)
-  normalized = normalized.replace(/\/$/, '');
+  // Remove trailing slash and dots
+  normalized = normalized.replace(/[\/\.]+$/, '');
 
   return normalized;
 }
