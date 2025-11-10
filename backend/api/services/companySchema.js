@@ -183,23 +183,29 @@ export async function getCompanyByDomain(domain) {
     // Normalize domain (remove protocol, www, trailing slash)
     const normalizedDomain = normalizeDomain(domain);
 
-    // First check main domain
-    let { data: company, error } = await supabase
+    // Use case-insensitive matching with ILIKE for domain lookup
+    // PostgreSQL ILIKE is case-insensitive
+    let { data: companies, error } = await supabase
       .from('companies')
       .select('*')
-      .eq('domain', normalizedDomain)
-      .eq('status', 'active')
-      .single();
+      .ilike('domain', normalizedDomain)
+      .eq('status', 'active');
 
-    // If not found, check additional_domains
-    if (error || !company) {
-      const { data: companies } = await supabase
+    let company = companies && companies.length > 0 ? companies[0] : null;
+
+    // If not found, check additional_domains with case-insensitive search
+    if (!company) {
+      const { data: allCompanies } = await supabase
         .from('companies')
         .select('*')
-        .eq('status', 'active')
-        .contains('additional_domains', [normalizedDomain]);
+        .eq('status', 'active');
 
-      company = companies && companies.length > 0 ? companies[0] : null;
+      // Manually check additional_domains array with case-insensitive comparison
+      company = allCompanies?.find(c =>
+        c.additional_domains?.some(d =>
+          d.toLowerCase() === normalizedDomain.toLowerCase()
+        )
+      ) || null;
     }
 
     return company;
