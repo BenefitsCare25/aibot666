@@ -4,6 +4,12 @@
 -- This allows querying any company schema through the public schema
 -- without manually adding each schema to "Exposed schemas" in Dashboard
 
+-- Drop existing functions first (required when changing return types)
+DROP FUNCTION IF EXISTS public.get_quick_questions_by_schema(TEXT);
+DROP FUNCTION IF EXISTS public.get_all_quick_questions_by_schema(TEXT);
+DROP FUNCTION IF EXISTS public.insert_quick_question(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, INTEGER, BOOLEAN);
+DROP FUNCTION IF EXISTS public.delete_all_quick_questions(TEXT);
+
 -- Create a function to dynamically query any schema's quick_questions table
 CREATE OR REPLACE FUNCTION public.get_quick_questions_by_schema(schema_name TEXT)
 RETURNS TABLE (
