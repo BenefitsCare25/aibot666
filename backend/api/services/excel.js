@@ -122,9 +122,8 @@ function mapEmployeeData(row) {
     throw new Error('Email is required');
   }
 
-  if (!policyType) {
-    throw new Error('Policy type is required');
-  }
+  // Use default policy type if not provided
+  const finalPolicyType = policyType || 'Standard';
 
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -138,7 +137,7 @@ function mapEmployeeData(row) {
     name: String(name).trim(),
     email: String(email).trim().toLowerCase(),
     department: department ? String(department).trim() : null,
-    policy_type: String(policyType).trim(),
+    policy_type: String(finalPolicyType).trim(),
     coverage_limit: coverageLimit,
     annual_claim_limit: annualClaimLimit,
     outpatient_limit: outpatientLimit || null,
@@ -248,8 +247,9 @@ export function validateExcelFormat(filePath) {
     }
 
     const headers = data[0];
-    const requiredFields = ['employee_id', 'name', 'email', 'policy_type'];
+    const requiredFields = ['employee_id', 'name', 'email'];
     const errors = [];
+    const warnings = [];
 
     // Check for required columns (case-insensitive and flexible matching)
     // Normalize headers by removing spaces, underscores, and hyphens
@@ -268,13 +268,36 @@ export function validateExcelFormat(filePath) {
       const found = headerLower.some(h => h === normalizedField || h.includes(normalizedField));
 
       if (!found) {
-        errors.push(`Missing required column: ${field} (looking for variations like "${field.replace(/_/g, ' ')}", "${field.replace(/_/g, '')}", etc.)`);
+        const variations = [
+          field,
+          field.replace(/_/g, ' '),
+          field.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+          field.replace(/_/g, '')
+        ];
+        errors.push(`Missing required column: "${field}". Expected one of: ${variations.join(', ')}`);
       }
     });
+
+    // Check for recommended optional fields
+    const optionalFields = ['policy_type', 'user_id', 'department', 'coverage_limit', 'annual_claim_limit'];
+    const missingOptional = [];
+
+    optionalFields.forEach(field => {
+      const normalizedField = field.replace(/[_-]/g, '');
+      const found = headerLower.some(h => h === normalizedField || h.includes(normalizedField));
+      if (!found) {
+        missingOptional.push(field);
+      }
+    });
+
+    if (missingOptional.length > 0) {
+      warnings.push(`Optional columns not found (will use default values): ${missingOptional.join(', ')}. ${missingOptional.includes('policy_type') ? 'Policy type will default to "Standard".' : ''}`);
+    }
 
     return {
       valid: errors.length === 0,
       errors,
+      warnings,
       rowCount: data.length - 1, // Exclude header row
       headers: headers
     };
@@ -288,62 +311,96 @@ export function validateExcelFormat(filePath) {
 
 /**
  * Generate Excel template for employee import
+ * @param {boolean} minimal - Generate minimal template with only required fields
  * @returns {Buffer} - Excel file buffer
  */
-export function generateExcelTemplate() {
-  const template = [
-    {
-      'employee_id': 'EMP001',
-      'user_id': 'USER001',
-      'name': 'John Doe',
-      'email': 'john.doe@company.com',
-      'department': 'Engineering',
-      'policy_type': 'Premium',
-      'coverage_limit': 100000,
-      'annual_claim_limit': 50000,
-      'outpatient_limit': 10000,
-      'dental_limit': 2000,
-      'optical_limit': 1000,
-      'policy_start_date': '2024-01-01',
-      'policy_end_date': '2024-12-31'
-    },
-    {
-      'employee_id': 'EMP002',
-      'user_id': 'USER002',
-      'name': 'Jane Smith',
-      'email': 'jane.smith@company.com',
-      'department': 'Marketing',
-      'policy_type': 'Standard',
-      'coverage_limit': 50000,
-      'annual_claim_limit': 25000,
-      'outpatient_limit': 5000,
-      'dental_limit': 1000,
-      'optical_limit': 500,
-      'policy_start_date': '2024-01-01',
-      'policy_end_date': '2024-12-31'
-    }
-  ];
+export function generateExcelTemplate(minimal = false) {
+  let template;
+
+  if (minimal) {
+    // Minimal template with only required fields
+    template = [
+      {
+        'Employee ID': 'EMP001',
+        'UserID': 'USER001',
+        'Name': 'John Doe',
+        'Email': 'john.doe@company.com',
+        'Policy Type': 'Premium'
+      },
+      {
+        'Employee ID': 'EMP002',
+        'UserID': 'USER002',
+        'Name': 'Jane Smith',
+        'Email': 'jane.smith@company.com',
+        'Policy Type': 'Standard'
+      }
+    ];
+  } else {
+    // Full template with all fields
+    template = [
+      {
+        'employee_id': 'EMP001',
+        'user_id': 'USER001',
+        'name': 'John Doe',
+        'email': 'john.doe@company.com',
+        'department': 'Engineering',
+        'policy_type': 'Premium',
+        'coverage_limit': 100000,
+        'annual_claim_limit': 50000,
+        'outpatient_limit': 10000,
+        'dental_limit': 2000,
+        'optical_limit': 1000,
+        'policy_start_date': '2024-01-01',
+        'policy_end_date': '2024-12-31'
+      },
+      {
+        'employee_id': 'EMP002',
+        'user_id': 'USER002',
+        'name': 'Jane Smith',
+        'email': 'jane.smith@company.com',
+        'department': 'Marketing',
+        'policy_type': 'Standard',
+        'coverage_limit': 50000,
+        'annual_claim_limit': 25000,
+        'outpatient_limit': 5000,
+        'dental_limit': 1000,
+        'optical_limit': 500,
+        'policy_start_date': '2024-01-01',
+        'policy_end_date': '2024-12-31'
+      }
+    ];
+  }
 
   const worksheet = XLSX.utils.json_to_sheet(template);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Employees');
 
   // Add column widths
-  worksheet['!cols'] = [
-    { wch: 12 }, // employee_id
-    { wch: 12 }, // user_id
-    { wch: 20 }, // name
-    { wch: 30 }, // email
-    { wch: 15 }, // department
-    { wch: 15 }, // policy_type
-    { wch: 15 }, // coverage_limit
-    { wch: 18 }, // annual_claim_limit
-    { wch: 17 }, // outpatient_limit
-    { wch: 14 }, // dental_limit
-    { wch: 14 }, // optical_limit
-    { wch: 18 }, // policy_start_date
-    { wch: 18 }  // policy_end_date
-  ];
+  if (minimal) {
+    worksheet['!cols'] = [
+      { wch: 15 }, // Employee ID
+      { wch: 12 }, // UserID
+      { wch: 20 }, // Name
+      { wch: 30 }, // Email
+      { wch: 15 }  // Policy Type
+    ];
+  } else {
+    worksheet['!cols'] = [
+      { wch: 12 }, // employee_id
+      { wch: 12 }, // user_id
+      { wch: 20 }, // name
+      { wch: 30 }, // email
+      { wch: 15 }, // department
+      { wch: 15 }, // policy_type
+      { wch: 15 }, // coverage_limit
+      { wch: 18 }, // annual_claim_limit
+      { wch: 17 }, // outpatient_limit
+      { wch: 14 }, // dental_limit
+      { wch: 14 }, // optical_limit
+      { wch: 18 }, // policy_start_date
+      { wch: 18 }  // policy_end_date
+    ];
+  }
 
   return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 }

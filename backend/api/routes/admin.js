@@ -126,6 +126,11 @@ router.post('/employees/upload', upload.single('file'), async (req, res) => {
       });
     }
 
+    // Log warnings if any
+    if (validation.warnings && validation.warnings.length > 0) {
+      console.log('[Excel Upload] Warnings:', validation.warnings);
+    }
+
     // Import employees
     const result = await importEmployeesFromExcel(filePath);
 
