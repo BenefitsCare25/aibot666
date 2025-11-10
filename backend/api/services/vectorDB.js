@@ -314,12 +314,15 @@ export async function deleteKnowledgeEntry(id, supabaseClient = null) {
 /**
  * Add employee with embedding
  * @param {Object} employeeData - Employee information
+ * @param {Object} supabaseClient - Company-specific Supabase client
  * @returns {Promise<Object>} - Created employee
  */
-export async function addEmployee(employeeData) {
+export async function addEmployee(employeeData, supabaseClient = null) {
+  const client = supabaseClient || supabase;
+
   try {
     // Insert employee data
-    const { data: employee, error: empError } = await supabase
+    const { data: employee, error: empError } = await client
       .from('employees')
       .insert([employeeData])
       .select()
@@ -344,7 +347,7 @@ export async function addEmployee(employeeData) {
     const embedding = await generateEmbedding(embeddingContent);
 
     // Store employee embedding
-    const { error: embError } = await supabase
+    const { error: embError } = await client
       .from('employee_embeddings')
       .insert([{
         employee_id: employee.id,
@@ -475,11 +478,14 @@ export async function getEmployeeByEmployeeId(employeeId, supabaseClient = null)
 /**
  * Get employee by email
  * @param {string} email - Employee email
+ * @param {Object} supabaseClient - Company-specific Supabase client
  * @returns {Promise<Object>} - Employee data
  */
-export async function getEmployeeByEmail(email) {
+export async function getEmployeeByEmail(email, supabaseClient = null) {
+  const client = supabaseClient || supabase;
+
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('employees')
       .select('*')
       .eq('email', email)
