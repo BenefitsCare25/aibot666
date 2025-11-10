@@ -178,6 +178,56 @@ export async function executeSQL(sql) {
 }
 
 /**
+ * Expose schema to PostgREST API by updating db_api_schemas
+ * This makes the schema accessible via Supabase client
+ * @param {string} schemaName - Schema name to expose
+ * @returns {Promise<void>}
+ */
+export async function exposeSchemaToAPI(schemaName) {
+  if (!postgres) {
+    throw new Error('PostgreSQL connection not available');
+  }
+
+  try {
+    // Grant usage on schema to anon and authenticated roles
+    await postgres.query(`GRANT USAGE ON SCHEMA "${schemaName}" TO anon, authenticated, service_role;`);
+
+    // Grant privileges on all tables in the schema
+    await postgres.query(`GRANT ALL ON ALL TABLES IN SCHEMA "${schemaName}" TO anon, authenticated, service_role;`);
+
+    // Grant privileges on all sequences
+    await postgres.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA "${schemaName}" TO anon, authenticated, service_role;`);
+
+    // Grant privileges on all functions
+    await postgres.query(`GRANT ALL ON ALL FUNCTIONS IN SCHEMA "${schemaName}" TO anon, authenticated, service_role;`);
+
+    // Alter default privileges for future objects
+    await postgres.query(`
+      ALTER DEFAULT PRIVILEGES IN SCHEMA "${schemaName}"
+      GRANT ALL ON TABLES TO anon, authenticated, service_role;
+    `);
+
+    await postgres.query(`
+      ALTER DEFAULT PRIVILEGES IN SCHEMA "${schemaName}"
+      GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+    `);
+
+    await postgres.query(`
+      ALTER DEFAULT PRIVILEGES IN SCHEMA "${schemaName}"
+      GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+    `);
+
+    // Reload PostgREST schema cache
+    await postgres.query(`NOTIFY pgrst, 'reload schema';`);
+
+    console.log(`[SchemaAutomation] Schema ${schemaName} exposed to PostgREST API successfully`);
+  } catch (error) {
+    console.error('[SchemaAutomation] Error exposing schema to API:', error);
+    throw error;
+  }
+}
+
+/**
  * Create company schema from template
  * @param {Object} params - Creation parameters
  * @param {string} params.schemaName - Schema name to create
@@ -222,13 +272,17 @@ export async function createCompanySchema({ schemaName, companyId, adminUser = '
     await executeSQL(schemaSQL);
     const duration = Date.now() - startTime;
 
-    // Step 7: Verify schema was created
+    // Step 7: Expose schema to PostgREST API
+    console.log(`[SchemaAutomation] Exposing schema ${schemaName} to PostgREST API...`);
+    await exposeSchemaToAPI(schemaName);
+
+    // Step 8: Verify schema was created
     const created = await schemaExists(schemaName);
     if (!created) {
       throw new Error('Schema creation appeared to succeed but schema does not exist');
     }
 
-    // Step 8: Update log to completed
+    // Step 9: Update log to completed
     await updateSchemaActivityLog(log.id, 'completed', null);
 
     console.log(`[SchemaAutomation] Schema created successfully in ${duration}ms`);

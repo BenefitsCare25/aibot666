@@ -30,7 +30,8 @@
       "Bash(awk:*)",
       "Bash(gh auth switch:*)",
       "Bash(nul)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(del test_template.js)"
     ],
     "deny": [],
     "ask": []
