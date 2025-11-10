@@ -182,30 +182,53 @@ export async function getCompanyByDomain(domain) {
 
     // Normalize domain (remove protocol, www, trailing slash)
     const normalizedDomain = normalizeDomain(domain);
+    console.log(`[Company Lookup] Searching for normalized domain: ${normalizedDomain}`);
 
-    // Use case-insensitive matching with ILIKE for domain lookup
-    // PostgreSQL ILIKE is case-insensitive
-    let { data: companies, error } = await supabase
+    // Fetch all active companies and normalize domains in JavaScript
+    // This is more reliable than trying to match with ILIKE when protocols differ
+    const { data: companies, error } = await supabase
       .from('companies')
       .select('*')
-      .ilike('domain', normalizedDomain)
       .eq('status', 'active');
 
-    let company = companies && companies.length > 0 ? companies[0] : null;
+    if (error) {
+      console.error('Error fetching companies:', error);
+      return null;
+    }
 
-    // If not found, check additional_domains with case-insensitive search
+    console.log(`[Company Lookup] Found ${companies?.length || 0} active companies`);
+
+    // Find company by normalizing stored domain and comparing
+    let company = companies?.find(c => {
+      const normalizedStoredDomain = normalizeDomain(c.domain);
+      const matches = normalizedStoredDomain.toLowerCase() === normalizedDomain.toLowerCase();
+
+      if (matches) {
+        console.log(`[Company Lookup] MATCH! Domain: ${c.domain} -> Normalized: ${normalizedStoredDomain}`);
+      }
+
+      return matches;
+    }) || null;
+
+    // If not found in main domain, check additional_domains
     if (!company) {
-      const { data: allCompanies } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('status', 'active');
-
-      // Manually check additional_domains array with case-insensitive comparison
-      company = allCompanies?.find(c =>
-        c.additional_domains?.some(d =>
-          d.toLowerCase() === normalizedDomain.toLowerCase()
-        )
+      company = companies?.find(c =>
+        c.additional_domains?.some(d => {
+          const normalizedAdditionalDomain = normalizeDomain(d);
+          return normalizedAdditionalDomain.toLowerCase() === normalizedDomain.toLowerCase();
+        })
       ) || null;
+
+      if (company) {
+        console.log(`[Company Lookup] Found via additional_domains: ${company.name}`);
+      }
+    }
+
+    if (!company) {
+      console.log(`[Company Lookup] No match found for: ${normalizedDomain}`);
+      companies?.forEach(c => {
+        console.log(`  - Available: ${c.domain} -> ${normalizeDomain(c.domain)}`);
+      });
     }
 
     return company;
