@@ -104,6 +104,20 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION public.insert_quick_question(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, INTEGER, BOOLEAN) TO postgres, anon, authenticated, service_role;
 
+-- Create function to delete all quick questions (for replace functionality)
+CREATE OR REPLACE FUNCTION public.delete_all_quick_questions(schema_name TEXT)
+RETURNS VOID AS $$
+BEGIN
+    IF schema_name !~ '^[a-z_][a-z0-9_]*$' THEN
+        RAISE EXCEPTION 'Invalid schema name';
+    END IF;
+
+    EXECUTE format('DELETE FROM %I.quick_questions', schema_name);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.delete_all_quick_questions(TEXT) TO postgres, anon, authenticated, service_role;
+
 -- Test the functions
 -- SELECT * FROM public.get_quick_questions_by_schema('cbre');
 -- SELECT * FROM public.get_all_quick_questions_by_schema('cbre');

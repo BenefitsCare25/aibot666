@@ -111,44 +111,46 @@ export async function importQuickQuestionsFromExcel(filePath, schemaName, replac
       throw new Error('No questions found in Excel file');
     }
 
-    // Create schema-specific Supabase client
-    const { data: schemaData, error: schemaError } = await supabase.rpc('set_config', {
-      setting: 'search_path',
-      value: `${schemaName}, public`
-    });
-
-    // If replace is true, delete existing questions
+    // If replace is true, delete existing questions using RPC
     if (replace) {
-      const { error: deleteError } = await supabase
-        .from('quick_questions')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
+      // Use RPC to delete all questions from the schema
+      const { error: deleteError } = await supabase.rpc('delete_all_quick_questions', {
+        schema_name: schemaName
+      });
 
       if (deleteError) {
         console.error('Error deleting existing questions:', deleteError);
+        // Continue even if delete fails (table might be empty)
       }
     }
 
-    // Insert questions in batches
-    const batchSize = 50;
+    // Insert questions one by one using RPC function
     let inserted = 0;
 
-    for (let i = 0; i < questions.length; i += batchSize) {
-      const batch = questions.slice(i, i + batchSize);
-
-      const { data, error } = await supabase
-        .from('quick_questions')
-        .insert(batch)
-        .select();
+    for (const q of questions) {
+      const { data, error } = await supabase.rpc('insert_quick_question', {
+        schema_name: schemaName,
+        p_category_id: q.category_id,
+        p_category_title: q.category_title,
+        p_category_icon: q.category_icon,
+        p_question: q.question,
+        p_answer: q.answer,
+        p_display_order: q.display_order,
+        p_is_active: q.is_active
+      });
 
       if (error) {
-        console.error(`Error inserting batch ${i / batchSize + 1}:`, error);
+        console.error(`Error inserting question:`, error);
         throw error;
       }
 
-      inserted += batch.length;
-      console.log(`Inserted batch ${i / batchSize + 1}: ${batch.length} questions`);
+      inserted++;
+      if (inserted % 10 === 0) {
+        console.log(`Inserted ${inserted}/${questions.length} questions`);
+      }
     }
+
+    console.log(`Successfully imported ${inserted} questions from Excel`);
 
     return {
       success: true,

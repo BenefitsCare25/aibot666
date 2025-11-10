@@ -20,7 +20,16 @@
       "Bash(npm install:*)",
       "Bash(git rm:*)",
       "Bash(npm test:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(gh auth login:*)",
+      "Bash(find:*)",
+      "Bash(python:*)",
+      "Bash(del parse_excel.py)",
+      "Bash(awk:*)",
+      "Bash(gh auth switch:*)",
+      "Bash(nul)"
     ],
     "deny": [],
     "ask": []
