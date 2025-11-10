@@ -12,6 +12,25 @@ const LOG_REQUEST_EMAIL_FROM = process.env.LOG_REQUEST_EMAIL_FROM;
 const LOG_REQUEST_EMAIL_TO = process.env.LOG_REQUEST_EMAIL_TO;
 
 /**
+ * Format date to Singapore timezone
+ * @param {Date|string} date - Date to format
+ * @returns {string} Formatted date string in Singapore time
+ */
+function toSingaporeTime(date = new Date()) {
+  const dateObj = date instanceof Date ? date : new Date(date);
+  return dateObj.toLocaleString('en-SG', {
+    timeZone: 'Asia/Singapore',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+}
+
+/**
  * Initialize Microsoft Graph Client with Delegated Permissions (ROPC Flow)
  * Uses Resource Owner Password Credentials flow with a service account
  */
@@ -69,7 +88,7 @@ function formatConversationHTML(messages) {
     const isUser = msg.role === 'user';
     const bgColor = isUser ? '#E3F2FD' : '#F5F5F5';
     const label = isUser ? '👤 Employee' : '🤖 AI Assistant';
-    const timestamp = new Date(msg.created_at).toLocaleString();
+    const timestamp = toSingaporeTime(msg.created_at);
 
     html += `
       <div style="margin: 15px 0; padding: 12px; background: ${bgColor}; border-radius: 8px;">
@@ -165,7 +184,7 @@ export async function sendLogRequestEmail(data) {
               <div class="info-box">
                 <p><span class="label">Trigger Type:</span> ${requestType === 'keyword' ? '🔤 Keyword Detected' : '🖱️ Manual Button Press'}</p>
                 <p><span class="label">Conversation ID:</span> ${conversationId}</p>
-                <p><span class="label">Request Time:</span> ${new Date().toLocaleString()}</p>
+                <p><span class="label">Request Time:</span> ${toSingaporeTime()}</p>
                 <p><span class="label">User Message:</span></p>
                 <p style="background: white; padding: 10px; border-left: 3px solid #1976D2; margin-top: 5px;">
                   "${requestMessage}"
@@ -196,7 +215,7 @@ export async function sendLogRequestEmail(data) {
 
           <div class="footer">
             <p>This is an automated message from the Insurance Chatbot System</p>
-            <p>Generated at: ${new Date().toLocaleString()}</p>
+            <p>Generated at: ${toSingaporeTime()}</p>
           </div>
         </div>
       </body>
@@ -327,7 +346,7 @@ export async function sendAcknowledgmentEmail(data) {
             <div class="info-box">
               <h3 style="margin: 0 0 10px 0; color: #4CAF50;">📋 Request Summary</h3>
               <p style="margin: 5px 0;"><strong>Reference ID:</strong> <span class="reference">${conversationId.substring(0, 8).toUpperCase()}</span></p>
-              <p style="margin: 5px 0;"><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
+              <p style="margin: 5px 0;"><strong>Submitted:</strong> ${toSingaporeTime()}</p>
               <p style="margin: 5px 0;"><strong>Attachments:</strong> ${attachmentCount} file${attachmentCount !== 1 ? 's' : ''}</p>
               <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #4CAF50; font-weight: bold;">Pending Review</span></p>
             </div>
@@ -352,7 +371,7 @@ export async function sendAcknowledgmentEmail(data) {
           <div class="footer">
             <p style="margin: 5px 0;">This is an automated confirmation from the Insurance Chatbot System</p>
             <p style="margin: 5px 0;">Please do not reply to this email</p>
-            <p style="margin: 5px 0; color: #999;">Sent at: ${new Date().toLocaleString()}</p>
+            <p style="margin: 5px 0; color: #999;">Sent at: ${toSingaporeTime()}</p>
           </div>
         </div>
       </body>
