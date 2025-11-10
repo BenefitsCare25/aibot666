@@ -521,6 +521,90 @@ router.post('/message', async (req, res) => {
 });
 
 /**
+ * POST /api/chat/instant-answer
+ * Save instant answer (from quick questions) to chat history
+ */
+router.post('/instant-answer', async (req, res) => {
+  try {
+    const { sessionId, question, answer } = req.body;
+
+    if (!sessionId || !question || !answer) {
+      return res.status(400).json({
+        success: false,
+        error: 'Session ID, question, and answer are required'
+      });
+    }
+
+    // Get session
+    const session = await getSession(sessionId);
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found or expired'
+      });
+    }
+
+    // Save messages to Redis
+    await addMessageToHistory(session.conversationId, {
+      role: 'user',
+      content: question
+    });
+
+    await addMessageToHistory(session.conversationId, {
+      role: 'assistant',
+      content: answer,
+      isInstantAnswer: true
+    });
+
+    // Save to database for persistence
+    const messages = [
+      {
+        conversation_id: session.conversationId,
+        employee_id: session.employeeId,
+        role: 'user',
+        content: question,
+        metadata: { source: 'quick_question' }
+      },
+      {
+        conversation_id: session.conversationId,
+        employee_id: session.employeeId,
+        role: 'assistant',
+        content: answer,
+        confidence_score: 1.0, // Instant answers are pre-approved
+        metadata: {
+          source: 'quick_question',
+          isInstantAnswer: true
+        }
+      }
+    ];
+
+    const { error } = await req.supabase
+      .from('chat_history')
+      .insert(messages);
+
+    if (error) {
+      console.error('Error saving instant answer to database:', error);
+      throw error;
+    }
+
+    // Update session activity
+    await touchSession(sessionId);
+
+    res.json({
+      success: true,
+      message: 'Instant answer saved to history'
+    });
+  } catch (error) {
+    console.error('Error saving instant answer:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to save instant answer'
+    });
+  }
+});
+
+/**
  * GET /api/chat/history/:conversationId
  * Get conversation history
  */

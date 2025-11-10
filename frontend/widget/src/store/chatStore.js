@@ -340,5 +340,35 @@ export const useChatStore = create((set, get) => ({
     } finally {
       set({ isLoading: false });
     }
+  },
+
+  // Save instant answer (from quick questions) to chat history
+  saveInstantAnswer: async (question, answer) => {
+    const { sessionId, apiUrl, domain: domainOverride } = get();
+
+    if (!sessionId) {
+      console.warn('No active session - instant answer not saved to database');
+      return;
+    }
+
+    // Use domain override if provided, otherwise extract from current page URL
+    const domain = domainOverride || window.location.hostname;
+
+    try {
+      await axios.post(`${apiUrl}/api/chat/instant-answer`, {
+        sessionId,
+        question,
+        answer
+      }, {
+        headers: {
+          'X-Widget-Domain': domain
+        }
+      });
+
+      console.log('Instant answer saved to chat history');
+    } catch (error) {
+      console.error('Error saving instant answer:', error);
+      // Don't show error to user - this is a background operation
+    }
   }
 }));

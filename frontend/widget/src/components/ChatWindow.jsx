@@ -21,7 +21,8 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
     toggleEmailInput,
     isLogMode,
     enterLogMode,
-    exitLogMode
+    exitLogMode,
+    saveInstantAnswer
   } = useChatStore();
   const [inputValue, setInputValue] = useState('');
   const [showQuickQuestions, setShowQuickQuestions] = useState(false);
@@ -81,6 +82,9 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
       useChatStore.setState(state => ({
         messages: [...state.messages, userMessage, assistantMessage]
       }));
+
+      // Save to database in background
+      await saveInstantAnswer(questionData.q, questionData.a);
     } else {
       // Legacy format or typed question - send to API
       const message = typeof questionData === 'string' ? questionData : questionData.q || questionData;
