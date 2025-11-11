@@ -69,7 +69,11 @@ export async function companyContextMiddleware(req, res, next) {
       domain: company.domain,
       schemaName: company.schema_name,
       settings: company.settings || {},
-      metadata: company.metadata || {}
+      metadata: company.metadata || {},
+      // Email configuration for LOG requests
+      log_request_email_to: company.log_request_email_to || null,
+      log_request_email_cc: company.log_request_email_cc || null,
+      log_request_keywords: company.log_request_keywords || null
     };
 
     // Add schema name directly for easy access

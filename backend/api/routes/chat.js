@@ -374,6 +374,13 @@ router.post('/request-log', async (req, res) => {
       log_request_email_cc: req.company?.log_request_email_cc || null
     };
 
+    console.log('[LOG Request] Company:', req.company?.name);
+    console.log('[LOG Request] Email Config:', {
+      to: companyConfig.log_request_email_to,
+      cc: companyConfig.log_request_email_cc,
+      fallback: process.env.LOG_REQUEST_EMAIL_TO
+    });
+
     // Send email to support team
     const emailResult = await sendLogRequestEmail({
       employee,
