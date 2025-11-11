@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
-import { supabase } from '../../config/supabase.js';
+import { supabase, getSchemaClient } from '../../config/supabase.js';
+import { addKnowledgeEntriesBatch } from './vectorDB.js';
 
 /**
  * Parse Knowledge Base Excel file and extract entries
@@ -63,6 +64,7 @@ export async function parseKnowledgeBaseExcel(filePath) {
 
 /**
  * Import knowledge base entries from Excel file to database
+ * IMPORTANT: This now generates embeddings for each entry using OpenAI
  */
 export async function importKnowledgeBaseFromExcel(filePath, schemaName, replace = false) {
   try {
@@ -72,6 +74,9 @@ export async function importKnowledgeBaseFromExcel(filePath, schemaName, replace
     if (entries.length === 0) {
       throw new Error('No entries found in Excel file');
     }
+
+    // Get schema-specific Supabase client
+    const schemaClient = getSchemaClient(schemaName);
 
     // If replace is true, delete existing entries
     if (replace) {
@@ -85,36 +90,43 @@ export async function importKnowledgeBaseFromExcel(filePath, schemaName, replace
       }
     }
 
-    // Insert entries one by one using RPC function
+    // Process entries in batches to avoid overwhelming OpenAI API
+    const BATCH_SIZE = 20; // Process 20 entries at a time
     let inserted = 0;
     const failed = [];
 
-    for (const entry of entries) {
-      try {
-        const { data, error } = await supabase.rpc('insert_knowledge_entry', {
-          schema_name: schemaName,
-          p_title: entry.title,
-          p_content: entry.content,
-          p_category: entry.category,
-          p_subcategory: entry.subcategory
-        });
+    console.log(`Processing ${entries.length} entries in batches of ${BATCH_SIZE}...`);
 
-        if (error) {
-          console.error(`Error inserting entry "${entry.title}":`, error);
-          failed.push({ entry, error: error.message });
-        } else {
-          inserted++;
-          if (inserted % 10 === 0) {
-            console.log(`Inserted ${inserted}/${entries.length} entries`);
-          }
+    for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+      const batch = entries.slice(i, i + BATCH_SIZE);
+      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(entries.length / BATCH_SIZE)} (${batch.length} entries)...`);
+
+      try {
+        // Use addKnowledgeEntriesBatch which generates embeddings
+        const result = await addKnowledgeEntriesBatch(batch, schemaClient);
+
+        if (result && result.length > 0) {
+          inserted += result.length;
+          console.log(`✅ Batch ${Math.floor(i / BATCH_SIZE) + 1} completed: ${result.length} entries with embeddings`);
         }
-      } catch (err) {
-        console.error(`Exception inserting entry "${entry.title}":`, err);
-        failed.push({ entry, error: err.message });
+      } catch (batchError) {
+        console.error(`❌ Error processing batch ${Math.floor(i / BATCH_SIZE) + 1}:`, batchError);
+        // Add all entries in failed batch to failed list
+        batch.forEach(entry => {
+          failed.push({ entry, error: batchError.message });
+        });
+      }
+
+      // Small delay between batches to avoid rate limiting
+      if (i + BATCH_SIZE < entries.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 
-    console.log(`Successfully imported ${inserted} entries from Excel`);
+    console.log(`✅ Successfully imported ${inserted} entries from Excel with embeddings`);
+    if (failed.length > 0) {
+      console.log(`⚠️  ${failed.length} entries failed to import`);
+    }
 
     return {
       success: true,
