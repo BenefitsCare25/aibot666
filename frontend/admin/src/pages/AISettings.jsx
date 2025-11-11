@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useCompany } from '../contexts/CompanyContext';
+import { companyApi } from '../api/companies';
 import { aiSettingsApi } from '../api/aiSettings';
 
 const DEFAULT_SYSTEM_PROMPT = `You are an AI assistant for an employee insurance benefits portal. Your role is to help employees understand their insurance coverage, benefits, and claims procedures.
@@ -24,7 +24,8 @@ FORMATTING GUIDELINES:
 - Keep paragraphs short and concise`;
 
 export default function AISettings() {
-  const { selectedCompany } = useCompany();
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -51,10 +52,34 @@ export default function AISettings() {
   const [testResult, setTestResult] = useState(null);
 
   useEffect(() => {
+    loadCompanies();
+  }, []);
+
+  useEffect(() => {
     if (selectedCompany) {
       loadData();
     }
   }, [selectedCompany]);
+
+  const loadCompanies = async () => {
+    try {
+      const response = await companyApi.getAll();
+      if (response.success) {
+        setCompanies(response.data);
+
+        // Get selected company from localStorage
+        const savedDomain = localStorage.getItem('selected_company_domain');
+        const company = response.data.find(c => c.domain === savedDomain) || response.data[0];
+
+        if (company) {
+          setSelectedCompany(company);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading companies:', err);
+      setError('Failed to load companies');
+    }
+  };
 
   const loadData = async () => {
     try {
