@@ -10,6 +10,7 @@ import 'express-async-errors';
 import chatRoutes from './api/routes/chat.js';
 import adminRoutes from './api/routes/admin.js';
 import aiSettingsRoutes from './api/routes/aiSettings.js';
+import reembedRoutes from './api/routes/reembed.js';
 
 // Import services
 import { initializeTelegramBot } from './api/services/telegram.js';
@@ -78,6 +79,7 @@ app.get('/health', (req, res) => {
 app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai-settings', aiSettingsRoutes);
+app.use('/api/reembed', reembedRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

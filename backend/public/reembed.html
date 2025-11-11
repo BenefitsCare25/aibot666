@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Re-embed Knowledge Base</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .warning {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        button {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #1976d2;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.success {
+            background: #c8e6c9;
+            border: 1px solid #4caf50;
+            display: block;
+        }
+        .status.error {
+            background: #ffcdd2;
+            border: 1px solid #f44336;
+            display: block;
+        }
+        .status.loading {
+            background: #fff9c4;
+            border: 1px solid #ffc107;
+            display: block;
+        }
+        .progress {
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2196f3;
+        }
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Re-embed Knowledge Base</h1>
+
+        <div class="info">
+            <strong>What this does:</strong><br>
+            Re-generates embeddings for all CBRE knowledge base entries to include titles.
+            This will improve search relevance for question-style queries.
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ Important:</strong><br>
+            • This process may take several minutes depending on the number of entries<br>
+            • Each batch of 50 entries takes about 5-10 seconds<br>
+            • The page will show progress as it runs<br>
+            • Do not close this page until complete
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="totalEntries">-</div>
+                <div class="stat-label">Total Entries</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="embeddingStatus">-</div>
+                <div class="stat-label">With Embeddings</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px;">
+            <button onclick="checkStatus()">Check Status</button>
+            <button onclick="startReembed()" id="reembedBtn">Start Re-embedding</button>
+        </div>
+
+        <div class="status" id="statusBox">
+            <div id="statusMessage"></div>
+            <div class="progress" id="progress"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin + '/api';
+        const SCHEMA = 'cbre';
+
+        async function checkStatus() {
+            showStatus('loading', 'Checking knowledge base status...');
+
+            try {
+                const response = await fetch(`${API_BASE}/reembed/${SCHEMA}/status`, {
+                    headers: {
+                        'X-Widget-Domain': 'https://benefits.inspro.com.sg/CBRE'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('totalEntries').textContent = data.total;
+                    document.getElementById('embeddingStatus').textContent =
+                        `${data.withEmbedding}/${data.total} (${data.percentage}%)`;
+
+                    showStatus('success', `Status check complete!\n\nTotal entries: ${data.total}\nWith embeddings: ${data.withEmbedding}\nWithout embeddings: ${data.withoutEmbedding}\nPercentage: ${data.percentage}%`);
+                } else {
+                    showStatus('error', 'Error: ' + data.error);
+                }
+            } catch (error) {
+                showStatus('error', 'Failed to check status: ' + error.message);
+            }
+        }
+
+        async function startReembed() {
+            if (!confirm('Start re-embedding process? This may take several minutes.')) {
+                return;
+            }
+
+            const btn = document.getElementById('reembedBtn');
+            btn.disabled = true;
+
+            showStatus('loading', 'Re-embedding in progress...\nPlease wait, this may take several minutes.');
+
+            const startTime = Date.now();
+
+            try {
+                const response = await fetch(`${API_BASE}/reembed/${SCHEMA}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Widget-Domain': 'https://benefits.inspro.com.sg/CBRE'
+                    }
+                });
+
+                const data = await response.json();
+                const duration = Math.round((Date.now() - startTime) / 1000);
+
+                if (data.success) {
+                    showStatus('success',
+                        `✅ Re-embedding completed!\n\n` +
+                        `Schema: ${data.schema}\n` +
+                        `Processed: ${data.processed} entries\n` +
+                        `Updated: ${data.updated} entries\n` +
+                        `Errors: ${data.errors} entries\n` +
+                        `Duration: ${duration} seconds\n\n` +
+                        `You can now test the chatbot - it should find matching knowledge base entries!`
+                    );
+
+                    // Refresh status
+                    setTimeout(checkStatus, 1000);
+                } else {
+                    showStatus('error', 'Error: ' + data.error);
+                }
+            } catch (error) {
+                showStatus('error', 'Failed to start re-embedding: ' + error.message);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function showStatus(type, message) {
+            const box = document.getElementById('statusBox');
+            const messageEl = document.getElementById('statusMessage');
+
+            box.className = 'status ' + type;
+            messageEl.textContent = message;
+        }
+
+        // Check status on page load
+        window.addEventListener('load', checkStatus);
+    </script>
+</body>
+</html>

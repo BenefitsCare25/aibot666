@@ -234,6 +234,7 @@ RETURNS TABLE (
   title VARCHAR,
   content TEXT,
   category VARCHAR,
+  subcategory VARCHAR,
   similarity float
 )
 LANGUAGE sql STABLE
@@ -243,6 +244,7 @@ AS $$
     knowledge_base.title,
     knowledge_base.content,
     knowledge_base.category,
+    knowledge_base.subcategory,
     1 - (knowledge_base.embedding <=> query_embedding) as similarity
   FROM {{SCHEMA_NAME}}.knowledge_base
   WHERE knowledge_base.is_active = true
