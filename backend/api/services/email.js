@@ -225,7 +225,7 @@ export async function sendLogRequestEmail(data) {
           </div>
 
           <div class="footer">
-            <p>Insurance Chatbot System</p>
+            <p>This is an automated message.</p>
             <p>Generated at: ${toSingaporeTime()}</p>
           </div>
         </div>
