@@ -517,6 +517,7 @@ router.post('/message', async (req, res) => {
     if (contexts && contexts.length > 0) {
       contexts.forEach((ctx, idx) => {
         console.log(`[Context ${idx + 1}] Category: ${ctx.category}, Similarity: ${ctx.similarity}, Title: ${ctx.title}`);
+        console.log(`[Context ${idx + 1}] Content: ${ctx.content?.substring(0, 200)}...`);
       });
     } else {
       console.log(`[Knowledge Search] No contexts found - AI will likely escalate`);
@@ -538,6 +539,12 @@ router.post('/message', async (req, res) => {
       employee,
       formattedHistory
     );
+
+    // Debug: Log AI response for escalation analysis
+    console.log(`[AI Response] Answer preview: ${response.answer?.substring(0, 150)}...`);
+    console.log(`[AI Response] Confidence: ${response.confidence}`);
+    const hasEscalationPhrase = response.answer?.toLowerCase().includes('for such query, let us check back with the team');
+    console.log(`[AI Response] Contains escalation phrase: ${hasEscalationPhrase}`);
 
     // Save messages to Redis
     await addMessageToHistory(session.conversationId, {
