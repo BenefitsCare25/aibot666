@@ -1,7 +1,7 @@
 import { formatDistanceToNow } from 'date-fns';
 
 export default function ConversationCard({ conversation, isSelected, onClick }) {
-  const { employee, last_message, message_count, has_escalation, last_message_at } = conversation;
+  const { employee, last_message, message_count, has_escalation, last_message_at, attended_by } = conversation;
 
   // Get initials for avatar
   const getInitials = (name) => {
@@ -64,6 +64,11 @@ export default function ConversationCard({ conversation, isSelected, onClick }) 
             {has_escalation && (
               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
                 ⚠️ Escalated
+              </span>
+            )}
+            {attended_by && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                ✓ {attended_by}
               </span>
             )}
             {employee?.policy_type && (

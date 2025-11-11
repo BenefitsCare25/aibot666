@@ -101,6 +101,21 @@ export default function ChatHistory() {
     }
   };
 
+  const handleAttendanceUpdate = async () => {
+    // Refresh conversations list to update attendance badges
+    await loadConversations(true);
+
+    // Reload the selected conversation to get updated attendance data
+    if (selectedConversation) {
+      const updatedConversation = conversations.find(
+        c => c.conversation_id === selectedConversation.conversation_id
+      );
+      if (updatedConversation) {
+        setSelectedConversation({ ...selectedConversation, ...updatedConversation });
+      }
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col">
       {/* Page header */}
@@ -133,6 +148,7 @@ export default function ChatHistory() {
             loading={messagesLoading}
             onExport={handleExport}
             exporting={exporting}
+            onAttendanceUpdate={handleAttendanceUpdate}
           />
         </div>
       </div>

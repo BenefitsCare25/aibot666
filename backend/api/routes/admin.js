@@ -1347,7 +1347,10 @@ router.get('/chat-history', async (req, res) => {
           message_count: 0,
           has_escalation: false,
           first_message_at: msg.created_at,
-          last_message_at: msg.created_at
+          last_message_at: msg.created_at,
+          attended_by: msg.attended_by,
+          admin_notes: msg.admin_notes,
+          attended_at: msg.attended_at
         });
       }
       const conv = conversationMap.get(convId);
@@ -1358,6 +1361,12 @@ router.get('/chat-history', async (req, res) => {
       }
       if (new Date(msg.created_at) > new Date(conv.last_message_at)) {
         conv.last_message_at = msg.created_at;
+      }
+      // Update admin attendance info if present
+      if (msg.attended_by) {
+        conv.attended_by = msg.attended_by;
+        conv.admin_notes = msg.admin_notes;
+        conv.attended_at = msg.attended_at;
       }
     });
 
@@ -1462,6 +1471,66 @@ router.get('/chat-history/:conversationId/messages', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch conversation messages'
+    });
+  }
+});
+
+/**
+ * PUT /api/admin/chat-history/:conversationId/attendance
+ * Update admin attendance for a conversation
+ */
+router.put('/chat-history/:conversationId/attendance', async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { attendedBy, adminNotes } = req.body;
+
+    // Validate input
+    if (!attendedBy || attendedBy.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'Admin name (attendedBy) is required'
+      });
+    }
+
+    // Update all messages in the conversation with admin attendance info
+    const { data, error } = await req.supabase
+      .from('chat_history')
+      .update({
+        attended_by: attendedBy.trim(),
+        admin_notes: adminNotes?.trim() || null,
+        attended_at: new Date().toISOString()
+      })
+      .eq('conversation_id', conversationId)
+      .select();
+
+    if (error) {
+      console.error('Error updating admin attendance:', error);
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Conversation not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Admin attendance updated successfully',
+      data: {
+        conversationId,
+        attendedBy: attendedBy.trim(),
+        adminNotes: adminNotes?.trim() || null,
+        attendedAt: new Date().toISOString(),
+        messagesUpdated: data.length
+      }
+    });
+  } catch (error) {
+    console.error('Error updating admin attendance:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update admin attendance'
     });
   }
 });

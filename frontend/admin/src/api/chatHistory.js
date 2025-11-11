@@ -71,5 +71,15 @@ export const chatHistoryApi = {
     document.body.removeChild(link);
 
     return { success: true };
+  },
+
+  /**
+   * Update admin attendance for a conversation
+   */
+  updateAttendance: async (conversationId, attendedBy, adminNotes) => {
+    return apiClient.put(`/api/admin/chat-history/${conversationId}/attendance`, {
+      attendedBy,
+      adminNotes
+    });
   }
 };

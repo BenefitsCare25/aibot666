@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ChatHeader from './ChatHeader';
 import ChatMessage from './ChatMessage';
+import AdminAttendanceForm from './AdminAttendanceForm';
 
-export default function ChatView({ conversation, messages, loading, onExport, exporting }) {
+export default function ChatView({ conversation, messages, loading, onExport, exporting, onAttendanceUpdate }) {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
@@ -71,6 +72,14 @@ export default function ChatView({ conversation, messages, loading, onExport, ex
           </>
         )}
       </div>
+
+      {/* Admin Attendance Form */}
+      {conversation && !loading && (
+        <AdminAttendanceForm
+          conversation={conversation}
+          onUpdate={onAttendanceUpdate}
+        />
+      )}
     </div>
   );
 }
