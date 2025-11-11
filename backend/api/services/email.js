@@ -185,8 +185,6 @@ export async function sendLogRequestEmail(data) {
               <div class="info-box">
                 <p><span class="label">Name:</span> ${employee.name}</p>
                 <p><span class="label">Employee ID:</span> ${employee.employee_id}</p>
-                <p><span class="label">Policy Type:</span> ${employee.policy_type}</p>
-                <p><span class="label">Coverage Limit:</span> $${employee.coverage_limit?.toLocaleString() || 'N/A'}</p>
                 <p><span class="label">Email:</span> ${employee.email || 'Not provided'}</p>
               </div>
             </div>
@@ -227,7 +225,7 @@ export async function sendLogRequestEmail(data) {
           </div>
 
           <div class="footer">
-            <p>This is an automated message from the Insurance Chatbot System</p>
+            <p>Insurance Chatbot System</p>
             <p>Generated at: ${toSingaporeTime()}</p>
           </div>
         </div>
