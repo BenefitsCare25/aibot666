@@ -438,13 +438,11 @@ async function updateKnowledgeUsage(ids, supabaseClient = null) {
     // Use provided client or fallback to default
     const client = supabaseClient || supabase;
 
-    const { error } = await client
-      .from('knowledge_base')
-      .update({
-        usage_count: client.raw('usage_count + 1'),
-        last_used_at: new Date().toISOString()
-      })
-      .in('id', ids);
+    // Call RPC function to increment usage count atomically
+    // This requires the increment_knowledge_usage function in each company schema
+    const { error } = await client.rpc('increment_knowledge_usage', {
+      knowledge_ids: ids
+    });
 
     if (error) {
       console.error('Error updating knowledge usage:', error);
