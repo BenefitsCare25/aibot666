@@ -116,6 +116,15 @@ router.post('/session', async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating session:', error);
+
+    // Check if it's an "Employee not found" error
+    if (error.message && error.message.includes('Employee not found')) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found'
+      });
+    }
+
     res.status(500).json({
       success: false,
       error: 'Failed to create session'
