@@ -106,25 +106,45 @@ export default function ChatHistory() {
     console.log('🔄 [ChatHistory] handleAttendanceUpdate called');
     console.log('📋 [ChatHistory] Current selected conversation:', selectedConversation?.conversation_id);
 
-    // Refresh conversations list to update attendance badges
-    console.log('🔄 [ChatHistory] Reloading conversations list...');
-    await loadConversations(true);
+    try {
+      // Refresh conversations list to update attendance badges
+      console.log('🔄 [ChatHistory] Reloading conversations list...');
 
-    // Reload the selected conversation to get updated attendance data
-    if (selectedConversation) {
-      console.log('🔍 [ChatHistory] Looking for updated conversation in list');
-      const updatedConversation = conversations.find(
-        c => c.conversation_id === selectedConversation.conversation_id
-      );
-      if (updatedConversation) {
-        console.log('✅ [ChatHistory] Found updated conversation, merging data:', {
-          attended_by: updatedConversation.attended_by,
-          admin_notes: updatedConversation.admin_notes
-        });
-        setSelectedConversation({ ...selectedConversation, ...updatedConversation });
-      } else {
-        console.warn('⚠️ [ChatHistory] Updated conversation not found in list');
+      const response = await chatHistoryApi.getConversations({
+        page: pagination.page,
+        limit: pagination.limit,
+        search: filters.search,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+        escalatedOnly: filters.escalatedOnly
+      });
+
+      console.log('✅ [ChatHistory] Got fresh conversations data');
+
+      // Update conversations state
+      setConversations(response.data.conversations);
+
+      // Reload the selected conversation to get updated attendance data
+      if (selectedConversation) {
+        console.log('🔍 [ChatHistory] Looking for updated conversation in fresh data');
+        const updatedConversation = response.data.conversations.find(
+          c => c.conversation_id === selectedConversation.conversation_id
+        );
+
+        if (updatedConversation) {
+          console.log('✅ [ChatHistory] Found updated conversation, merging data:', {
+            attended_by: updatedConversation.attended_by,
+            admin_notes: updatedConversation.admin_notes,
+            attended_at: updatedConversation.attended_at
+          });
+          setSelectedConversation({ ...selectedConversation, ...updatedConversation });
+        } else {
+          console.warn('⚠️ [ChatHistory] Updated conversation not found in list');
+        }
       }
+    } catch (error) {
+      console.error('❌ [ChatHistory] Error refreshing conversations:', error);
+      toast.error('Failed to refresh conversation list');
     }
   };
 

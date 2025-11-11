@@ -1314,7 +1314,7 @@ router.get('/chat-history', async (req, res) => {
     // First, get all unique conversation_ids with filters
     let conversationQuery = req.supabase
       .from('chat_history')
-      .select('conversation_id, employee_id, created_at, was_escalated', { count: 'exact' });
+      .select('conversation_id, employee_id, created_at, was_escalated, attended_by, admin_notes, attended_at', { count: 'exact' });
 
     // Apply filters
     if (dateFrom) {
