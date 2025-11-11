@@ -42,5 +42,10 @@ export const quickQuestionsApi = {
         'Content-Type': 'multipart/form-data'
       }
     });
+  },
+
+  // Update category name and icon for all questions in a category
+  updateCategory: async (categoryId, categoryData) => {
+    return apiClient.put(`/api/admin/quick-questions/category/${categoryId}`, categoryData);
   }
 };

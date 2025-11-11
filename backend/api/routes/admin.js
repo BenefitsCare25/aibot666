@@ -1757,6 +1757,54 @@ router.delete('/quick-questions/:id', async (req, res) => {
 });
 
 /**
+ * PUT /api/admin/quick-questions/category/:categoryId
+ * Update category name and icon for all questions in a category
+ */
+router.put('/quick-questions/category/:categoryId', async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+    const { category_title, category_icon } = req.body;
+
+    if (!category_title) {
+      return res.status(400).json({
+        success: false,
+        error: 'Category title is required'
+      });
+    }
+
+    const updateData = {
+      category_title,
+      updated_at: new Date().toISOString()
+    };
+
+    if (category_icon !== undefined) {
+      updateData.category_icon = category_icon;
+    }
+
+    const { data, error } = await req.supabase
+      .from('quick_questions')
+      .update(updateData)
+      .eq('category_id', categoryId)
+      .select();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: `Successfully updated category for ${data.length} question(s)`,
+      data
+    });
+  } catch (error) {
+    console.error('Error updating category:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to update category',
+      details: error.message
+    });
+  }
+});
+
+/**
  * POST /api/admin/quick-questions/bulk-import
  * Bulk import quick questions from JSON
  */

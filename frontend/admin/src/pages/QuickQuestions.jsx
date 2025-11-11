@@ -21,6 +21,11 @@ export default function QuickQuestions() {
   const [uploadFile, setUploadFile] = useState(null);
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [categoryFormData, setCategoryFormData] = useState({
+    category_title: '',
+    category_icon: 'question'
+  });
   const [formData, setFormData] = useState({
     category_id: '',
     category_title: '',
@@ -183,6 +188,38 @@ export default function QuickQuestions() {
       setError(hint ? `${errorMessage}\n\n${hint}` : errorMessage);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleEditCategory = (categoryId, category) => {
+    setEditingCategory(categoryId);
+    setCategoryFormData({
+      category_title: category.title,
+      category_icon: category.icon
+    });
+  };
+
+  const handleCancelCategoryEdit = () => {
+    setEditingCategory(null);
+    setCategoryFormData({
+      category_title: '',
+      category_icon: 'question'
+    });
+  };
+
+  const handleSaveCategory = async (categoryId) => {
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      await quickQuestionsApi.updateCategory(categoryId, categoryFormData);
+      setSuccessMessage('Category updated successfully');
+      setEditingCategory(null);
+      loadQuestions();
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } catch (err) {
+      console.error('Error updating category:', err);
+      setError(err.response?.data?.details || 'Failed to update category');
     }
   };
 
@@ -492,12 +529,66 @@ export default function QuickQuestions() {
           {Object.entries(categorizedQuestions).map(([categoryId, category]) => (
             <div key={categoryId} className="bg-white rounded-lg shadow overflow-hidden">
               <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {ICON_OPTIONS.find(i => i.value === category.icon)?.icon || '❓'} {category.title}
-                </h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  {category.questions.length} question{category.questions.length > 1 ? 's' : ''}
-                </p>
+                {editingCategory === categoryId ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          value={categoryFormData.category_title}
+                          onChange={(e) => setCategoryFormData({ ...categoryFormData, category_title: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                          placeholder="Category name"
+                        />
+                      </div>
+                      <div className="w-48">
+                        <select
+                          value={categoryFormData.category_icon}
+                          onChange={(e) => setCategoryFormData({ ...categoryFormData, category_icon: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        >
+                          {ICON_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.icon} {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <button
+                        onClick={() => handleSaveCategory(categoryId)}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancelCategoryEdit}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">
+                        {ICON_OPTIONS.find(i => i.value === category.icon)?.icon || '❓'} {category.title}
+                      </h2>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {category.questions.length} question{category.questions.length > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleEditCategory(categoryId, category)}
+                      className="px-3 py-1 text-sm text-primary-600 hover:bg-primary-50 rounded transition-colors flex items-center gap-1"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit Category
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="divide-y divide-gray-200">
