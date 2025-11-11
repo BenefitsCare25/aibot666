@@ -1484,36 +1484,51 @@ router.put('/chat-history/:conversationId/attendance', async (req, res) => {
     const { conversationId } = req.params;
     const { attendedBy, adminNotes } = req.body;
 
+    console.log('📝 [Attendance] Received update request:', {
+      conversationId,
+      attendedBy,
+      adminNotes: adminNotes ? `${adminNotes.substring(0, 50)}...` : null,
+      company: req.companySchema
+    });
+
     // Validate input
     if (!attendedBy || attendedBy.trim() === '') {
+      console.warn('⚠️ [Attendance] Validation failed: attendedBy is required');
       return res.status(400).json({
         success: false,
         error: 'Admin name (attendedBy) is required'
       });
     }
 
+    const updateData = {
+      attended_by: attendedBy.trim(),
+      admin_notes: adminNotes?.trim() || null,
+      attended_at: new Date().toISOString()
+    };
+
+    console.log('🔄 [Attendance] Updating database with:', updateData);
+
     // Update all messages in the conversation with admin attendance info
     const { data, error } = await req.supabase
       .from('chat_history')
-      .update({
-        attended_by: attendedBy.trim(),
-        admin_notes: adminNotes?.trim() || null,
-        attended_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('conversation_id', conversationId)
       .select();
 
     if (error) {
-      console.error('Error updating admin attendance:', error);
+      console.error('❌ [Attendance] Database error:', error);
       throw error;
     }
 
     if (!data || data.length === 0) {
+      console.warn('⚠️ [Attendance] No conversation found with ID:', conversationId);
       return res.status(404).json({
         success: false,
         error: 'Conversation not found'
       });
     }
+
+    console.log('✅ [Attendance] Successfully updated', data.length, 'messages');
 
     res.json({
       success: true,

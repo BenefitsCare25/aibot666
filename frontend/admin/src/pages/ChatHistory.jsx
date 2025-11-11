@@ -102,16 +102,27 @@ export default function ChatHistory() {
   };
 
   const handleAttendanceUpdate = async () => {
+    console.log('🔄 [ChatHistory] handleAttendanceUpdate called');
+    console.log('📋 [ChatHistory] Current selected conversation:', selectedConversation?.conversation_id);
+
     // Refresh conversations list to update attendance badges
+    console.log('🔄 [ChatHistory] Reloading conversations list...');
     await loadConversations(true);
 
     // Reload the selected conversation to get updated attendance data
     if (selectedConversation) {
+      console.log('🔍 [ChatHistory] Looking for updated conversation in list');
       const updatedConversation = conversations.find(
         c => c.conversation_id === selectedConversation.conversation_id
       );
       if (updatedConversation) {
+        console.log('✅ [ChatHistory] Found updated conversation, merging data:', {
+          attended_by: updatedConversation.attended_by,
+          admin_notes: updatedConversation.admin_notes
+        });
         setSelectedConversation({ ...selectedConversation, ...updatedConversation });
+      } else {
+        console.warn('⚠️ [ChatHistory] Updated conversation not found in list');
       }
     }
   };

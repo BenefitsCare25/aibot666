@@ -30,6 +30,12 @@ export default function AdminAttendanceForm({ conversation, onUpdate }) {
       return;
     }
 
+    console.log('💾 Submitting attendance update:', {
+      conversationId: conversation.conversation_id,
+      attendedBy: attendedBy.trim(),
+      adminNotes: adminNotes.trim() || null
+    });
+
     setSaving(true);
 
     try {
@@ -39,22 +45,32 @@ export default function AdminAttendanceForm({ conversation, onUpdate }) {
         adminNotes.trim() || null
       );
 
+      console.log('✅ Attendance update response:', response);
+
       if (response.success) {
         setSuccessMessage('Attendance recorded successfully');
-        setIsExpanded(false);
+        console.log('✓ Success message set, collapsing form');
 
         // Notify parent component to refresh
         if (onUpdate) {
-          onUpdate();
+          console.log('🔄 Calling onUpdate to refresh conversation list');
+          await onUpdate();
         }
 
-        // Clear success message after 3 seconds
-        setTimeout(() => setSuccessMessage(null), 3000);
+        // Keep expanded to show success message for 2 seconds, then collapse
+        setTimeout(() => {
+          setIsExpanded(false);
+          console.log('📋 Form collapsed after success');
+        }, 2000);
+
+        // Clear success message after 4 seconds
+        setTimeout(() => setSuccessMessage(null), 4000);
       } else {
+        console.error('❌ Failed response:', response);
         setError(response.error || 'Failed to save attendance');
       }
     } catch (err) {
-      console.error('Error saving attendance:', err);
+      console.error('❌ Error saving attendance:', err);
       setError(err.message || 'Failed to save attendance');
     } finally {
       setSaving(false);
@@ -64,7 +80,7 @@ export default function AdminAttendanceForm({ conversation, onUpdate }) {
   const hasAttendance = conversation?.attended_by;
 
   return (
-    <div className="border-t border-gray-200 bg-white">
+    <div className="border-t border-gray-200 bg-white relative z-50">
       {/* Collapsed State - Shows attendance info if exists */}
       {!isExpanded && (
         <div className="px-6 py-3 flex items-center justify-between">
