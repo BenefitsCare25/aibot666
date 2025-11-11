@@ -511,6 +511,17 @@ router.post('/message', async (req, res) => {
       employee.policy_type  // policyType for filtering
     );
 
+    // Debug logging to track knowledge base matching
+    console.log(`[Knowledge Search] Query: "${message}"`);
+    console.log(`[Knowledge Search] Found ${contexts?.length || 0} matching contexts`);
+    if (contexts && contexts.length > 0) {
+      contexts.forEach((ctx, idx) => {
+        console.log(`[Context ${idx + 1}] Category: ${ctx.category}, Similarity: ${ctx.similarity}, Title: ${ctx.title}`);
+      });
+    } else {
+      console.log(`[Knowledge Search] No contexts found - AI will likely escalate`);
+    }
+
     // Get conversation history (with employee validation for security)
     const history = await getConversationHistory(session.conversationId, 10, session.employeeId);
 
