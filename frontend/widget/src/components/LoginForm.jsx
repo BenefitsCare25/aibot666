@@ -22,7 +22,14 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
       const sessionData = await createSession(employeeId.trim());
       onLogin(sessionData);
     } catch (err) {
-      setError(err.message || 'Failed to start chat session');
+      const errorMessage = err.message || 'Failed to start chat session';
+
+      // Check if it's an "Employee not found" error
+      if (errorMessage.includes('Employee not found') || errorMessage.includes('employee not found')) {
+        setError('Employee ID not found, please contact helpdesk at 64487707');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
