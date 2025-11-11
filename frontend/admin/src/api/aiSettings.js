@@ -6,7 +6,7 @@ export const aiSettingsApi = {
    * @returns {Promise} Response with models array
    */
   getModels: () => {
-    return apiClient.get('/ai-settings/models');
+    return apiClient.get('/api/ai-settings/models');
   },
 
   /**
@@ -15,7 +15,7 @@ export const aiSettingsApi = {
    * @returns {Promise} Response with company settings
    */
   getCompanySettings: (companyId) => {
-    return apiClient.get(`/ai-settings/companies/${companyId}`);
+    return apiClient.get(`/api/ai-settings/companies/${companyId}`);
   },
 
   /**
@@ -25,7 +25,7 @@ export const aiSettingsApi = {
    * @returns {Promise} Response with updated settings
    */
   updateCompanySettings: (companyId, settings) => {
-    return apiClient.put(`/ai-settings/companies/${companyId}`, { settings });
+    return apiClient.put(`/api/ai-settings/companies/${companyId}`, { settings });
   },
 
   /**
@@ -36,7 +36,7 @@ export const aiSettingsApi = {
    * @returns {Promise} Response with test results
    */
   testConfiguration: (companyId, testQuery, settings) => {
-    return apiClient.post('/ai-settings/test', {
+    return apiClient.post('/api/ai-settings/test', {
       companyId,
       testQuery,
       settings
@@ -49,7 +49,7 @@ export const aiSettingsApi = {
    * @returns {Promise} Response with reset settings
    */
   resetSettings: (companyId) => {
-    return apiClient.post(`/ai-settings/reset/${companyId}`);
+    return apiClient.post(`/api/ai-settings/reset/${companyId}`);
   },
 
   /**
@@ -57,7 +57,7 @@ export const aiSettingsApi = {
    * @returns {Promise} Response with default settings
    */
   getDefaults: () => {
-    return apiClient.get('/ai-settings/defaults');
+    return apiClient.get('/api/ai-settings/defaults');
   }
 };
 
