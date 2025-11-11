@@ -175,8 +175,9 @@ export async function addKnowledgeEntry(entry, supabaseClient = null) {
       throw new Error('Content and category are required');
     }
 
-    // Generate embedding for the content
-    const embedding = await generateEmbedding(content);
+    // Generate embedding for title + content (improves search relevance for question-style queries)
+    const embeddingText = title ? `${title}\n\n${content}` : content;
+    const embedding = await generateEmbedding(embeddingText);
 
     const { data, error } = await client
       .from('knowledge_base')
@@ -218,9 +219,11 @@ export async function addKnowledgeEntriesBatch(entries, supabaseClient = null) {
       throw new Error('Entries array cannot be empty');
     }
 
-    // Extract content for batch embedding generation
-    const contents = entries.map(e => e.content);
-    const embeddings = await generateEmbeddingsBatch(contents);
+    // Extract title + content for batch embedding generation (improves search relevance)
+    const embeddingTexts = entries.map(e =>
+      e.title ? `${e.title}\n\n${e.content}` : e.content
+    );
+    const embeddings = await generateEmbeddingsBatch(embeddingTexts);
 
     // Prepare entries with embeddings
     const entriesWithEmbeddings = entries.map((entry, idx) => ({
@@ -261,9 +264,21 @@ export async function updateKnowledgeEntry(id, updates, supabaseClient = null) {
     // Use provided client or fallback to default
     const client = supabaseClient || supabase;
 
-    // If content is updated, regenerate embedding
-    if (updates.content) {
-      updates.embedding = await generateEmbedding(updates.content);
+    // If content or title is updated, regenerate embedding
+    if (updates.content || updates.title) {
+      // Need to fetch current entry to get title/content if only one is being updated
+      const { data: currentEntry } = await client
+        .from('knowledge_base')
+        .select('title, content')
+        .eq('id', id)
+        .single();
+
+      const title = updates.title !== undefined ? updates.title : currentEntry?.title;
+      const content = updates.content !== undefined ? updates.content : currentEntry?.content;
+
+      // Generate embedding with title + content
+      const embeddingText = title ? `${title}\n\n${content}` : content;
+      updates.embedding = await generateEmbedding(embeddingText);
     }
 
     const { data, error } = await client

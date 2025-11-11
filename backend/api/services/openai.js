@@ -77,7 +77,12 @@ export async function generateEmbeddingsBatch(texts) {
  */
 function createRAGPrompt(query, contexts, employeeData) {
   const contextText = contexts
-    .map((ctx, idx) => `[Context ${idx + 1}]\nCategory: ${ctx.category}\n${ctx.content}`)
+    .map((ctx, idx) =>
+      `[Context ${idx + 1}]\n` +
+      `Title: ${ctx.title || 'N/A'}\n` +
+      `Category: ${ctx.category}\n` +
+      `${ctx.content}`
+    )
     .join('\n\n---\n\n');
 
   const employeeInfo = employeeData ? `
@@ -152,11 +157,19 @@ RESPONSE:`;
  * @param {Array} contexts - Retrieved context chunks from vector DB
  * @param {Object} employeeData - Employee information
  * @param {Array} conversationHistory - Previous conversation messages
+ * @param {Object} customSettings - Optional custom AI settings from company config
  * @returns {Promise<Object>} - Response with answer and metadata
  */
-export async function generateRAGResponse(query, contexts, employeeData, conversationHistory = []) {
+export async function generateRAGResponse(query, contexts, employeeData, conversationHistory = [], customSettings = null) {
   try {
-    const systemPrompt = createRAGPrompt(query, contexts, employeeData);
+    // Use custom settings if provided, otherwise use environment defaults
+    const model = customSettings?.model || CHAT_MODEL;
+    const temperature = customSettings?.temperature ?? TEMPERATURE;
+    const maxTokens = customSettings?.max_tokens ?? MAX_TOKENS;
+    const customPrompt = customSettings?.system_prompt;
+
+    // Use custom system prompt if provided, otherwise generate default RAG prompt
+    const systemPrompt = customPrompt || createRAGPrompt(query, contexts, employeeData);
 
     // Build messages array with conversation history
     const messages = [
@@ -171,10 +184,10 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
     messages.push({ role: 'user', content: query });
 
     const response = await openai.chat.completions.create({
-      model: CHAT_MODEL,
+      model: model,
       messages: messages,
-      temperature: TEMPERATURE,
-      max_tokens: MAX_TOKENS,
+      temperature: temperature,
+      max_tokens: maxTokens,
       top_p: 1.0,
       frequency_penalty: 0.0,
       presence_penalty: 0.0
@@ -199,7 +212,7 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
         similarity: ctx.similarity
       })),
       knowledgeMatch,
-      model: CHAT_MODEL,
+      model: model,
       tokens: response.usage.total_tokens,
       finishReason
     };

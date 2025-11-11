@@ -514,13 +514,16 @@ router.post('/message', async (req, res) => {
       });
     }
 
-    // Search knowledge base (use company-specific client)
+    // Get company AI settings (will be null/undefined if not configured)
+    const companyAISettings = req.company?.ai_settings || null;
+
+    // Search knowledge base (use company-specific client and settings)
     // Pass employee's policy_type for filtering to reduce token usage
     const contexts = await searchKnowledgeBase(
       message,
       req.supabase,
-      5,           // topK
-      0.7,         // threshold
+      companyAISettings?.top_k_results || 5,           // topK from company settings
+      companyAISettings?.similarity_threshold || 0.7,  // threshold from company settings
       null,        // category
       employee.policy_type  // policyType for filtering
     );
@@ -546,12 +549,13 @@ router.post('/message', async (req, res) => {
       content: h.content
     }));
 
-    // Generate RAG response
+    // Generate RAG response with company-specific AI settings
     const response = await generateRAGResponse(
       message,
       contexts,
       employee,
-      formattedHistory
+      formattedHistory,
+      companyAISettings  // Pass company AI settings
     );
 
     // Debug: Log AI response for escalation analysis

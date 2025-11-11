@@ -10,6 +10,7 @@ const navigation = [
   { name: 'Chat History', href: '/chat-history', icon: '💬' },
   { name: 'Escalations', href: '/escalations', icon: '🚨' },
   { name: 'Analytics', href: '/analytics', icon: '📈' },
+  { name: 'AI Settings', href: '/ai-settings', icon: '🤖' },
   { name: 'Companies', href: '/companies', icon: '🏢' }
 ];
 

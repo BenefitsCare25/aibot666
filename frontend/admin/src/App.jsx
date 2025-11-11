@@ -8,6 +8,7 @@ import Escalations from './pages/Escalations';
 import Analytics from './pages/Analytics';
 import Companies from './pages/Companies';
 import QuickQuestions from './pages/QuickQuestions';
+import AISettings from './pages/AISettings';
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="chat-history" element={<ChatHistory />} />
         <Route path="escalations" element={<Escalations />} />
         <Route path="analytics" element={<Analytics />} />
+        <Route path="ai-settings" element={<AISettings />} />
         <Route path="companies" element={<Companies />} />
       </Route>
     </Routes>

@@ -9,6 +9,7 @@ import 'express-async-errors';
 // Import routes
 import chatRoutes from './api/routes/chat.js';
 import adminRoutes from './api/routes/admin.js';
+import aiSettingsRoutes from './api/routes/aiSettings.js';
 
 // Import services
 import { initializeTelegramBot } from './api/services/telegram.js';
@@ -76,6 +77,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/ai-settings', aiSettingsRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -86,7 +88,8 @@ app.get('/', (req, res) => {
     endpoints: {
       health: '/health',
       chat: '/api/chat/*',
-      admin: '/api/admin/*'
+      admin: '/api/admin/*',
+      aiSettings: '/api/ai-settings/*'
     },
     documentation: '/api/docs'
   });
@@ -175,6 +178,7 @@ const server = app.listen(PORT, () => {
   console.log('  Endpoints:');
   console.log(`    - Chat API: /api/chat`);
   console.log(`    - Admin API: /api/admin`);
+  console.log(`    - AI Settings API: /api/ai-settings`);
   console.log('');
   console.log('  Services:');
   console.log(`    ✓ OpenAI API: ${process.env.OPENAI_API_KEY ? 'Configured' : '⚠ Not configured'}`);
