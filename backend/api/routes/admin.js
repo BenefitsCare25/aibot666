@@ -1147,6 +1147,88 @@ router.patch('/companies/:id/status', async (req, res) => {
 });
 
 /**
+ * PATCH /api/admin/companies/:id/email-config
+ * Update company email configuration for LOG requests
+ */
+router.patch('/companies/:id/email-config', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { log_request_email_to, log_request_email_cc, log_request_keywords } = req.body;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    // Validate TO email format if provided
+    if (log_request_email_to !== undefined && log_request_email_to !== null && log_request_email_to.trim() !== '') {
+      const emails = log_request_email_to.split(',').map(e => e.trim());
+
+      for (const email of emails) {
+        if (!emailRegex.test(email)) {
+          return res.status(400).json({
+            success: false,
+            error: `Invalid TO email format: ${email}`
+          });
+        }
+      }
+    }
+
+    // Validate CC email format if provided
+    if (log_request_email_cc !== undefined && log_request_email_cc !== null && log_request_email_cc.trim() !== '') {
+      const emails = log_request_email_cc.split(',').map(e => e.trim());
+
+      for (const email of emails) {
+        if (!emailRegex.test(email)) {
+          return res.status(400).json({
+            success: false,
+            error: `Invalid CC email format: ${email}`
+          });
+        }
+      }
+    }
+
+    const updates = {};
+    if (log_request_email_to !== undefined) {
+      updates.log_request_email_to = log_request_email_to;
+    }
+    if (log_request_email_cc !== undefined) {
+      updates.log_request_email_cc = log_request_email_cc;
+    }
+    if (log_request_keywords !== undefined) {
+      updates.log_request_keywords = log_request_keywords;
+    }
+
+    const { data: company, error } = await supabase
+      .from('companies')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Invalidate cache for this company
+    await invalidateCompanyCache(company.domain);
+    if (company.additional_domains) {
+      for (const additionalDomain of company.additional_domains) {
+        await invalidateCompanyCache(additionalDomain);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: company
+    });
+
+  } catch (error) {
+    console.error('Error updating email configuration:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to update email configuration',
+      details: error.message
+    });
+  }
+});
+
+/**
  * GET /api/admin/companies/:id/embed-code
  * Get embed code for a company
  */

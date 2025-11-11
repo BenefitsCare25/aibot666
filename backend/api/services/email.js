@@ -115,6 +115,9 @@ function formatConversationHTML(messages) {
  * @param {string} data.requestType - 'keyword' or 'button'
  * @param {string} data.requestMessage - User's message that triggered LOG
  * @param {Array} data.attachments - File attachments [{name, path, size}]
+ * @param {Object} data.companyConfig - Company-specific email configuration (optional)
+ * @param {string} data.companyConfig.log_request_email_to - Support team email(s)
+ * @param {string} data.companyConfig.log_request_email_cc - CC recipients (optional)
  */
 export async function sendLogRequestEmail(data) {
   try {
@@ -124,15 +127,25 @@ export async function sendLogRequestEmail(data) {
       conversationId,
       requestType,
       requestMessage,
-      attachments = []
+      attachments = [],
+      companyConfig = {}
     } = data;
 
     if (!AZURE_CLIENT_ID || !AZURE_CLIENT_SECRET || !AZURE_TENANT_ID) {
       throw new Error('Azure credentials not configured');
     }
 
-    if (!LOG_REQUEST_EMAIL_FROM || !LOG_REQUEST_EMAIL_TO) {
-      throw new Error('Email addresses not configured');
+    // Use company-specific email or fallback to environment variable
+    const emailTo = companyConfig.log_request_email_to || LOG_REQUEST_EMAIL_TO;
+    const emailCc = companyConfig.log_request_email_cc || null;
+    const emailFrom = LOG_REQUEST_EMAIL_FROM;
+
+    if (!emailFrom) {
+      throw new Error('Email sender not configured (LOG_REQUEST_EMAIL_FROM)');
+    }
+
+    if (!emailTo) {
+      throw new Error('Email recipient not configured. Please set company email configuration or LOG_REQUEST_EMAIL_TO environment variable.');
     }
 
     const client = getGraphClient();
@@ -247,7 +260,7 @@ export async function sendLogRequestEmail(data) {
         contentType: 'HTML',
         content: htmlBody
       },
-      toRecipients: LOG_REQUEST_EMAIL_TO.split(',').map(email => ({
+      toRecipients: emailTo.split(',').map(email => ({
         emailAddress: {
           address: email.trim()
         }
@@ -255,15 +268,27 @@ export async function sendLogRequestEmail(data) {
       attachments: graphAttachments
     };
 
+    // Add CC recipients if provided
+    if (emailCc && emailCc.trim()) {
+      message.ccRecipients = emailCc.split(',').map(email => ({
+        emailAddress: {
+          address: email.trim()
+        }
+      }));
+    }
+
     // Send email using Graph API
     await client
-      .api(`/users/${LOG_REQUEST_EMAIL_FROM}/sendMail`)
+      .api(`/users/${emailFrom}/sendMail`)
       .post({
         message: message,
         saveToSentItems: true
       });
 
-    console.log(`✓ LOG request email sent successfully to ${LOG_REQUEST_EMAIL_TO}`);
+    const logMessage = emailCc
+      ? `✓ LOG request email sent successfully to ${emailTo} (CC: ${emailCc})`
+      : `✓ LOG request email sent successfully to ${emailTo}`;
+    console.log(logMessage);
     return { success: true, emailSentAt: new Date().toISOString() };
 
   } catch (error) {

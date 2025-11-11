@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { companyApi } from '../api/companies';
 import EmbedCodeModal from '../components/EmbedCodeModal';
+import EmailConfigModal from '../components/EmailConfigModal';
 
 export default function Companies() {
   const [companies, setCompanies] = useState([]);
@@ -9,6 +10,7 @@ export default function Companies() {
   const [showForm, setShowForm] = useState(false);
   const [editingCompany, setEditingCompany] = useState(null);
   const [showEmbedCode, setShowEmbedCode] = useState(null);
+  const [showEmailConfig, setShowEmailConfig] = useState(null);
   const [creatingSchema, setCreatingSchema] = useState(false); // New state for schema creation
   const [successMessage, setSuccessMessage] = useState(''); // New state for success messages
   const [formData, setFormData] = useState({
@@ -446,6 +448,13 @@ export default function Companies() {
                       &lt;/&gt;
                     </button>
                     <button
+                      onClick={() => setShowEmailConfig(company)}
+                      className="text-purple-600 hover:text-purple-900 mr-3"
+                      title="Configure email settings"
+                    >
+                      📧
+                    </button>
+                    <button
                       onClick={() => handleStatusToggle(company.id, company.status)}
                       className={`mr-3 px-2 py-1 rounded text-xs font-medium transition-colors ${
                         company.status === 'active'
@@ -511,6 +520,19 @@ export default function Companies() {
           <li><strong>Schema Template:</strong> All schemas use the template in <code>backend/config/company-schema-template.sql</code></li>
         </ul>
       </div>
+
+      {/* Email Configuration Modal */}
+      {showEmailConfig && (
+        <EmailConfigModal
+          company={showEmailConfig}
+          onClose={() => setShowEmailConfig(null)}
+          onSuccess={() => {
+            loadCompanies();
+            setSuccessMessage('Email configuration updated successfully');
+            setTimeout(() => setSuccessMessage(''), 5000);
+          }}
+        />
+      )}
 
       {/* Embed Code Modal */}
       {showEmbedCode && (

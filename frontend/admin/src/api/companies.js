@@ -37,5 +37,10 @@ export const companyApi = {
   // Get embed code for company
   getEmbedCode: async (id) => {
     return apiClient.get(`/api/admin/companies/${id}/embed-code`);
+  },
+
+  // Update email configuration
+  updateEmailConfig: async (id, emailConfig) => {
+    return apiClient.patch(`/api/admin/companies/${id}/email-config`, emailConfig);
   }
 };

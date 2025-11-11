@@ -368,6 +368,12 @@ router.post('/request-log', async (req, res) => {
       }
     }
 
+    // Get company configuration for email settings
+    const companyConfig = {
+      log_request_email_to: req.company?.log_request_email_to || null,
+      log_request_email_cc: req.company?.log_request_email_cc || null
+    };
+
     // Send email to support team
     const emailResult = await sendLogRequestEmail({
       employee,
@@ -375,7 +381,8 @@ router.post('/request-log', async (req, res) => {
       conversationId: session.conversationId,
       requestType: 'button',
       requestMessage: message || 'User requested LOG via button',
-      attachments
+      attachments,
+      companyConfig
     });
 
     // Send acknowledgment email to user (if email provided)
