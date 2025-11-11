@@ -13,6 +13,7 @@ import {
   updateKnowledgeEntry,
   deleteKnowledgeEntry,
   addEmployee,
+  updateEmployee,
   getEmployeeByEmployeeId
 } from '../services/vectorDB.js';
 import supabase from '../../config/supabase.js';
@@ -369,21 +370,15 @@ router.post('/employees', async (req, res) => {
 
 /**
  * PUT /api/admin/employees/:id
- * Update employee by ID
+ * Update employee by ID with embedding regeneration
  */
 router.put('/employees/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
 
-    const { data: employee, error } = await req.supabase
-      .from('employees')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
+    // Use updateEmployee which regenerates embeddings
+    const employee = await updateEmployee(id, updateData, req.supabase);
 
     if (!employee) {
       return res.status(404).json({

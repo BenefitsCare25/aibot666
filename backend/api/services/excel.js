@@ -1,5 +1,5 @@
 import XLSX from 'xlsx';
-import { addEmployeesBatch } from './vectorDB.js';
+import { addEmployeesBatch, updateEmployee } from './vectorDB.js';
 import fs from 'fs';
 
 /**
@@ -269,12 +269,30 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
     // Handle duplicates based on action
     if (duplicates.length > 0) {
       if (duplicateAction === 'update') {
-        console.log(`Updating ${duplicates.length} existing employees...`);
+        console.log(`Updating ${duplicates.length} existing employees with embedding regeneration...`);
+
+        // First, get the existing employee records to get their UUIDs
+        const { data: existingRecords } = await supabaseClient
+          .from('employees')
+          .select('id, employee_id')
+          .in('employee_id', duplicates.map(e => e.employee_id));
+
+        // Create a map of employee_id to UUID
+        const idMap = new Map(existingRecords?.map(e => [e.employee_id, e.id]) || []);
+
         for (const emp of duplicates) {
           try {
-            const { data, error } = await supabaseClient
-              .from('employees')
-              .update({
+            const employeeUUID = idMap.get(emp.employee_id);
+
+            if (!employeeUUID) {
+              console.error(`Could not find UUID for employee ${emp.employee_id}`);
+              continue;
+            }
+
+            // Use updateEmployee which regenerates embeddings
+            const updatedEmployee = await updateEmployee(
+              employeeUUID,
+              {
                 name: emp.name,
                 email: emp.email,
                 department: emp.department,
@@ -285,18 +303,21 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
                 dental_limit: emp.dental_limit,
                 optical_limit: emp.optical_limit,
                 updated_at: new Date().toISOString()
-              })
-              .eq('employee_id', emp.employee_id)
-              .select()
-              .single();
+              },
+              supabaseClient
+            );
 
-            if (!error && data) {
-              updated.push(data);
+            updated.push(updatedEmployee);
+
+            if (updated.length % 10 === 0) {
+              console.log(`Updated ${updated.length}/${duplicates.length} employees with embeddings`);
             }
           } catch (updateError) {
             console.error(`Failed to update employee ${emp.employee_id}:`, updateError);
           }
         }
+
+        console.log(`✅ Successfully updated ${updated.length} employees with regenerated embeddings`);
       } else {
         console.log(`Skipping ${duplicates.length} duplicate employees`);
         skipped = duplicates;

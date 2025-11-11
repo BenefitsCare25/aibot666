@@ -543,6 +543,82 @@ export async function getEmployeeByEmail(email, supabaseClient = null) {
   }
 }
 
+/**
+ * Update employee and regenerate embedding
+ * @param {string} employeeId - Employee UUID
+ * @param {Object} updateData - Fields to update
+ * @param {Object} supabaseClient - Company-specific Supabase client
+ * @returns {Promise<Object>} - Updated employee
+ */
+export async function updateEmployee(employeeId, updateData, supabaseClient = null) {
+  const client = supabaseClient || supabase;
+
+  try {
+    // Update employee data
+    const { data: employee, error: updateError } = await client
+      .from('employees')
+      .update(updateData)
+      .eq('id', employeeId)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw new Error(`Failed to update employee: ${updateError.message}`);
+    }
+
+    // Regenerate embedding with updated data
+    const embeddingContent = `
+      Employee: ${employee.name}
+      Employee ID: ${employee.employee_id || 'N/A'}
+      User ID: ${employee.user_id || 'N/A'}
+      Email: ${employee.email || 'N/A'}
+      Department: ${employee.department}
+      Policy Type: ${employee.policy_type}
+      Coverage Limit: ${employee.coverage_limit}
+      Annual Claim Limit: ${employee.annual_claim_limit}
+      Outpatient Limit: ${employee.outpatient_limit}
+      Dental Limit: ${employee.dental_limit}
+      Optical Limit: ${employee.optical_limit}
+    `.trim();
+
+    const embedding = await generateEmbedding(embeddingContent);
+
+    // Update or insert employee embedding
+    // First try to update existing embedding
+    const { data: existingEmbedding } = await client
+      .from('employee_embeddings')
+      .select('id')
+      .eq('employee_id', employeeId)
+      .single();
+
+    if (existingEmbedding) {
+      // Update existing embedding
+      await client
+        .from('employee_embeddings')
+        .update({
+          content: embeddingContent,
+          embedding,
+          updated_at: new Date().toISOString()
+        })
+        .eq('employee_id', employeeId);
+    } else {
+      // Insert new embedding if doesn't exist
+      await client
+        .from('employee_embeddings')
+        .insert([{
+          employee_id: employeeId,
+          content: embeddingContent,
+          embedding
+        }]);
+    }
+
+    return employee;
+  } catch (error) {
+    console.error('Error updating employee:', error.message);
+    throw error;
+  }
+}
+
 export default {
   searchKnowledgeBase,
   searchEmployeeData,
@@ -552,6 +628,7 @@ export default {
   deleteKnowledgeEntry,
   addEmployee,
   addEmployeesBatch,
+  updateEmployee,
   getEmployeeByEmployeeId,
   getEmployeeByEmail
 };
