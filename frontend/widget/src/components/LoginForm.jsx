@@ -145,7 +145,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
 
         <div className="ic-mt-4 ic-pt-4 ic-border-t ic-border-gray-200">
           <p className="ic-text-xs ic-text-gray-500 ic-text-center">
-            helpdesk@inpro.com.sg
+            helpdesk@inspro.com.sg
           </p>
         </div>
       </div>

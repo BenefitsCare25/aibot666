@@ -198,7 +198,7 @@ VALUES
 ),
 (
   'How Can I change my phone number For the OTP?',
-  'Please be advised to email to us at helpdesk@inpro.com.sg with your new contact details for us to update.',
+  'Please be advised to email to us at helpdesk@inspro.com.sg with your new contact details for us to update.',
   'portal',
   'access',
   'Helpdesk FAQ - CBRE',
