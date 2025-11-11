@@ -72,14 +72,6 @@ export default function ChatView({ conversation, messages, loading, onExport, ex
           </>
         )}
       </div>
-
-      {/* Admin Attendance Form */}
-      {conversation && !loading && (
-        <AdminAttendanceForm
-          conversation={conversation}
-          onUpdate={onAttendanceUpdate}
-        />
-      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import FilterBar from '../components/ChatHistory/FilterBar';
 import ConversationList from '../components/ChatHistory/ConversationList';
 import ChatView from '../components/ChatHistory/ChatView';
+import AdminAttendanceForm from '../components/ChatHistory/AdminAttendanceForm';
 
 export default function ChatHistory() {
   const [conversations, setConversations] = useState([]);
@@ -149,6 +150,14 @@ export default function ChatHistory() {
             pagination={pagination}
             onPageChange={handlePageChange}
           />
+
+          {/* Admin Attendance Form - Left side */}
+          {selectedConversation && !loading && (
+            <AdminAttendanceForm
+              conversation={selectedConversation}
+              onUpdate={handleAttendanceUpdate}
+            />
+          )}
         </div>
 
         {/* Right panel: Chat view */}
@@ -159,7 +168,6 @@ export default function ChatHistory() {
             loading={messagesLoading}
             onExport={handleExport}
             exporting={exporting}
-            onAttendanceUpdate={handleAttendanceUpdate}
           />
         </div>
       </div>
