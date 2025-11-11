@@ -133,7 +133,6 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
           </div>
           <div>
             <h3 className="ic-text-sm ic-font-semibold">{employeeName}</h3>
-            <p className="ic-text-xs ic-opacity-90">Support</p>
           </div>
         </div>
         <div className="ic-flex ic-items-center ic-gap-2">

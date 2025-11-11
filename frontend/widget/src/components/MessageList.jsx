@@ -23,10 +23,10 @@ export default function MessageList({ messages, isLoading, messagesEndRef }) {
             </svg>
           </div>
           <h4 className="ic-text-gray-700 ic-font-medium ic-mb-2">
-            Welcome to Support
+            Welcome!
           </h4>
           <p className="ic-text-sm ic-text-gray-500 ic-max-w-xs ic-mx-auto ic-mb-3">
-            Ask me anything about your benefits, claims, coverage limits, or policies.
+            Login to your employee portal to check your own coverage and limit
           </p>
           <p className="ic-text-xs ic-text-gray-400 ic-max-w-xs ic-mx-auto ic-flex ic-items-center ic-justify-center ic-gap-1">
             <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-4 ic-h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
