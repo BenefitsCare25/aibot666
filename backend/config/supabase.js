@@ -54,6 +54,10 @@ const postgresUrl = extractPostgresUrl();
 
 if (postgresUrl) {
   try {
+    // Log connection details (mask password for security)
+    const maskedUrl = postgresUrl.replace(/:([^@]+)@/, ':***@');
+    console.log('[PostgreSQL] Connection string:', maskedUrl);
+
     pgPool = new Pool({
       connectionString: postgresUrl,
       ssl: process.env.POSTGRES_SSL === 'false' ? false : {
@@ -90,9 +94,19 @@ if (postgresUrl) {
       if (err) {
         console.error('[PostgreSQL] Connection test failed:', err.message);
         console.error('[PostgreSQL] Error code:', err.code);
+        console.error('[PostgreSQL] Error severity:', err.severity);
+
         if (err.code === 'XX000') {
-          console.error('[PostgreSQL] XX000 Error: This usually means pooler authentication failure.');
-          console.error('[PostgreSQL] Solution: Ensure you are using port 5432 (direct connection), NOT 6543 (pooler)');
+          console.error('[PostgreSQL] XX000 Error: Tenant or user not found');
+          console.error('[PostgreSQL] Common causes:');
+          console.error('[PostgreSQL]   1. Using Supabase Cloud connection format for self-hosted instance');
+          console.error('[PostgreSQL]   2. Incorrect username/password in connection string');
+          console.error('[PostgreSQL]   3. Database user does not exist');
+          console.error('[PostgreSQL]   4. Using pooler when direct connection is required');
+          console.error('[PostgreSQL] For self-hosted Supabase:');
+          console.error('[PostgreSQL]   - Username should be "postgres" (not "postgres.projectref")');
+          console.error('[PostgreSQL]   - Use direct IP/hostname, not pooler hostname');
+          console.error('[PostgreSQL]   - Format: postgresql://postgres:password@your-vm-ip:5432/postgres');
         }
       } else {
         console.log('[PostgreSQL] Connection test successful!');
