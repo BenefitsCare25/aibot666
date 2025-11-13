@@ -58,11 +58,23 @@ if (postgresUrl) {
     const maskedUrl = postgresUrl.replace(/:([^@]+)@/, ':***@');
     console.log('[PostgreSQL] Connection string:', maskedUrl);
 
+    // Parse connection string to check for sslmode parameter
+    const hasSSLModeInUrl = postgresUrl.includes('sslmode=');
+    if (hasSSLModeInUrl) {
+      console.log('[PostgreSQL] SSL mode specified in connection string, using connection string SSL config');
+    } else {
+      console.log('[PostgreSQL] No sslmode in connection string, using Pool SSL config');
+    }
+
     pgPool = new Pool({
       connectionString: postgresUrl,
-      ssl: process.env.POSTGRES_SSL === 'false' ? false : {
-        rejectUnauthorized: false
-      },
+      // Only set SSL config if not specified in connection string
+      // Connection string sslmode takes precedence
+      ...((!hasSSLModeInUrl && process.env.POSTGRES_SSL !== 'false') && {
+        ssl: {
+          rejectUnauthorized: false
+        }
+      }),
       // Connection pool settings optimized for DDL operations
       max: 3, // Lower pool size for DDL operations (less concurrent schema changes)
       min: 0, // Allow pool to scale to zero
