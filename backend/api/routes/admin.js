@@ -447,8 +447,9 @@ router.post('/employees/bulk-delete', async (req, res) => {
 
     console.log(`[Bulk Delete] Attempting to delete ${employeeIds.length} employee(s)`);
 
-    // Delete in batches to avoid Supabase .in() method limitations
-    const batchSize = 500; // Safe batch size for .in() queries
+    // Delete in batches to avoid URI too long error
+    // Supabase .in() uses URL query params, which has size limits
+    const batchSize = 50; // Reduced batch size to prevent URI length issues
     let totalDeleted = 0;
 
     for (let i = 0; i < employeeIds.length; i += batchSize) {
