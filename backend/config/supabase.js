@@ -19,15 +19,38 @@ if (!supabaseUrl || !supabaseKey) {
 // 3. Constructed from SUPABASE_URL + SUPABASE_DB_PASSWORD
 const extractPostgresUrl = () => {
   // Option 1: Use DATABASE_URL if available (Render, Heroku, etc.)
+  // IMPORTANT: Ensure DATABASE_URL uses port 5432 (direct connection), NOT 6543 (pooler)
   if (process.env.DATABASE_URL) {
+    const dbUrl = process.env.DATABASE_URL;
+
+    // Check if using pooler port and warn
+    if (dbUrl.includes(':6543')) {
+      console.warn('[PostgreSQL] WARNING: DATABASE_URL uses pooler port 6543. DDL operations require port 5432!');
+      console.warn('[PostgreSQL] Attempting to replace port 6543 with 5432...');
+      const directUrl = dbUrl.replace(':6543/', ':5432/');
+      console.log('[PostgreSQL] Using modified DATABASE_URL with direct connection (port 5432)');
+      return directUrl;
+    }
+
     console.log('[PostgreSQL] Using DATABASE_URL from environment');
-    return process.env.DATABASE_URL;
+    return dbUrl;
   }
 
   // Option 2: Use SUPABASE_CONNECTION_STRING if set (manual override)
   if (process.env.SUPABASE_CONNECTION_STRING) {
+    const connStr = process.env.SUPABASE_CONNECTION_STRING;
+
+    // Check if using pooler port and warn
+    if (connStr.includes(':6543')) {
+      console.warn('[PostgreSQL] WARNING: SUPABASE_CONNECTION_STRING uses pooler port 6543. DDL operations require port 5432!');
+      console.warn('[PostgreSQL] Attempting to replace port 6543 with 5432...');
+      const directUrl = connStr.replace(':6543/', ':5432/');
+      console.log('[PostgreSQL] Using modified SUPABASE_CONNECTION_STRING with direct connection (port 5432)');
+      return directUrl;
+    }
+
     console.log('[PostgreSQL] Using SUPABASE_CONNECTION_STRING from environment');
-    return process.env.SUPABASE_CONNECTION_STRING;
+    return connStr;
   }
 
   // Option 3: Construct from Supabase URL and password
@@ -39,13 +62,14 @@ const extractPostgresUrl = () => {
     return null;
   }
 
-  // Use Transaction Pooler (port 6543) for better compatibility with serverless/edge environments
-  // Falls back to direct connection (port 5432) if pooler is not available
-  const usePooler = process.env.USE_SUPABASE_POOLER !== 'false'; // Default to true
-  const port = usePooler ? 6543 : 5432;
+  // IMPORTANT: Schema DDL operations (CREATE SCHEMA, DROP SCHEMA) require DIRECT connection
+  // Transaction pooler (port 6543) does NOT support DDL operations
+  // We MUST use direct connection (port 5432) for schema automation
+  const usePooler = false; // Force direct connection for DDL operations
+  const port = 5432; // Always use direct connection port
   const host = `db.${projectRef}.supabase.co`;
 
-  console.log(`[PostgreSQL] Constructing connection string (${usePooler ? 'pooler' : 'direct'} mode)`);
+  console.log(`[PostgreSQL] Constructing connection string (direct mode for DDL operations)`);
   return `postgresql://postgres.${projectRef}:${dbPassword}@${host}:${port}/postgres`;
 };
 
@@ -60,34 +84,47 @@ if (postgresUrl) {
       ssl: process.env.POSTGRES_SSL === 'false' ? false : {
         rejectUnauthorized: false
       },
-      // Connection pool settings
-      max: 5, // Reduced for serverless environments
+      // Connection pool settings optimized for DDL operations
+      max: 3, // Lower pool size for DDL operations (less concurrent schema changes)
       min: 0, // Allow pool to scale to zero
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 30000, // Increased timeout for self-hosted Supabase
-
-      // Force IPv4 to avoid IPv6 routing issues on some platforms
-      // This helps with ENETUNREACH errors on Render and similar platforms
-      host: process.env.POSTGRES_HOST, // Optional override
+      connectionTimeoutMillis: 60000, // Longer timeout for direct connections
 
       // Additional pg options
-      options: '-c search_path=public',
+      // IMPORTANT: Remove -c options from connection string for pooler compatibility
       keepAlive: true,
       keepAliveInitialDelayMillis: 10000,
 
       // Query timeout to prevent hanging connections
       // Note: DROP SCHEMA CASCADE can take 60-120 seconds for large schemas
       // Individual queries can override this with SET statement_timeout
-      query_timeout: 120000, // 2 minutes for DROP SCHEMA operations
-      statement_timeout: 120000
+      query_timeout: 180000, // 3 minutes for DROP SCHEMA operations
+      statement_timeout: 180000
     });
 
     pgPool.on('error', (err) => {
       console.error('[PostgreSQL] Unexpected pool error:', err);
     });
 
-    pgPool.on('connect', () => {
+    pgPool.on('connect', (client) => {
       console.log('[PostgreSQL] New client connected to pool');
+    });
+
+    // Test the connection on initialization
+    pgPool.query('SELECT version(), current_user, current_database()', (err, result) => {
+      if (err) {
+        console.error('[PostgreSQL] Connection test failed:', err.message);
+        console.error('[PostgreSQL] Error code:', err.code);
+        if (err.code === 'XX000') {
+          console.error('[PostgreSQL] XX000 Error: This usually means pooler authentication failure.');
+          console.error('[PostgreSQL] Solution: Ensure you are using port 5432 (direct connection), NOT 6543 (pooler)');
+        }
+      } else {
+        console.log('[PostgreSQL] Connection test successful!');
+        console.log('[PostgreSQL] Server version:', result.rows[0].version.split(' ')[0] + ' ' + result.rows[0].version.split(' ')[1]);
+        console.log('[PostgreSQL] Current user:', result.rows[0].current_user);
+        console.log('[PostgreSQL] Current database:', result.rows[0].current_database);
+      }
     });
 
     console.log('[PostgreSQL] Connection pool initialized successfully');

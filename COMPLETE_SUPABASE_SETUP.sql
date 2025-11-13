@@ -621,6 +621,21 @@ AS $$
   LIMIT match_count;
 $$;
 
+-- Function to increment knowledge usage count
+CREATE OR REPLACE FUNCTION company_a.increment_knowledge_usage(knowledge_ids UUID[])
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  UPDATE company_a.knowledge_base
+  SET
+    usage_count = COALESCE(usage_count, 0) + 1,
+    last_used_at = NOW()
+  WHERE id = ANY(knowledge_ids);
+END;
+$$;
+
 RESET search_path;
 
 -- ============================================================================
@@ -902,6 +917,21 @@ AS $$
   LIMIT match_count;
 $$;
 
+-- Function to increment knowledge usage count
+CREATE OR REPLACE FUNCTION company_b.increment_knowledge_usage(knowledge_ids UUID[])
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  UPDATE company_b.knowledge_base
+  SET
+    usage_count = COALESCE(usage_count, 0) + 1,
+    last_used_at = NOW()
+  WHERE id = ANY(knowledge_ids);
+END;
+$$;
+
 RESET search_path;
 
 -- ============================================================================
@@ -1181,6 +1211,21 @@ AS $$
   WHERE 1 - (employee_embeddings.embedding <=> query_embedding) > match_threshold
   ORDER BY similarity DESC
   LIMIT match_count;
+$$;
+
+-- Function to increment knowledge usage count
+CREATE OR REPLACE FUNCTION cbre.increment_knowledge_usage(knowledge_ids UUID[])
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  UPDATE cbre.knowledge_base
+  SET
+    usage_count = COALESCE(usage_count, 0) + 1,
+    last_used_at = NOW()
+  WHERE id = ANY(knowledge_ids);
+END;
 $$;
 
 RESET search_path;
