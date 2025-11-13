@@ -28,6 +28,76 @@ import {
 const router = express.Router();
 
 // Routes that don't require company context (must be defined BEFORE middleware)
+
+/**
+ * GET /api/admin/db-test
+ * Test PostgreSQL connection for diagnostics
+ */
+router.get('/db-test', async (req, res) => {
+  const { postgres } = await import('../../config/supabase.js');
+
+  const diagnostics = {
+    timestamp: new Date().toISOString(),
+    postgres_available: !!postgres,
+    connection_string: process.env.SUPABASE_CONNECTION_STRING ? 'SET' : 'NOT SET',
+    database_url: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
+    db_password: process.env.SUPABASE_DB_PASSWORD ? 'SET' : 'NOT SET',
+    tests: {}
+  };
+
+  if (!postgres) {
+    return res.json({
+      success: false,
+      error: 'PostgreSQL pool not initialized',
+      diagnostics
+    });
+  }
+
+  // Test 1: Simple query
+  try {
+    const start = Date.now();
+    const result = await postgres.query('SELECT NOW() as current_time');
+    diagnostics.tests.simple_query = {
+      success: true,
+      duration_ms: Date.now() - start,
+      result: result.rows[0]
+    };
+  } catch (error) {
+    diagnostics.tests.simple_query = {
+      success: false,
+      error: error.message,
+      code: error.code
+    };
+  }
+
+  // Test 2: Schema listing
+  try {
+    const start = Date.now();
+    const result = await postgres.query(`
+      SELECT schema_name
+      FROM information_schema.schemata
+      WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+      ORDER BY schema_name
+    `);
+    diagnostics.tests.list_schemas = {
+      success: true,
+      duration_ms: Date.now() - start,
+      schemas: result.rows.map(r => r.schema_name)
+    };
+  } catch (error) {
+    diagnostics.tests.list_schemas = {
+      success: false,
+      error: error.message,
+      code: error.code
+    };
+  }
+
+  res.json({
+    success: true,
+    diagnostics
+  });
+});
+
 /**
  * GET /api/admin/quick-questions/download-template
  * Download Excel template for quick questions (no auth/company context required)
