@@ -1315,7 +1315,7 @@ router.get('/chat-history', async (req, res) => {
     // First, get all unique conversation_ids with filters
     let conversationQuery = req.supabase
       .from('chat_history')
-      .select('conversation_id, employee_id, created_at, was_escalated, attended_by, admin_notes, attended_at', { count: 'exact' });
+      .select('conversation_id, employee_id, created_at, was_escalated', { count: 'exact' });
 
     // Apply filters
     if (dateFrom) {
@@ -1348,10 +1348,7 @@ router.get('/chat-history', async (req, res) => {
           message_count: 0,
           has_escalation: false,
           first_message_at: msg.created_at,
-          last_message_at: msg.created_at,
-          attended_by: msg.attended_by,
-          admin_notes: msg.admin_notes,
-          attended_at: msg.attended_at
+          last_message_at: msg.created_at
         });
       }
       const conv = conversationMap.get(convId);
@@ -1362,12 +1359,6 @@ router.get('/chat-history', async (req, res) => {
       }
       if (new Date(msg.created_at) > new Date(conv.last_message_at)) {
         conv.last_message_at = msg.created_at;
-      }
-      // Update admin attendance info if present
-      if (msg.attended_by) {
-        conv.attended_by = msg.attended_by;
-        conv.admin_notes = msg.admin_notes;
-        conv.attended_at = msg.attended_at;
       }
     });
 
