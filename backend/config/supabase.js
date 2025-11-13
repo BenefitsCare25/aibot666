@@ -76,8 +76,10 @@ if (postgresUrl) {
       keepAliveInitialDelayMillis: 10000,
 
       // Query timeout to prevent hanging connections
-      query_timeout: 30000,
-      statement_timeout: 30000
+      // Note: DROP SCHEMA CASCADE can take 60-120 seconds for large schemas
+      // Individual queries can override this with SET statement_timeout
+      query_timeout: 120000, // 2 minutes for DROP SCHEMA operations
+      statement_timeout: 120000
     });
 
     pgPool.on('error', (err) => {

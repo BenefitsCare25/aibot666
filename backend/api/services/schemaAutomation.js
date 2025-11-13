@@ -495,12 +495,45 @@ export async function dropCompanySchema(schemaName) {
     return;
   }
 
-  // Drop schema cascade (removes all objects in the schema)
-  const dropSQL = `DROP SCHEMA IF EXISTS "${schemaName}" CASCADE;`;
+  console.log(`[SchemaAutomation] Terminating active connections to schema "${schemaName}"...`);
+
+  // Terminate any active connections that might be using the schema
+  // This prevents "schema is being accessed by other users" errors
+  const terminateSQL = `
+    SELECT pg_terminate_backend(pid)
+    FROM pg_stat_activity
+    WHERE datname = current_database()
+      AND pid <> pg_backend_pid()
+      AND query ILIKE '%${schemaName}%';
+  `;
 
   try {
+    await postgres.query(terminateSQL);
+    console.log(`[SchemaAutomation] Active connections terminated`);
+  } catch (error) {
+    console.warn('[SchemaAutomation] Could not terminate connections:', error.message);
+    // Continue anyway - schema might not have active connections
+  }
+
+  // Drop schema cascade (removes all objects in the schema)
+  // This can take a long time for schemas with lots of data
+  const dropSQL = `DROP SCHEMA IF EXISTS "${schemaName}" CASCADE;`;
+
+  console.log(`[SchemaAutomation] Dropping schema "${schemaName}" with CASCADE...`);
+  console.log(`[SchemaAutomation] This may take several minutes for schemas with large amounts of data...`);
+
+  try {
+    // Set a longer statement timeout just for this query (2 minutes)
+    await postgres.query('SET statement_timeout = 120000');
+
+    const startTime = Date.now();
     await postgres.query(dropSQL);
-    console.log(`[SchemaAutomation] Schema "${schemaName}" dropped successfully`);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+    console.log(`[SchemaAutomation] Schema "${schemaName}" dropped successfully in ${duration}s`);
+
+    // Reset statement timeout to default
+    await postgres.query('RESET statement_timeout');
   } catch (error) {
     console.error('[SchemaAutomation] Schema drop error:', error);
     throw new Error(`Failed to drop schema "${schemaName}": ${error.message}`);
