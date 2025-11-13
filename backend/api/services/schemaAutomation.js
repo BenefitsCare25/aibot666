@@ -478,18 +478,31 @@ export async function hardDeleteCompany(companyId, adminUser = 'system') {
  * @returns {Promise<void>}
  */
 export async function dropCompanySchema(schemaName) {
-  if (!postgres) {
-    throw new Error('PostgreSQL connection not available. Check SUPABASE_DB_PASSWORD in environment variables.');
-  }
-
   // Validate schema name to prevent SQL injection
   const validation = validateSchemaName(schemaName);
   if (!validation.valid) {
     throw new Error(`Invalid schema name: ${validation.error}`);
   }
 
-  // Check if schema exists
-  const exists = await schemaExists(schemaName);
+  console.log(`[SchemaAutomation] Dropping schema "${schemaName}"...`);
+
+  // WORKAROUND: If direct PostgreSQL connection is not available (firewall/network issues),
+  // use Supabase REST API to delete all tables in the schema instead of DROP SCHEMA CASCADE
+  if (!postgres) {
+    console.warn('[SchemaAutomation] PostgreSQL connection not available, using REST API workaround');
+    return await dropSchemaViaSoftDelete(schemaName);
+  }
+
+  // Try to check if schema exists
+  let exists = false;
+  try {
+    exists = await schemaExists(schemaName);
+  } catch (error) {
+    console.error('[SchemaAutomation] Could not check schema existence:', error.message);
+    console.warn('[SchemaAutomation] Falling back to REST API workaround');
+    return await dropSchemaViaSoftDelete(schemaName);
+  }
+
   if (!exists) {
     console.warn(`[SchemaAutomation] Schema "${schemaName}" does not exist, skipping drop`);
     return;
@@ -498,7 +511,6 @@ export async function dropCompanySchema(schemaName) {
   console.log(`[SchemaAutomation] Terminating active connections to schema "${schemaName}"...`);
 
   // Terminate any active connections that might be using the schema
-  // This prevents "schema is being accessed by other users" errors
   const terminateSQL = `
     SELECT pg_terminate_backend(pid)
     FROM pg_stat_activity
@@ -512,15 +524,12 @@ export async function dropCompanySchema(schemaName) {
     console.log(`[SchemaAutomation] Active connections terminated`);
   } catch (error) {
     console.warn('[SchemaAutomation] Could not terminate connections:', error.message);
-    // Continue anyway - schema might not have active connections
   }
 
-  // Drop schema cascade (removes all objects in the schema)
-  // This can take a long time for schemas with lots of data
+  // Drop schema cascade
   const dropSQL = `DROP SCHEMA IF EXISTS "${schemaName}" CASCADE;`;
 
   console.log(`[SchemaAutomation] Dropping schema "${schemaName}" with CASCADE...`);
-  console.log(`[SchemaAutomation] This may take several minutes for schemas with large amounts of data...`);
 
   try {
     // Set a longer statement timeout just for this query (2 minutes)
@@ -536,6 +545,50 @@ export async function dropCompanySchema(schemaName) {
     await postgres.query('RESET statement_timeout');
   } catch (error) {
     console.error('[SchemaAutomation] Schema drop error:', error);
+
+    // If DROP SCHEMA fails due to connection issues, fall back to soft delete
+    if (error.message.includes('timeout') || error.message.includes('terminated')) {
+      console.warn('[SchemaAutomation] Connection issue detected, falling back to REST API workaround');
+      return await dropSchemaViaSoftDelete(schemaName);
+    }
+
     throw new Error(`Failed to drop schema "${schemaName}": ${error.message}`);
   }
+}
+
+/**
+ * Workaround: Delete schema data via REST API when direct PostgreSQL connection fails
+ * This doesn't actually drop the schema, but deletes all data from tables
+ * @param {string} schemaName - Schema name to clean
+ */
+async function dropSchemaViaSoftDelete(schemaName) {
+  console.log(`[SchemaAutomation] Using REST API workaround to delete schema data: ${schemaName}`);
+
+  const schemaClient = supabase.schema(schemaName);
+  const tables = ['chat_history', 'escalations', 'analytics', 'log_requests',
+                  'employee_embeddings', 'quick_questions', 'knowledge_base', 'employees'];
+
+  for (const table of tables) {
+    try {
+      console.log(`[SchemaAutomation] Deleting all rows from ${schemaName}.${table}...`);
+
+      // Delete all rows (no filter = delete all)
+      const { error } = await schemaClient
+        .from(table)
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete where id != impossible UUID
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found (expected)
+        console.warn(`[SchemaAutomation] Warning deleting ${table}:`, error.message);
+      } else {
+        console.log(`[SchemaAutomation] Deleted all rows from ${schemaName}.${table}`);
+      }
+    } catch (error) {
+      console.warn(`[SchemaAutomation] Could not delete ${table}:`, error.message);
+    }
+  }
+
+  console.log(`[SchemaAutomation] Schema data deletion complete (schema structure remains, only data deleted)`);
+  console.warn(`[SchemaAutomation] NOTE: Schema ${schemaName} still exists in database, only data was deleted`);
+  console.warn(`[SchemaAutomation] To fully remove schema, fix PostgreSQL connection and use DROP SCHEMA CASCADE`);
 }
