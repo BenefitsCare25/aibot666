@@ -57,14 +57,14 @@ if (postgresUrl) {
   try {
     pgPool = new Pool({
       connectionString: postgresUrl,
-      ssl: {
+      ssl: process.env.POSTGRES_SSL === 'false' ? false : {
         rejectUnauthorized: false
       },
       // Connection pool settings
       max: 5, // Reduced for serverless environments
       min: 0, // Allow pool to scale to zero
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000, // Increased timeout for IPv6 fallback
+      connectionTimeoutMillis: 30000, // Increased timeout for self-hosted Supabase
 
       // Force IPv4 to avoid IPv6 routing issues on some platforms
       // This helps with ENETUNREACH errors on Render and similar platforms
@@ -73,7 +73,11 @@ if (postgresUrl) {
       // Additional pg options
       options: '-c search_path=public',
       keepAlive: true,
-      keepAliveInitialDelayMillis: 10000
+      keepAliveInitialDelayMillis: 10000,
+
+      // Query timeout to prevent hanging connections
+      query_timeout: 30000,
+      statement_timeout: 30000
     });
 
     pgPool.on('error', (err) => {

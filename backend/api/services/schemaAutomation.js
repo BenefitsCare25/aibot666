@@ -62,8 +62,31 @@ export async function schemaExists(schemaName) {
     ) as exists;
   `;
 
-  const result = await postgres.query(query, [schemaName]);
-  return result.rows[0].exists;
+  // Retry logic with exponential backoff for connection timeouts
+  const maxRetries = 3;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await postgres.query(query, [schemaName]);
+      return result.rows[0].exists;
+    } catch (error) {
+      lastError = error;
+      console.error(`[SchemaAutomation] Schema exists check failed (attempt ${attempt}/${maxRetries}):`, error.message);
+
+      // Only retry on connection timeout errors
+      if (error.message.includes('timeout') && attempt < maxRetries) {
+        const backoffMs = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+        console.log(`[SchemaAutomation] Retrying in ${backoffMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError;
 }
 
 /**
