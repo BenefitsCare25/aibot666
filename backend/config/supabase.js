@@ -19,58 +19,15 @@ if (!supabaseUrl || !supabaseKey) {
 // 3. Constructed from SUPABASE_URL + SUPABASE_DB_PASSWORD
 const extractPostgresUrl = () => {
   // Option 1: Use DATABASE_URL if available (Render, Heroku, etc.)
-  // IMPORTANT: Ensure DATABASE_URL uses port 5432 (direct connection), NOT 6543 (pooler)
   if (process.env.DATABASE_URL) {
-    let dbUrl = process.env.DATABASE_URL;
-
-    // Check if using pooler hostname and fix it
-    if (dbUrl.includes('.pooler.supabase.com')) {
-      console.warn('[PostgreSQL] WARNING: DATABASE_URL uses pooler hostname. DDL operations require direct connection!');
-      console.warn('[PostgreSQL] Attempting to replace pooler hostname with direct connection hostname...');
-
-      // Replace pooler hostname with direct connection hostname
-      // From: postgres.xxx.pooler.supabase.com → db.xxx.supabase.co
-      dbUrl = dbUrl.replace(/postgres\.([^.]+)\.pooler\.supabase\.com/g, 'db.$1.supabase.co');
-      console.log('[PostgreSQL] Replaced pooler hostname with direct connection hostname');
-    }
-
-    // Check if using pooler port and warn
-    if (dbUrl.includes(':6543')) {
-      console.warn('[PostgreSQL] WARNING: DATABASE_URL uses pooler port 6543. DDL operations require port 5432!');
-      console.warn('[PostgreSQL] Attempting to replace port 6543 with 5432...');
-      dbUrl = dbUrl.replace(':6543/', ':5432/');
-      console.log('[PostgreSQL] Using modified DATABASE_URL with direct connection (port 5432)');
-    }
-
     console.log('[PostgreSQL] Using DATABASE_URL from environment');
-    return dbUrl;
+    return process.env.DATABASE_URL;
   }
 
   // Option 2: Use SUPABASE_CONNECTION_STRING if set (manual override)
   if (process.env.SUPABASE_CONNECTION_STRING) {
-    let connStr = process.env.SUPABASE_CONNECTION_STRING;
-
-    // Check if using pooler hostname and fix it
-    if (connStr.includes('.pooler.supabase.com')) {
-      console.warn('[PostgreSQL] WARNING: SUPABASE_CONNECTION_STRING uses pooler hostname. DDL operations require direct connection!');
-      console.warn('[PostgreSQL] Attempting to replace pooler hostname with direct connection hostname...');
-
-      // Replace pooler hostname with direct connection hostname
-      // From: postgres.xxx.pooler.supabase.com → db.xxx.supabase.co
-      connStr = connStr.replace(/postgres\.([^.]+)\.pooler\.supabase\.com/g, 'db.$1.supabase.co');
-      console.log('[PostgreSQL] Replaced pooler hostname with direct connection hostname');
-    }
-
-    // Check if using pooler port and warn
-    if (connStr.includes(':6543')) {
-      console.warn('[PostgreSQL] WARNING: SUPABASE_CONNECTION_STRING uses pooler port 6543. DDL operations require port 5432!');
-      console.warn('[PostgreSQL] Attempting to replace port 6543 with 5432...');
-      connStr = connStr.replace(':6543/', ':5432/');
-      console.log('[PostgreSQL] Using modified SUPABASE_CONNECTION_STRING with direct connection (port 5432)');
-    }
-
     console.log('[PostgreSQL] Using SUPABASE_CONNECTION_STRING from environment');
-    return connStr;
+    return process.env.SUPABASE_CONNECTION_STRING;
   }
 
   // Option 3: Construct from Supabase URL and password
@@ -82,14 +39,12 @@ const extractPostgresUrl = () => {
     return null;
   }
 
-  // IMPORTANT: Schema DDL operations (CREATE SCHEMA, DROP SCHEMA) require DIRECT connection
-  // Transaction pooler (port 6543) does NOT support DDL operations
-  // We MUST use direct connection (port 5432) for schema automation
-  const usePooler = false; // Force direct connection for DDL operations
-  const port = 5432; // Always use direct connection port
-  const host = `db.${projectRef}.supabase.co`;
+  // For self-hosted Supabase or custom PostgreSQL
+  // Use direct connection (port 5432) for DDL operations
+  const port = process.env.POSTGRES_PORT || 5432;
+  const host = process.env.POSTGRES_HOST || `db.${projectRef}.supabase.co`;
 
-  console.log(`[PostgreSQL] Constructing connection string (direct mode for DDL operations)`);
+  console.log(`[PostgreSQL] Constructing connection string for host: ${host}:${port}`);
   return `postgresql://postgres.${projectRef}:${dbPassword}@${host}:${port}/postgres`;
 };
 
