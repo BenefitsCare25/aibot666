@@ -92,7 +92,14 @@ export default function AISettings() {
 
       // Load company settings
       const settingsResponse = await aiSettingsApi.getCompanySettings(selectedCompany.id);
-      setSettings(settingsResponse.data.settings || {});
+      const loadedSettings = settingsResponse.data.settings || {};
+
+      // If system_prompt is null, initialize it with DEFAULT_SYSTEM_PROMPT for editing
+      if (loadedSettings.system_prompt === null || loadedSettings.system_prompt === undefined) {
+        loadedSettings.system_prompt = DEFAULT_SYSTEM_PROMPT;
+      }
+
+      setSettings(loadedSettings);
 
     } catch (err) {
       console.error('Error loading AI settings:', err);
@@ -281,7 +288,7 @@ export default function AISettings() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">System Prompt</h2>
           <button
-            onClick={() => setSettings({ ...settings, system_prompt: null })}
+            onClick={() => setSettings({ ...settings, system_prompt: DEFAULT_SYSTEM_PROMPT })}
             className="text-sm text-primary-600 hover:text-primary-700"
           >
             Reset to Default
@@ -290,10 +297,10 @@ export default function AISettings() {
 
         <textarea
           value={settings.system_prompt || DEFAULT_SYSTEM_PROMPT}
-          onChange={(e) => setSettings({ ...settings, system_prompt: e.target.value || null })}
+          onChange={(e) => setSettings({ ...settings, system_prompt: e.target.value })}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           rows={15}
-          placeholder="Enter custom system prompt or leave empty for default"
+          placeholder="Enter custom system prompt"
         />
 
         <div className="mt-2 flex justify-between text-xs text-gray-500">
