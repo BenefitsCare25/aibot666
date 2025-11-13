@@ -30,6 +30,17 @@ const AVAILABLE_MODELS = [
     speed: 'fast',
     quality: 'excellent',
     recommended: true
+  },
+  {
+    id: 'gpt-4o-mini',
+    name: 'GPT-4o Mini',
+    provider: 'openai',
+    description: 'Faster and more affordable version, 85-90% of GPT-4o quality',
+    cost_per_1m_input: 0.15,
+    cost_per_1m_output: 0.60,
+    speed: 'very-fast',
+    quality: 'good',
+    recommended: false
   }
 ];
 
