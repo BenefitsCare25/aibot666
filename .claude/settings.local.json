@@ -15,7 +15,22 @@
       "Bash(git pull:*)",
       "Bash(python fix_prompt.py:*)",
       "Bash(python fix_prompt_v2.py:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(git push:*)",
+      "Bash(curl:*)",
+      "Bash(node migrations/re-embed-knowledge-with-titles.js:*)",
+      "Bash(node migrations/check-cbre-embeddings.js:*)",
+      "Bash(node backend/migrations/re-embed-knowledge-with-titles.js:*)",
+      "Bash(git rm:*)",
+      "Bash(node:*)",
+      "Bash(QUICK_QUESTIONS_SUMMARY.txt)",
+      "Bash(if [ -f .env ])",
+      "Bash(then echo \"File exists\")",
+      "Bash(else echo \"File not found\")",
+      "Bash(fi)",
+      "Bash(xargs:*)",
+      "Bash(find:*)",
+      "Bash(git revert:*)"
     ],
     "deny": [],
     "ask": []
