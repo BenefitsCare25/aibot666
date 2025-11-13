@@ -21,15 +21,25 @@ const extractPostgresUrl = () => {
   // Option 1: Use DATABASE_URL if available (Render, Heroku, etc.)
   // IMPORTANT: Ensure DATABASE_URL uses port 5432 (direct connection), NOT 6543 (pooler)
   if (process.env.DATABASE_URL) {
-    const dbUrl = process.env.DATABASE_URL;
+    let dbUrl = process.env.DATABASE_URL;
+
+    // Check if using pooler hostname and fix it
+    if (dbUrl.includes('.pooler.supabase.com')) {
+      console.warn('[PostgreSQL] WARNING: DATABASE_URL uses pooler hostname. DDL operations require direct connection!');
+      console.warn('[PostgreSQL] Attempting to replace pooler hostname with direct connection hostname...');
+
+      // Replace pooler hostname with direct connection hostname
+      // From: postgres.xxx.pooler.supabase.com → db.xxx.supabase.co
+      dbUrl = dbUrl.replace(/postgres\.([^.]+)\.pooler\.supabase\.com/g, 'db.$1.supabase.co');
+      console.log('[PostgreSQL] Replaced pooler hostname with direct connection hostname');
+    }
 
     // Check if using pooler port and warn
     if (dbUrl.includes(':6543')) {
       console.warn('[PostgreSQL] WARNING: DATABASE_URL uses pooler port 6543. DDL operations require port 5432!');
       console.warn('[PostgreSQL] Attempting to replace port 6543 with 5432...');
-      const directUrl = dbUrl.replace(':6543/', ':5432/');
+      dbUrl = dbUrl.replace(':6543/', ':5432/');
       console.log('[PostgreSQL] Using modified DATABASE_URL with direct connection (port 5432)');
-      return directUrl;
     }
 
     console.log('[PostgreSQL] Using DATABASE_URL from environment');
@@ -38,15 +48,25 @@ const extractPostgresUrl = () => {
 
   // Option 2: Use SUPABASE_CONNECTION_STRING if set (manual override)
   if (process.env.SUPABASE_CONNECTION_STRING) {
-    const connStr = process.env.SUPABASE_CONNECTION_STRING;
+    let connStr = process.env.SUPABASE_CONNECTION_STRING;
+
+    // Check if using pooler hostname and fix it
+    if (connStr.includes('.pooler.supabase.com')) {
+      console.warn('[PostgreSQL] WARNING: SUPABASE_CONNECTION_STRING uses pooler hostname. DDL operations require direct connection!');
+      console.warn('[PostgreSQL] Attempting to replace pooler hostname with direct connection hostname...');
+
+      // Replace pooler hostname with direct connection hostname
+      // From: postgres.xxx.pooler.supabase.com → db.xxx.supabase.co
+      connStr = connStr.replace(/postgres\.([^.]+)\.pooler\.supabase\.com/g, 'db.$1.supabase.co');
+      console.log('[PostgreSQL] Replaced pooler hostname with direct connection hostname');
+    }
 
     // Check if using pooler port and warn
     if (connStr.includes(':6543')) {
       console.warn('[PostgreSQL] WARNING: SUPABASE_CONNECTION_STRING uses pooler port 6543. DDL operations require port 5432!');
       console.warn('[PostgreSQL] Attempting to replace port 6543 with 5432...');
-      const directUrl = connStr.replace(':6543/', ':5432/');
+      connStr = connStr.replace(':6543/', ':5432/');
       console.log('[PostgreSQL] Using modified SUPABASE_CONNECTION_STRING with direct connection (port 5432)');
-      return directUrl;
     }
 
     console.log('[PostgreSQL] Using SUPABASE_CONNECTION_STRING from environment');
