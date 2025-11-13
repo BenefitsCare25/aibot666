@@ -52,41 +52,6 @@ const AVAILABLE_MODELS = [
     speed: 'very-fast',
     quality: 'good',
     recommended: false
-  },
-  {
-    id: 'gpt-4o-mini-2024-07-18',
-    name: 'GPT-4o Mini (July 2024)',
-    provider: 'openai',
-    description: 'Specific version of GPT-4o Mini',
-    cost_per_1m_input: 0.15,
-    cost_per_1m_output: 0.60,
-    speed: 'very-fast',
-    quality: 'good',
-    recommended: false
-  },
-  {
-    id: 'gpt-4-turbo-preview',
-    name: 'GPT-4 Turbo (Legacy)',
-    provider: 'openai',
-    description: 'Older model, not recommended (use GPT-4o instead)',
-    cost_per_1m_input: 10.00,
-    cost_per_1m_output: 30.00,
-    speed: 'medium',
-    quality: 'very-good',
-    recommended: false,
-    deprecated: true
-  },
-  {
-    id: 'claude-3-5-sonnet-20241022',
-    name: 'Claude 3.5 Sonnet',
-    provider: 'anthropic',
-    description: 'Superior reasoning and privacy, requires Anthropic API key',
-    cost_per_1m_input: 3.00,
-    cost_per_1m_output: 15.00,
-    speed: 'medium',
-    quality: 'excellent',
-    recommended: false,
-    requires_different_api: true
   }
 ];
 

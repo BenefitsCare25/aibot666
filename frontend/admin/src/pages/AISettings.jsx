@@ -274,16 +274,6 @@ export default function AISettings() {
             </label>
           ))}
         </div>
-
-        {/* Cost Estimator */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="font-medium text-blue-900 mb-2">Cost Estimator (100K queries/month)</h3>
-          <div className="text-sm text-blue-800">
-            <div>Current model ({selectedModel?.name}): <span className="font-bold">${calculateMonthlyCost(settings.model)}/month</span></div>
-            <div className="mt-1">GPT-4o: <span className="font-bold">$325/month</span> (Recommended)</div>
-            <div className="mt-1">GPT-4o Mini: <span className="font-bold">$19.50/month</span> (Budget option)</div>
-          </div>
-        </div>
       </div>
 
       {/* System Prompt */}
@@ -449,7 +439,7 @@ export default function AISettings() {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-3 justify-end">
+      <div className="flex gap-3 justify-start">
         <button
           onClick={handleReset}
           disabled={saving}
