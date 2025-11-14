@@ -526,6 +526,13 @@ router.post('/message', async (req, res) => {
     // Get company AI settings (will be null/undefined if not configured)
     const companyAISettings = req.company?.ai_settings || null;
 
+    console.log('\n' + '='.repeat(80));
+    console.log(`[Chat] Processing message for employee: ${employee.name} (${employee.employee_id})`);
+    console.log(`[Chat] Company: ${req.company?.name}, Schema: ${req.company?.schemaName}`);
+    console.log(`[Chat] Employee Policy Type: ${employee.policy_type}`);
+    console.log(`[Chat] AI Settings: topK=${companyAISettings?.top_k_results || 5}, threshold=${companyAISettings?.similarity_threshold || 0.7}, escalation_threshold=${companyAISettings?.escalation_threshold ?? 0.5}`);
+    console.log('='.repeat(80) + '\n');
+
     // Search knowledge base (use company-specific client and settings)
     // Pass employee's policy_type for filtering to reduce token usage
     const contexts = await searchKnowledgeBase(
@@ -537,16 +544,16 @@ router.post('/message', async (req, res) => {
       employee.policy_type  // policyType for filtering
     );
 
-    // Debug logging to track knowledge base matching
-    console.log(`[Knowledge Search] Query: "${message}"`);
-    console.log(`[Knowledge Search] Found ${contexts?.length || 0} matching contexts`);
+    // Additional context logging after search
+    console.log(`\n[Chat] Knowledge search completed - Found ${contexts?.length || 0} contexts`);
     if (contexts && contexts.length > 0) {
+      console.log('[Chat] Context details:');
       contexts.forEach((ctx, idx) => {
-        console.log(`[Context ${idx + 1}] Category: ${ctx.category}, Similarity: ${ctx.similarity}, Title: ${ctx.title}`);
-        console.log(`[Context ${idx + 1}] Content: ${ctx.content?.substring(0, 200)}...`);
+        console.log(`  ${idx + 1}. [${ctx.similarity.toFixed(4)}] ${ctx.title || '(no title)'}`);
+        console.log(`     Category: ${ctx.category}, Subcategory: ${ctx.subcategory || 'none'}`);
       });
     } else {
-      console.log(`[Knowledge Search] No contexts found - AI will likely escalate`);
+      console.log('[Chat] ⚠️ No knowledge contexts found - AI may generate generic response or escalate');
     }
 
     // Get conversation history (with employee validation for security)
@@ -558,6 +565,9 @@ router.post('/message', async (req, res) => {
       content: h.content
     }));
 
+    console.log(`[Chat] Conversation history: ${formattedHistory.length} messages`);
+    console.log(`[Chat] Generating AI response with model: ${companyAISettings?.model || 'default'}...\n`);
+
     // Generate RAG response with company-specific AI settings
     const response = await generateRAGResponse(
       message,
@@ -567,11 +577,18 @@ router.post('/message', async (req, res) => {
       companyAISettings  // Pass company AI settings
     );
 
-    // Debug: Log AI response for escalation analysis
-    console.log(`[AI Response] Answer preview: ${response.answer?.substring(0, 150)}...`);
-    console.log(`[AI Response] Confidence: ${response.confidence}`);
+    // Enhanced AI response logging
+    console.log('\n' + '-'.repeat(80));
+    console.log('[AI Response] Generation completed');
+    console.log(`[AI Response] Model: ${response.model || 'unknown'}`);
+    console.log(`[AI Response] Confidence: ${response.confidence.toFixed(4)}`);
+    console.log(`[AI Response] Tokens used: ${response.tokens || 'unknown'}`);
+    console.log(`[AI Response] Sources: ${response.sources?.length || 0} knowledge base entries`);
+    console.log(`[AI Response] Answer preview: ${response.answer?.substring(0, 200)}...`);
+
     const hasEscalationPhrase = response.answer?.toLowerCase().includes('for such query, let us check back with the team');
     console.log(`[AI Response] Contains escalation phrase: ${hasEscalationPhrase}`);
+    console.log('-'.repeat(80) + '\n');
 
     // Save messages to Redis
     await addMessageToHistory(session.conversationId, {
@@ -596,20 +613,46 @@ router.post('/message', async (req, res) => {
     let escalated = false;
     let escalationReason = null;
 
+    console.log('[Escalation Check] Evaluating escalation criteria...');
+
+    // Get escalation threshold from company settings (default 0.5)
+    const escalationThreshold = companyAISettings?.escalation_threshold ?? 0.5;
+    console.log(`[Escalation Check] Threshold: ${escalationThreshold}`);
+    console.log(`[Escalation Check] Current confidence: ${response.confidence.toFixed(4)}`);
+    console.log(`[Escalation Check] ESCALATE_ON_NO_KNOWLEDGE env: ${ESCALATE_ON_NO_KNOWLEDGE}`);
+
     // Check if AI explicitly says it cannot answer (uses the exact template phrase)
     const aiSaysNoKnowledge = response.answer &&
       response.answer.toLowerCase().includes('for such query, let us check back with the team');
+    console.log(`[Escalation Check] AI used escalation phrase: ${aiSaysNoKnowledge}`);
 
-    // Escalate ONLY when AI explicitly cannot answer
-    // If AI gave a real answer, it means it found data in Supabase (employee table or knowledge_base)
-    // Do NOT escalate based on knowledgeMatch.status alone - AI can answer using employee data
-    if (ESCALATE_ON_NO_KNOWLEDGE && aiSaysNoKnowledge) {
+    // Check if confidence is below threshold
+    const lowConfidence = response.confidence < escalationThreshold;
+    console.log(`[Escalation Check] Confidence below threshold: ${lowConfidence} (${response.confidence.toFixed(4)} < ${escalationThreshold})`);
+
+    // Escalate if:
+    // 1. AI explicitly cannot answer (uses escalation phrase), OR
+    // 2. Confidence is below the escalation threshold
+    if (ESCALATE_ON_NO_KNOWLEDGE && (aiSaysNoKnowledge || lowConfidence)) {
       escalated = true;
-      escalationReason = 'ai_unable_to_answer';
+      escalationReason = aiSaysNoKnowledge ? 'ai_unable_to_answer' : 'low_confidence';
+
+      console.log('\n' + '!'.repeat(80));
+      console.log(`[Escalation] 🚨 ESCALATION TRIGGERED`);
+      console.log(`[Escalation] Reason: ${escalationReason}`);
+      console.log(`[Escalation] Confidence: ${response.confidence.toFixed(4)} (threshold: ${escalationThreshold})`);
+      console.log(`[Escalation] AI escalation phrase present: ${aiSaysNoKnowledge}`);
+      console.log(`[Escalation] Knowledge contexts found: ${contexts?.length || 0}`);
+      console.log('!'.repeat(80) + '\n');
+    } else {
+      console.log(`[Escalation Check] ✅ No escalation needed`);
+      console.log(`[Escalation Check] Reason: Confidence ${response.confidence.toFixed(4)} >= ${escalationThreshold} AND no escalation phrase\n`);
     }
 
     if (escalated) {
+      console.log('[Escalation] Creating escalation record...');
       await handleEscalation(session, message, response, employee, escalationReason, req.supabase, req.company.schemaName);
+      console.log('[Escalation] ✅ Escalation record created\n');
     }
 
     // Cache the result if confidence is high
@@ -620,6 +663,14 @@ router.post('/message', async (req, res) => {
         sources: response.sources
       }, 300);
     }
+
+    // Final summary log
+    console.log('='.repeat(80));
+    console.log('[Chat] Request completed successfully');
+    console.log(`[Chat] Final confidence: ${response.confidence.toFixed(4)}`);
+    console.log(`[Chat] Escalated: ${escalated ? 'YES (' + escalationReason + ')' : 'NO'}`);
+    console.log(`[Chat] Response sent to client`);
+    console.log('='.repeat(80) + '\n');
 
     res.json({
       success: true,

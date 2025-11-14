@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const SCHEMA_NAME = 'company_a';
+const SCHEMA_NAME = process.env.SCHEMA_NAME || 'cbre';
 
 async function diagnoseKnowledgeSearch() {
   console.log('='.repeat(60));
@@ -63,7 +63,7 @@ async function diagnoseKnowledgeSearch() {
   // Step 3: Test embedding generation
   console.log('\n' + '-'.repeat(60));
   console.log('Step 3: Testing embedding generation...');
-  const testQuery = "Why is my claim up to $60 only?";
+  const testQuery = "How long is my referral valid for?";
   console.log(`Query: "${testQuery}"`);
 
   try {
