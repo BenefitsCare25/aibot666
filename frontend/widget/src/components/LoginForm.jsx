@@ -66,6 +66,10 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
       const domain = window.location.hostname;
 
       // Send callback request to backend
+      console.log('Submitting callback request to:', `${apiUrl}/api/chat/callback-request`);
+      console.log('Domain:', domain);
+      console.log('Contact number:', contactNumber.trim());
+
       const response = await fetch(`${apiUrl}/api/chat/callback-request`, {
         method: 'POST',
         headers: {
@@ -78,20 +82,27 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
         })
       });
 
-      // Check if response is OK before parsing JSON
-      if (!response.ok) {
-        let errorMessage = 'Failed to submit callback request';
-        try {
-          const data = await response.json();
-          errorMessage = data.error || errorMessage;
-        } catch (e) {
-          // If JSON parsing fails, use status text
-          errorMessage = `Server error: ${response.status} ${response.statusText}`;
-        }
-        throw new Error(errorMessage);
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      // Get response text first to see what we're actually receiving
+      const responseText = await response.text();
+      console.log('Response body:', responseText);
+
+      // Try to parse as JSON
+      let data;
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (e) {
+        console.error('Failed to parse response as JSON:', e);
+        throw new Error(`Server returned invalid response: ${responseText || 'Empty response'}`);
       }
 
-      const data = await response.json();
+      // Check if response is OK
+      if (!response.ok) {
+        const errorMessage = data.error || `Server error: ${response.status} ${response.statusText}`;
+        throw new Error(errorMessage);
+      }
 
       setSuccessMessage('Our team will contact you within the next working day');
       setContactNumber(''); // Clear the input
