@@ -7,7 +7,9 @@ export default function EmailConfigModal({ company, onClose, onSuccess }) {
   const [emailConfig, setEmailConfig] = useState({
     log_request_email_to: '',
     log_request_email_cc: '',
-    log_request_keywords: []
+    log_request_keywords: [],
+    callback_email_to: '',
+    callback_email_cc: ''
   });
 
   useEffect(() => {
@@ -15,7 +17,9 @@ export default function EmailConfigModal({ company, onClose, onSuccess }) {
       setEmailConfig({
         log_request_email_to: company.log_request_email_to || '',
         log_request_email_cc: company.log_request_email_cc || '',
-        log_request_keywords: company.log_request_keywords || ['request log', 'send logs', 'need log']
+        log_request_keywords: company.log_request_keywords || ['request log', 'send logs', 'need log'],
+        callback_email_to: company.callback_email_to || company.log_request_email_to || '',
+        callback_email_cc: company.callback_email_cc || company.log_request_email_cc || ''
       });
     }
   }, [company]);
@@ -119,6 +123,48 @@ export default function EmailConfigModal({ company, onClose, onSuccess }) {
             </p>
           </div>
 
+          {/* Divider */}
+          <div className="border-t border-gray-300 pt-4 mt-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Callback Request Configuration</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Configure email notifications for callback requests from users who cannot login
+            </p>
+          </div>
+
+          {/* Callback Email (To) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Callback Notification Email(s) - To
+            </label>
+            <input
+              type="text"
+              value={emailConfig.callback_email_to}
+              onChange={(e) => setEmailConfig({ ...emailConfig, callback_email_to: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="support@company.com (defaults to LOG request email if empty)"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Primary recipients for callback requests - comma-separated (optional, falls back to LOG request email)
+            </p>
+          </div>
+
+          {/* Callback CC Recipients */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Callback CC Recipients (Optional)
+            </label>
+            <input
+              type="text"
+              value={emailConfig.callback_email_cc}
+              onChange={(e) => setEmailConfig({ ...emailConfig, callback_email_cc: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="manager@company.com, supervisor@company.com"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              CC recipients for callback notifications - comma-separated (optional)
+            </p>
+          </div>
+
           {/* Info Section */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start gap-3">
@@ -126,14 +172,14 @@ export default function EmailConfigModal({ company, onClose, onSuccess }) {
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
               </svg>
               <div className="text-sm text-blue-800">
-                <p className="font-semibold mb-1">How LOG Request Email Works:</p>
+                <p className="font-semibold mb-1">How Email Notifications Work:</p>
                 <ul className="list-disc list-inside space-y-1 ml-1">
-                  <li>When users request LOG via button or keywords, an email is sent to the support team</li>
-                  <li>Email includes conversation history, employee details, and any attachments</li>
-                  <li><strong>To:</strong> Primary support team members who handle the request</li>
+                  <li><strong>LOG Requests:</strong> When users request LOG via button or keywords, an email with conversation history and attachments is sent</li>
+                  <li><strong>Callback Requests:</strong> When users submit a callback request (cannot login), an email and Telegram notification are sent</li>
+                  <li><strong>To:</strong> Primary support team members who handle the requests</li>
                   <li><strong>CC:</strong> Optional additional recipients (managers, supervisors, etc.)</li>
-                  <li>Users can optionally provide their email to receive an acknowledgment</li>
-                  <li>Each company can have different email configurations</li>
+                  <li>Users receive acknowledgment emails with reference IDs</li>
+                  <li>Each company can have different email configurations for LOG and callback requests</li>
                 </ul>
               </div>
             </div>
@@ -143,12 +189,22 @@ export default function EmailConfigModal({ company, onClose, onSuccess }) {
           {emailConfig.log_request_email_to && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
               <p className="text-sm font-medium text-gray-700 mb-2">📧 Configuration Preview:</p>
-              <div className="space-y-1 text-sm text-gray-600">
-                <p><span className="font-medium">To:</span> {emailConfig.log_request_email_to}</p>
-                {emailConfig.log_request_email_cc && (
-                  <p><span className="font-medium">CC:</span> {emailConfig.log_request_email_cc}</p>
-                )}
-                <p><span className="font-medium">Keywords:</span> {emailConfig.log_request_keywords?.join(', ') || 'None'}</p>
+              <div className="space-y-2 text-sm text-gray-600">
+                <div>
+                  <p className="font-semibold text-gray-800">LOG Requests:</p>
+                  <p><span className="font-medium">To:</span> {emailConfig.log_request_email_to}</p>
+                  {emailConfig.log_request_email_cc && (
+                    <p><span className="font-medium">CC:</span> {emailConfig.log_request_email_cc}</p>
+                  )}
+                  <p><span className="font-medium">Keywords:</span> {emailConfig.log_request_keywords?.join(', ') || 'None'}</p>
+                </div>
+                <div className="border-t pt-2">
+                  <p className="font-semibold text-gray-800">Callback Requests:</p>
+                  <p><span className="font-medium">To:</span> {emailConfig.callback_email_to || emailConfig.log_request_email_to + ' (fallback)'}</p>
+                  {(emailConfig.callback_email_cc || emailConfig.log_request_email_cc) && (
+                    <p><span className="font-medium">CC:</span> {emailConfig.callback_email_cc || emailConfig.log_request_email_cc + ' (fallback)'}</p>
+                  )}
+                </div>
               </div>
             </div>
           )}

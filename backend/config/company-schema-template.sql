@@ -187,6 +187,31 @@ CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_log_requests_conversation ON {{SC
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_log_requests_employee ON {{SCHEMA_NAME}}.log_requests(employee_id);
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_log_requests_created ON {{SCHEMA_NAME}}.log_requests(created_at DESC);
 
+-- Callback requests table: Store callback requests from users who cannot login
+CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.callback_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  contact_number VARCHAR(50) NOT NULL,
+  employee_id VARCHAR(50),
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'contacted', 'resolved', 'failed')),
+  email_sent BOOLEAN DEFAULT false,
+  email_sent_at TIMESTAMP WITH TIME ZONE,
+  email_error TEXT,
+  telegram_sent BOOLEAN DEFAULT false,
+  telegram_sent_at TIMESTAMP WITH TIME ZONE,
+  telegram_error TEXT,
+  notes TEXT,
+  contacted_at TIMESTAMP WITH TIME ZONE,
+  contacted_by VARCHAR(255),
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes for callback requests
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_callback_status ON {{SCHEMA_NAME}}.callback_requests(status);
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_callback_created ON {{SCHEMA_NAME}}.callback_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_callback_employee ON {{SCHEMA_NAME}}.callback_requests(employee_id);
+
 -- ==========================================
 -- TRIGGERS AND FUNCTIONS
 -- ==========================================

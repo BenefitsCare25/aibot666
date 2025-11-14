@@ -1028,4 +1028,209 @@ async function handleEscalation(session, query, response, employee, reason, supa
   }
 }
 
+/**
+ * POST /api/chat/callback-request
+ * Create a callback request when user cannot login
+ */
+router.post('/callback-request', async (req, res) => {
+  try {
+    const { contactNumber, employeeId } = req.body;
+    const supabaseClient = req.supabaseClient;
+    const company = req.company;
+
+    if (!contactNumber || !contactNumber.trim()) {
+      return res.status(400).json({ error: 'Contact number is required' });
+    }
+
+    // Basic phone number validation
+    const phoneRegex = /^\+?[\d\s\-()]{8,}$/;
+    if (!phoneRegex.test(contactNumber.trim())) {
+      return res.status(400).json({ error: 'Invalid contact number format' });
+    }
+
+    // Create callback request record
+    const { data: callbackRequest, error: insertError } = await supabaseClient
+      .from('callback_requests')
+      .insert({
+        contact_number: contactNumber.trim(),
+        employee_id: employeeId || null,
+        status: 'pending',
+        metadata: {
+          user_agent: req.headers['user-agent'],
+          ip_address: req.ip,
+          company_id: company?.id
+        }
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error creating callback request:', insertError);
+      return res.status(500).json({ error: 'Failed to create callback request' });
+    }
+
+    // Send email notification to support team
+    let emailSent = false;
+    let emailError = null;
+    try {
+      await sendCallbackNotificationEmail({
+        callbackRequest,
+        contactNumber: contactNumber.trim(),
+        employeeId: employeeId || 'Not provided',
+        company
+      });
+      emailSent = true;
+
+      // Update callback request with email sent status
+      await supabaseClient
+        .from('callback_requests')
+        .update({
+          email_sent: true,
+          email_sent_at: new Date().toISOString()
+        })
+        .eq('id', callbackRequest.id);
+    } catch (emailErr) {
+      console.error('Error sending callback notification email:', emailErr);
+      emailError = emailErr.message;
+
+      // Update with error
+      await supabaseClient
+        .from('callback_requests')
+        .update({
+          email_error: emailError
+        })
+        .eq('id', callbackRequest.id);
+    }
+
+    // Send Telegram notification
+    let telegramSent = false;
+    let telegramError = null;
+    try {
+      await sendCallbackTelegramNotification({
+        callbackRequest,
+        contactNumber: contactNumber.trim(),
+        employeeId: employeeId || 'Not provided',
+        company,
+        schemaName: req.schemaName
+      });
+      telegramSent = true;
+
+      // Update callback request with telegram sent status
+      await supabaseClient
+        .from('callback_requests')
+        .update({
+          telegram_sent: true,
+          telegram_sent_at: new Date().toISOString()
+        })
+        .eq('id', callbackRequest.id);
+    } catch (telegramErr) {
+      console.error('Error sending Telegram notification:', telegramErr);
+      telegramError = telegramErr.message;
+
+      // Update with error
+      await supabaseClient
+        .from('callback_requests')
+        .update({
+          telegram_error: telegramError
+        })
+        .eq('id', callbackRequest.id);
+    }
+
+    res.json({
+      success: true,
+      requestId: callbackRequest.id,
+      emailSent,
+      telegramSent,
+      message: 'Callback request submitted successfully'
+    });
+  } catch (error) {
+    console.error('Error creating callback request:', error);
+    res.status(500).json({ error: 'Failed to create callback request' });
+  }
+});
+
+/**
+ * Send callback notification email to support team
+ */
+async function sendCallbackNotificationEmail(data) {
+  const { callbackRequest, contactNumber, employeeId, company } = data;
+
+  // Import at function level to avoid circular dependencies
+  const { sendLogRequestEmail } = await import('../services/email.js');
+
+  const companyConfig = {
+    log_request_email_to: company?.callback_email_to || company?.log_request_email_to,
+    log_request_email_cc: company?.callback_email_cc || company?.log_request_email_cc
+  };
+
+  // Format as if it's a LOG request but for callback
+  const emailData = {
+    employee: {
+      name: 'Callback Request',
+      employee_id: employeeId,
+      policy_type: 'N/A',
+      email: 'Not available',
+      coverage_limit: 0
+    },
+    conversationHistory: [{
+      role: 'user',
+      content: `User requested a callback at: ${contactNumber}`,
+      created_at: new Date().toISOString()
+    }],
+    conversationId: callbackRequest.id,
+    requestType: 'button',
+    requestMessage: `Callback requested - Contact number: ${contactNumber}`,
+    attachments: [],
+    companyConfig
+  };
+
+  return await sendLogRequestEmail(emailData);
+}
+
+/**
+ * Send callback notification to Telegram
+ */
+async function sendCallbackTelegramNotification(data) {
+  const { callbackRequest, contactNumber, employeeId, company, schemaName } = data;
+
+  // Import the Telegram service
+  const telegramService = await import('../services/telegram.js');
+
+  // Check if bot is configured
+  if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_CHAT_ID) {
+    console.warn('Telegram not configured - callback notification not sent');
+    return;
+  }
+
+  const bot = telegramService.default?.bot;
+  if (!bot) {
+    console.warn('Telegram bot not initialized');
+    return;
+  }
+
+  const { Telegraf } = await import('telegraf');
+  const telegramBot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+
+  const message = `
+🔔 <b>Callback Request</b>
+
+<b>Contact Number:</b> ${contactNumber}
+<b>Employee ID:</b> ${employeeId}
+<b>Company:</b> ${company?.name || 'Unknown'}
+<b>Status:</b> 🟡 Pending Callback
+
+<b>Request Time:</b> ${new Date().toLocaleString('en-SG', { timeZone: 'Asia/Singapore' })}
+
+<i>[Callback Request: ${callbackRequest.id}${schemaName ? `|Schema: ${schemaName}` : ''}]</i>
+
+📞 Please contact the user within the next working day.
+  `.trim();
+
+  await telegramBot.telegram.sendMessage(process.env.TELEGRAM_CHAT_ID, message, {
+    parse_mode: 'HTML'
+  });
+
+  console.log(`✓ Callback request ${callbackRequest.id} sent to Telegram`);
+}
+
 export default router;

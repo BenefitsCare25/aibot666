@@ -3,13 +3,16 @@ import { useChatStore } from '../store/chatStore';
 
 export default function LoginForm({ onLogin, onClose, primaryColor }) {
   const [employeeId, setEmployeeId] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { createSession } = useChatStore();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
 
     if (!employeeId.trim()) {
       setError('Please enter your employee ID');
@@ -26,10 +29,63 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
 
       // Check if it's an "Employee not found" error
       if (errorMessage.includes('Employee not found') || errorMessage.includes('employee not found')) {
-        setError('Employee ID not found, please contact helpdesk at 64487707');
+        setError('Invalid ID, please contact helpdesk at 64487707');
       } else {
         setError(errorMessage);
       }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMessage('');
+
+    if (!contactNumber.trim()) {
+      setError('Please enter your contact number');
+      return;
+    }
+
+    // Basic phone number validation (at least 8 digits)
+    const phoneRegex = /^\+?[\d\s\-()]{8,}$/;
+    if (!phoneRegex.test(contactNumber.trim())) {
+      setError('Please enter a valid contact number');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Get API URL and domain from parent component or localStorage
+      const apiUrl = window.CHATBOT_API_URL || localStorage.getItem('chatbotApiUrl') || '';
+      const domain = window.location.hostname;
+
+      // Send callback request to backend
+      const response = await fetch(`${apiUrl}/api/chat/callback-request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Widget-Domain': domain
+        },
+        body: JSON.stringify({
+          contactNumber: contactNumber.trim(),
+          employeeId: employeeId || null
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to submit callback request');
+      }
+
+      setSuccessMessage('Our team will contact you within the next working day');
+      setContactNumber(''); // Clear the input
+    } catch (err) {
+      console.error('Error submitting callback request:', err);
+      setError(err.message || 'Failed to submit contact number. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -108,12 +164,6 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
             />
           </div>
 
-          {error && (
-            <div className="ic-mb-4 ic-p-3 ic-bg-red-50 ic-border ic-border-red-200 ic-rounded-md">
-              <p className="ic-text-sm ic-text-red-600">{error}</p>
-            </div>
-          )}
-
           <button
             type="submit"
             disabled={isLoading}
@@ -149,6 +199,86 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
             )}
           </button>
         </form>
+
+        {/* Divider */}
+        <div className="ic-my-4 ic-flex ic-items-center">
+          <div className="ic-flex-1 ic-border-t ic-border-gray-200"></div>
+          <span className="ic-px-3 ic-text-xs ic-text-gray-500">OR</span>
+          <div className="ic-flex-1 ic-border-t ic-border-gray-200"></div>
+        </div>
+
+        {/* Contact Number Form */}
+        <form onSubmit={handleContactSubmit}>
+          <div className="ic-mb-4">
+            <label
+              htmlFor="contactNumber"
+              className="ic-block ic-text-sm ic-font-medium ic-text-gray-700 ic-mb-2"
+            >
+              Request Callback
+            </label>
+            <input
+              type="tel"
+              id="contactNumber"
+              value={contactNumber}
+              onChange={(e) => setContactNumber(e.target.value)}
+              placeholder="e.g., +65 9123 4567"
+              className="ic-w-full ic-px-3 ic-py-2 ic-border ic-border-gray-300 ic-rounded-md focus:ic-outline-none focus:ic-ring-2 ic-text-gray-900"
+              style={{ '--tw-ring-color': primaryColor }}
+              disabled={isLoading}
+            />
+            <p className="ic-text-xs ic-text-gray-500 ic-mt-1">
+              We'll call you back during office hours
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="ic-w-full ic-text-white ic-py-2 ic-px-4 ic-rounded-md ic-font-medium ic-transition-colors disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-opacity-90"
+            style={{ backgroundColor: primaryColor }}
+          >
+            {isLoading ? (
+              <span className="ic-flex ic-items-center ic-justify-center ic-gap-2">
+                <svg
+                  className="ic-animate-spin ic-h-4 ic-w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="ic-opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="ic-opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Submitting...
+              </span>
+            ) : (
+              'Submit Contact Number'
+            )}
+          </button>
+        </form>
+
+        {/* Error and Success Messages */}
+        {error && (
+          <div className="ic-mt-4 ic-p-3 ic-bg-red-50 ic-border ic-border-red-200 ic-rounded-md">
+            <p className="ic-text-sm ic-text-red-600">{error}</p>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="ic-mt-4 ic-p-3 ic-bg-green-50 ic-border ic-border-green-200 ic-rounded-md">
+            <p className="ic-text-sm ic-text-green-600">{successMessage}</p>
+          </div>
+        )}
 
         <div className="ic-mt-4 ic-pt-4 ic-border-t ic-border-gray-200">
           <p className="ic-text-xs ic-text-gray-500 ic-text-center">
