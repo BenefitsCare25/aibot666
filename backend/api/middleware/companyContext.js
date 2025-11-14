@@ -10,6 +10,19 @@ const COMPANY_CACHE_TTL = 300;
  * Adds company info and schema-specific Supabase client to req object
  */
 export async function companyContextMiddleware(req, res, next) {
+  console.log('\n========== COMPANY CONTEXT MIDDLEWARE START ==========');
+  console.log('Request:', {
+    method: req.method,
+    path: req.path,
+    headers: {
+      'x-widget-domain': req.headers['x-widget-domain'],
+      'origin': req.headers.origin,
+      'referer': req.headers.referer,
+      'host': req.headers.host
+    },
+    body: req.body
+  });
+
   try {
     // Extract domain from multiple sources
     let domain = extractDomainFromRequest(req);
@@ -40,7 +53,8 @@ export async function companyContextMiddleware(req, res, next) {
         await cacheCompany(normalizedDomain, company);
         console.log(`[DB Lookup] Company found: ${company.name} (${company.schema_name})`);
       } else {
-        console.warn(`No company found for domain: ${normalizedDomain}`);
+        console.error(`ERROR: No company found for domain: ${normalizedDomain}`);
+        console.log('========== COMPANY CONTEXT MIDDLEWARE END (NOT FOUND) ==========\n');
         return res.status(404).json({
           success: false,
           error: 'Company not found for this domain',
@@ -52,6 +66,8 @@ export async function companyContextMiddleware(req, res, next) {
 
     // Check if company is active
     if (company.status !== 'active') {
+      console.error(`ERROR: Company is not active. Status: ${company.status}`);
+      console.log('========== COMPANY CONTEXT MIDDLEWARE END (INACTIVE) ==========\n');
       return res.status(403).json({
         success: false,
         error: 'Company account is not active',
@@ -81,13 +97,22 @@ export async function companyContextMiddleware(req, res, next) {
 
     // Add schema-specific Supabase client to request
     req.supabase = schemaClient;
+    req.supabaseClient = schemaClient; // Also add as supabaseClient for compatibility
+
+    // Add schema name for compatibility
+    req.schemaName = company.schema_name;
 
     // Log request with company context
     console.log(`[${req.method}] ${req.path} - Company: ${company.name} (${company.schema_name})`);
+    console.log('========== COMPANY CONTEXT MIDDLEWARE END (SUCCESS) ==========\n');
 
     next();
   } catch (error) {
-    console.error('Error in company context middleware:', error);
+    console.error('ERROR: Exception in company context middleware:', {
+      error: error.message,
+      stack: error.stack
+    });
+    console.log('========== COMPANY CONTEXT MIDDLEWARE END (ERROR) ==========\n');
     res.status(500).json({
       success: false,
       error: 'Failed to identify company context'
