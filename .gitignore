@@ -42,6 +42,9 @@ build/
 .next/
 out/
 
+# Frontend build outputs (rebuild on deployment)
+frontend/admin/dist/
+
 # Exception: Widget production builds in backend/public are committed
 !backend/public/widget.iife.js
 !backend/public/widget.css

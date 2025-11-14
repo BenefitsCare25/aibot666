@@ -30,7 +30,10 @@
       "Bash(fi)",
       "Bash(xargs:*)",
       "Bash(find:*)",
-      "Bash(git revert:*)"
+      "Bash(git revert:*)",
+      "Bash(SCHEMA_NAME=cbre node scripts/diagnose-knowledge-search.js:*)",
+      "Bash(git checkout:*)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []
