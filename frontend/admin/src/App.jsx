@@ -37,10 +37,14 @@ export default function App() {
           <Route path="chat-history" element={<ChatHistory />} />
           <Route path="escalations" element={<Escalations />} />
           <Route path="analytics" element={<Analytics />} />
-          <Route path="ai-settings" element={<AISettings />} />
           <Route path="companies" element={<Companies />} />
 
-          {/* Admin Users Management (Super Admin Only) */}
+          {/* Super Admin Only Routes */}
+          <Route path="ai-settings" element={
+            <ProtectedRoute requireSuperAdmin>
+              <AISettings />
+            </ProtectedRoute>
+          } />
           <Route path="admin-users" element={
             <ProtectedRoute requireSuperAdmin>
               <AdminUsers />

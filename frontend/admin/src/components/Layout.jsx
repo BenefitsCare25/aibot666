@@ -12,7 +12,6 @@ const navigation = [
   { name: 'Chat History', href: '/chat-history', icon: '💬' },
   { name: 'Escalations', href: '/escalations', icon: '🚨' },
   { name: 'Analytics', href: '/analytics', icon: '📈' },
-  { name: 'AI Settings', href: '/ai-settings', icon: '🤖' },
   { name: 'Companies', href: '/companies', icon: '🏢' }
 ];
 
@@ -55,21 +54,36 @@ export default function Layout() {
             </NavLink>
           ))}
 
-          {/* Admin Users - Super Admin Only */}
+          {/* Super Admin Only Pages */}
           {user?.role === 'super_admin' && (
-            <NavLink
-              to="/admin-users"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-primary-600 text-white border-l-4 border-primary-400'
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                }`
-              }
-            >
-              <span className="text-xl">👤</span>
-              Admin Users
-            </NavLink>
+            <>
+              <NavLink
+                to="/ai-settings"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary-600 text-white border-l-4 border-primary-400'
+                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  }`
+                }
+              >
+                <span className="text-xl">🤖</span>
+                AI Settings
+              </NavLink>
+              <NavLink
+                to="/admin-users"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary-600 text-white border-l-4 border-primary-400'
+                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  }`
+                }
+              >
+                <span className="text-xl">👤</span>
+                Admin Users
+              </NavLink>
+            </>
           )}
         </nav>
 
