@@ -8,7 +8,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showCallbackForm, setShowCallbackForm] = useState(false);
-  const { createSession } = useChatStore();
+  const { createSession, apiUrl, domain: companyDomain } = useChatStore();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -61,14 +61,13 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
     setIsLoading(true);
 
     try {
-      // Get API URL and domain from parent component or localStorage
-      const apiUrl = window.CHATBOT_API_URL || localStorage.getItem('chatbotApiUrl') || '';
-      // Use company domain from widget config, fallback to current hostname
-      const domain = window.CHATBOT_COMPANY_DOMAIN || window.location.hostname;
+      // Use domain from store (passed via init config), fallback to current hostname
+      const domain = companyDomain || window.location.hostname;
 
       // Send callback request to backend
       console.log('Submitting callback request to:', `${apiUrl}/api/chat/callback-request`);
-      console.log('Domain:', domain);
+      console.log('Using API URL:', apiUrl);
+      console.log('Using Domain:', domain);
       console.log('Contact number:', contactNumber.trim());
 
       const response = await fetch(`${apiUrl}/api/chat/callback-request`, {
