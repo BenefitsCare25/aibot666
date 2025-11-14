@@ -1222,4 +1222,65 @@ async function sendCallbackTelegramNotification(data) {
   });
 }
 
+/**
+ * GET /api/chat/quick-questions
+ * Get active quick questions for chatbot widget (public, no auth required)
+ */
+router.get('/quick-questions', async (req, res) => {
+  try {
+    const schemaName = req.company?.schemaName;
+
+    if (!schemaName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Company schema not found. Please ensure the domain is configured correctly.'
+      });
+    }
+
+    console.log(`[Quick Questions] Fetching for schema: ${schemaName}`);
+
+    // Use RPC function to query quick questions without requiring authentication
+    const { data: questions, error } = await supabase
+      .rpc('get_quick_questions_by_schema', { schema_name: schemaName });
+
+    if (error) {
+      console.error('[Quick Questions] Error fetching:', error);
+      throw error;
+    }
+
+    console.log(`[Quick Questions] Found ${questions?.length || 0} active questions`);
+
+    // Group by category
+    const categorized = {};
+    questions?.forEach(q => {
+      if (!categorized[q.category_id]) {
+        categorized[q.category_id] = {
+          id: q.category_id,
+          title: q.category_title,
+          icon: q.category_icon,
+          questions: []
+        };
+      }
+      categorized[q.category_id].questions.push({
+        id: q.id,
+        q: q.question,
+        a: q.answer,
+        display_order: q.display_order
+      });
+    });
+
+    res.json({
+      success: true,
+      data: Object.values(categorized)
+    });
+  } catch (error) {
+    console.error('[Quick Questions] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch quick questions',
+      details: error.message
+    });
+  }
+});
+
 export default router;

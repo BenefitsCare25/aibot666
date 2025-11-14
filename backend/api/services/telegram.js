@@ -629,13 +629,38 @@ ${truncatedAnswer}
 ⏭️ Reply <b>"skip"</b> to mark as reviewed
     `.trim();
 
-    await bot.telegram.sendMessage(TELEGRAM_CHAT_ID, message, {
-      parse_mode: 'HTML'
-    });
+    // Send with timeout and retry logic
+    const maxRetries = 3;
+    const timeoutMs = 30000; // 30 seconds
+    let lastError;
 
-    // Update escalation with Telegram message ID
-    // Note: We can't get message_id without additional setup, but we track the escalation ID
-    console.log(`✓ Escalation ${escalation.id} sent to Telegram`);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
+        );
+
+        const sendPromise = bot.telegram.sendMessage(TELEGRAM_CHAT_ID, message, {
+          parse_mode: 'HTML'
+        });
+
+        await Promise.race([sendPromise, timeoutPromise]);
+        console.log(`✓ Escalation ${escalation.id} sent to Telegram (attempt ${attempt})`);
+        return; // Success - exit function
+      } catch (error) {
+        lastError = error;
+        console.error(`Telegram send attempt ${attempt}/${maxRetries} failed:`, error.message);
+
+        if (attempt < maxRetries) {
+          const delay = 2000 * attempt; // Exponential backoff: 2s, 4s, 6s
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    // All retries failed - throw the last error
+    throw lastError;
   } catch (error) {
     console.error('Error sending Telegram notification:', error);
   }

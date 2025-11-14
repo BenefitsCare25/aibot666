@@ -1387,9 +1387,10 @@ router.get('/chat-history', async (req, res) => {
     const offset = (page - 1) * limit;
 
     // First, get all unique conversation_ids with filters
+    // Note: attended_by, admin_notes, attended_at may not exist in older schemas
     let conversationQuery = req.supabase
       .from('chat_history')
-      .select('conversation_id, employee_id, created_at, was_escalated, attended_by, admin_notes, attended_at', { count: 'exact' });
+      .select('conversation_id, employee_id, created_at, was_escalated', { count: 'exact' });
 
     // Apply filters
     if (dateFrom) {
@@ -1423,9 +1424,9 @@ router.get('/chat-history', async (req, res) => {
           has_escalation: false,
           first_message_at: msg.created_at,
           last_message_at: msg.created_at,
-          attended_by: msg.attended_by,
-          admin_notes: msg.admin_notes,
-          attended_at: msg.attended_at
+          attended_by: null,
+          admin_notes: null,
+          attended_at: null
         });
       }
       const conv = conversationMap.get(convId);
@@ -1437,12 +1438,6 @@ router.get('/chat-history', async (req, res) => {
       if (new Date(msg.created_at) > new Date(conv.last_message_at)) {
         conv.last_message_at = msg.created_at;
       }
-      // Update admin attendance info if present
-      if (msg.attended_by) {
-        conv.attended_by = msg.attended_by;
-        conv.admin_notes = msg.admin_notes;
-        conv.attended_at = msg.attended_at;
-      }
     });
 
     // Convert to array and sort by last message
@@ -1452,6 +1447,38 @@ router.get('/chat-history', async (req, res) => {
     // Paginate
     const total = conversations.length;
     const paginatedConversations = conversations.slice(offset, offset + parseInt(limit));
+
+    // Try to fetch attendance data if columns exist
+    const conversationIds = paginatedConversations.map(c => c.conversation_id);
+    try {
+      const { data: attendanceData } = await req.supabase
+        .from('chat_history')
+        .select('conversation_id, attended_by, admin_notes, attended_at')
+        .in('conversation_id', conversationIds)
+        .not('attended_by', 'is', null);
+
+      // Update conversations with attendance data
+      if (attendanceData && attendanceData.length > 0) {
+        const attendanceMap = new Map();
+        attendanceData.forEach(att => {
+          if (!attendanceMap.has(att.conversation_id)) {
+            attendanceMap.set(att.conversation_id, att);
+          }
+        });
+
+        paginatedConversations.forEach(conv => {
+          const attendance = attendanceMap.get(conv.conversation_id);
+          if (attendance) {
+            conv.attended_by = attendance.attended_by;
+            conv.admin_notes = attendance.admin_notes;
+            conv.attended_at = attendance.attended_at;
+          }
+        });
+      }
+    } catch (attendanceError) {
+      // Columns don't exist yet - that's okay, continue without attendance data
+      console.warn('Attendance columns not available:', attendanceError.message);
+    }
 
     // Get employee details for paginated conversations
     const employeeIds = [...new Set(paginatedConversations.map(c => c.employee_id))];

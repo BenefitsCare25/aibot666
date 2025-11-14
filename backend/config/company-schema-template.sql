@@ -81,6 +81,9 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.chat_history (
   sources JSONB DEFAULT '[]',
   was_escalated BOOLEAN DEFAULT false,
   escalation_resolved BOOLEAN DEFAULT false,
+  attended_by VARCHAR(255),
+  admin_notes TEXT,
+  attended_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -89,6 +92,7 @@ CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_chat_conversation ON {{SCHEMA_NAM
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_chat_employee ON {{SCHEMA_NAME}}.chat_history(employee_id);
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_chat_created ON {{SCHEMA_NAME}}.chat_history(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_chat_escalated ON {{SCHEMA_NAME}}.chat_history(was_escalated);
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_chat_attended ON {{SCHEMA_NAME}}.chat_history(attended_by) WHERE attended_by IS NOT NULL;
 
 -- Escalations table: Track human-in-the-loop interventions
 CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.escalations (
