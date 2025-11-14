@@ -66,11 +66,25 @@ export async function companyContextMiddleware(req, res, next) {
       schemaName: company.schema_name,
       settings: company.settings || {},
       metadata: company.metadata || {},
+      ai_settings: company.ai_settings || null, // CRITICAL: Include AI settings from database
       // Email configuration for LOG requests
       log_request_email_to: company.log_request_email_to || null,
       log_request_email_cc: company.log_request_email_cc || null,
       log_request_keywords: company.log_request_keywords || null
     };
+
+    // Log AI settings for debugging
+    if (company.ai_settings) {
+      console.log(`[Company Context] Loaded AI settings for ${company.name}:`);
+      console.log(`  - Model: ${company.ai_settings.model || 'default'}`);
+      console.log(`  - Temperature: ${company.ai_settings.temperature ?? 'default'}`);
+      console.log(`  - Max Tokens: ${company.ai_settings.max_tokens || 'default'}`);
+      console.log(`  - Similarity Threshold: ${company.ai_settings.similarity_threshold || 'default'}`);
+      console.log(`  - Top K Results: ${company.ai_settings.top_k_results || 'default'}`);
+      console.log(`  - Escalation Threshold: ${company.ai_settings.escalation_threshold ?? 'default'}`);
+    } else {
+      console.log(`[Company Context] No AI settings found for ${company.name} - using defaults`);
+    }
 
     // Add schema name directly for easy access
     req.companySchema = company.schema_name;
