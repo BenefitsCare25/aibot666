@@ -78,11 +78,20 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
         })
       });
 
-      const data = await response.json();
-
+      // Check if response is OK before parsing JSON
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit callback request');
+        let errorMessage = 'Failed to submit callback request';
+        try {
+          const data = await response.json();
+          errorMessage = data.error || errorMessage;
+        } catch (e) {
+          // If JSON parsing fails, use status text
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
+
+      const data = await response.json();
 
       setSuccessMessage('Our team will contact you within the next working day');
       setContactNumber(''); // Clear the input
