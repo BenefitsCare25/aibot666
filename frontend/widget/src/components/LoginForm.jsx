@@ -64,12 +64,6 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
       // Use domain from store (passed via init config), fallback to current hostname
       const domain = companyDomain || window.location.hostname;
 
-      // Send callback request to backend
-      console.log('Submitting callback request to:', `${apiUrl}/api/chat/callback-request`);
-      console.log('Using API URL:', apiUrl);
-      console.log('Using Domain:', domain);
-      console.log('Contact number:', contactNumber.trim());
-
       const response = await fetch(`${apiUrl}/api/chat/callback-request`, {
         method: 'POST',
         headers: {
@@ -82,12 +76,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
         })
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-      // Get response text first to see what we're actually receiving
+      // Get response text first to handle potential parsing errors
       const responseText = await response.text();
-      console.log('Response body:', responseText);
 
       // Try to parse as JSON
       let data;

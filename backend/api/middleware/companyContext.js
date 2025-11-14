@@ -10,19 +10,6 @@ const COMPANY_CACHE_TTL = 300;
  * Adds company info and schema-specific Supabase client to req object
  */
 export async function companyContextMiddleware(req, res, next) {
-  console.log('\n========== COMPANY CONTEXT MIDDLEWARE START ==========');
-  console.log('Request:', {
-    method: req.method,
-    path: req.path,
-    headers: {
-      'x-widget-domain': req.headers['x-widget-domain'],
-      'origin': req.headers.origin,
-      'referer': req.headers.referer,
-      'host': req.headers.host
-    },
-    body: req.body
-  });
-
   try {
     // Extract domain from multiple sources
     let domain = extractDomainFromRequest(req);
@@ -35,7 +22,6 @@ export async function companyContextMiddleware(req, res, next) {
 
     // Normalize domain for consistent lookup
     const normalizedDomain = normalizeDomain(domain);
-    console.log(`[Company Lookup] Original domain: ${domain} -> Normalized: ${normalizedDomain}`);
 
     // Try to get from cache first
     const cachedCompany = await getCachedCompany(normalizedDomain);
@@ -43,7 +29,6 @@ export async function companyContextMiddleware(req, res, next) {
     let company;
     if (cachedCompany) {
       company = cachedCompany;
-      console.log(`[Cache Hit] Company found for domain: ${normalizedDomain}`);
     } else {
       // Lookup company from database
       company = await getCompanyByDomain(normalizedDomain);
@@ -51,10 +36,7 @@ export async function companyContextMiddleware(req, res, next) {
       if (company) {
         // Cache the result
         await cacheCompany(normalizedDomain, company);
-        console.log(`[DB Lookup] Company found: ${company.name} (${company.schema_name})`);
       } else {
-        console.error(`ERROR: No company found for domain: ${normalizedDomain}`);
-        console.log('========== COMPANY CONTEXT MIDDLEWARE END (NOT FOUND) ==========\n');
         return res.status(404).json({
           success: false,
           error: 'Company not found for this domain',
@@ -66,8 +48,6 @@ export async function companyContextMiddleware(req, res, next) {
 
     // Check if company is active
     if (company.status !== 'active') {
-      console.error(`ERROR: Company is not active. Status: ${company.status}`);
-      console.log('========== COMPANY CONTEXT MIDDLEWARE END (INACTIVE) ==========\n');
       return res.status(403).json({
         success: false,
         error: 'Company account is not active',
@@ -102,17 +82,9 @@ export async function companyContextMiddleware(req, res, next) {
     // Add schema name for compatibility
     req.schemaName = company.schema_name;
 
-    // Log request with company context
-    console.log(`[${req.method}] ${req.path} - Company: ${company.name} (${company.schema_name})`);
-    console.log('========== COMPANY CONTEXT MIDDLEWARE END (SUCCESS) ==========\n');
-
     next();
   } catch (error) {
-    console.error('ERROR: Exception in company context middleware:', {
-      error: error.message,
-      stack: error.stack
-    });
-    console.log('========== COMPANY CONTEXT MIDDLEWARE END (ERROR) ==========\n');
+    console.error('Company context middleware error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to identify company context'
