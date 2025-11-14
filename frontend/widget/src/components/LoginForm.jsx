@@ -63,7 +63,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
     try {
       // Get API URL and domain from parent component or localStorage
       const apiUrl = window.CHATBOT_API_URL || localStorage.getItem('chatbotApiUrl') || '';
-      const domain = window.location.hostname;
+      // Use company domain from widget config, fallback to current hostname
+      const domain = window.CHATBOT_COMPANY_DOMAIN || window.location.hostname;
 
       // Send callback request to backend
       console.log('Submitting callback request to:', `${apiUrl}/api/chat/callback-request`);
