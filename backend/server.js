@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import 'express-async-errors';
 
@@ -11,6 +12,8 @@ import chatRoutes from './api/routes/chat.js';
 import adminRoutes from './api/routes/admin.js';
 import aiSettingsRoutes from './api/routes/aiSettings.js';
 import reembedRoutes from './api/routes/reembed.js';
+import authRoutes from './api/routes/auth.js';
+import adminUsersRoutes from './api/routes/adminUsers.js';
 
 // Import services
 import { initializeTelegramBot } from './api/services/telegram.js';
@@ -30,7 +33,12 @@ app.set('trust proxy', 1);
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP to allow widget embedding
   crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true
+  }
 }));
 
 // CORS configuration - Allow widget embedding
@@ -44,6 +52,27 @@ app.use(cors({
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Cookie parsing middleware
+app.use(cookieParser());
+
+// Security headers for admin authentication
+app.use((req, res, next) => {
+  // Prevent clickjacking
+  res.setHeader('X-Frame-Options', 'DENY');
+
+  // Prevent MIME type sniffing
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+
+  // Disable client-side caching for API routes
+  if (req.path.startsWith('/api/')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+
+  next();
+});
 
 // Compression middleware
 app.use(compression());
@@ -76,6 +105,8 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/admin-users', adminUsersRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai-settings', aiSettingsRoutes);
@@ -89,6 +120,8 @@ app.get('/', (req, res) => {
     description: 'AI-powered insurance chatbot with RAG capabilities',
     endpoints: {
       health: '/health',
+      auth: '/api/auth/*',
+      adminUsers: '/api/admin-users/*',
       chat: '/api/chat/*',
       admin: '/api/admin/*',
       aiSettings: '/api/ai-settings/*'
@@ -178,6 +211,8 @@ const server = app.listen(PORT, () => {
   console.log(`  🏥 Health Check: http://localhost:${PORT}/health`);
   console.log('');
   console.log('  Endpoints:');
+  console.log(`    - Auth API: /api/auth`);
+  console.log(`    - Admin Users API: /api/admin-users`);
   console.log(`    - Chat API: /api/chat`);
   console.log(`    - Admin API: /api/admin`);
   console.log(`    - AI Settings API: /api/ai-settings`);

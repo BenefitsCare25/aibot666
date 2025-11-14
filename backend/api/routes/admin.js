@@ -24,8 +24,12 @@ import {
   rollbackCompanyCreation,
   softDeleteCompany
 } from '../services/schemaAutomation.js';
+import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+// Protect all admin routes with authentication
+router.use(authenticateToken);
 
 // Routes that don't require company context (must be defined BEFORE middleware)
 

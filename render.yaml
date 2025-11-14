@@ -1,0 +1,183 @@
+# Render Deployment Configuration
+# Documentation: https://render.com/docs/yaml-spec
+
+services:
+  # Backend API Service
+  - type: web
+    name: insurance-chatbot-api
+    runtime: node
+    region: singapore
+    plan: starter
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Server Configuration
+      - key: PORT
+        value: 10000
+
+      # OpenAI API
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o
+      - key: OPENAI_EMBEDDING_MODEL
+        value: text-embedding-3-large
+      - key: OPENAI_TEMPERATURE
+        value: 0
+      - key: OPENAI_MAX_TOKENS
+        value: 1000
+
+      # Supabase Configuration
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_CONNECTION_STRING
+        sync: false
+
+      # Redis Configuration (use Render's Redis addon or external Redis)
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: insurance-chatbot-redis
+          property: connectionString
+      - key: REDIS_SESSION_TTL
+        value: 3600
+
+      # Telegram Bot (Optional)
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+
+      # RAG Configuration
+      - key: VECTOR_SIMILARITY_THRESHOLD
+        value: 0.7
+      - key: TOP_K_RESULTS
+        value: 5
+      - key: CONFIDENCE_THRESHOLD
+        value: 0.7
+      - key: MAX_CONTEXT_LENGTH
+        value: 3000
+
+      # Escalation Configuration
+      - key: ESCALATE_ON_NO_KNOWLEDGE
+        value: true
+
+      # Security & Privacy
+      - key: ENABLE_WEB_SEARCH
+        value: false
+      - key: ENABLE_EMPLOYEE_VECTOR_SEARCH
+        value: false
+
+      # Rate Limiting
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 100
+
+      # JWT Authentication
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRY
+        value: 24h
+      - key: SESSION_TIMEOUT_MINUTES
+        value: 30
+
+      # CORS - Set to your frontend URL after deployment
+      - key: CORS_ORIGIN
+        sync: false
+
+      # Logging
+      - key: LOG_LEVEL
+        value: info
+
+      # Azure AD (Optional - for email notifications)
+      - key: AZURE_CLIENT_ID
+        sync: false
+      - key: AZURE_CLIENT_SECRET
+        sync: false
+      - key: AZURE_TENANT_ID
+        sync: false
+      - key: AZURE_SERVICE_ACCOUNT_USERNAME
+        sync: false
+      - key: AZURE_SERVICE_ACCOUNT_PASSWORD
+        sync: false
+
+      # Email Configuration
+      - key: LOG_REQUEST_EMAIL_FROM
+        sync: false
+      - key: LOG_REQUEST_EMAIL_TO
+        sync: false
+      - key: LOG_REQUEST_KEYWORDS
+        value: request log,send logs,need log
+
+      # File Upload
+      - key: MAX_ATTACHMENT_SIZE
+        value: 10485760
+      - key: MAX_ATTACHMENTS
+        value: 5
+      - key: UPLOAD_DIR
+        value: ./uploads
+
+    healthCheckPath: /health
+
+    autoDeploy: true
+
+    disk:
+      name: chatbot-uploads
+      mountPath: /opt/render/project/src/backend/uploads
+      sizeGB: 1
+
+  # Frontend Admin Dashboard
+  - type: web
+    name: insurance-chatbot-admin
+    runtime: node
+    region: singapore
+    plan: starter
+    buildCommand: cd frontend/admin && npm install && npm run build
+    staticPublishPath: ./frontend/admin/dist
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Vite automatically exposes VITE_ prefixed variables
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: insurance-chatbot-api
+          property: host
+
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: geolocation=(), microphone=(), camera=()
+
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    autoDeploy: true
+
+# Redis Service
+- type: redis
+  name: insurance-chatbot-redis
+  region: singapore
+  plan: starter
+  maxmemoryPolicy: allkeys-lru
+  ipAllowList: []
