@@ -83,8 +83,9 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
     setExpandedCategory(expandedCategory === categoryId ? null : categoryId);
   };
 
-  const handleQuestionClick = (questionData) => {
-    onQuestionSelect(questionData);
+  const handleQuestionClick = (questionData, categoryTitle) => {
+    // Pass both question data and category title for LOG detection
+    onQuestionSelect(questionData, categoryTitle);
   };
 
   if (loading) {
@@ -165,7 +166,7 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
               {category.questions.map((questionData, index) => (
                 <button
                   key={questionData.id || index}
-                  onClick={() => handleQuestionClick(questionData)}
+                  onClick={() => handleQuestionClick(questionData, category.title)}
                   className="ic-w-full ic-text-left ic-px-4 ic-py-3 ic-text-sm ic-text-gray-700 hover:ic-bg-white hover:ic-shadow-sm ic-transition-all ic-duration-200 ic-border-b ic-border-gray-100 last:ic-border-b-0 ic-flex ic-items-start ic-gap-2 ic-group"
                   style={{
                     animationDelay: `${index * 50}ms`

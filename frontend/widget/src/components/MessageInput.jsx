@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import FileAttachment from './FileAttachment';
 import EmailInput from './EmailInput';
+import { detectLogContext } from '../utils/logDetection';
 
 export default function MessageInput({
   value,
@@ -24,6 +25,20 @@ export default function MessageInput({
 }) {
   const fileInputRef = useRef(null);
   const [emailValid, setEmailValid] = useState(true);
+  const [showLogSuggestion, setShowLogSuggestion] = useState(false);
+  const [expandLogButton, setExpandLogButton] = useState(false);
+
+  // Detect LOG context from user input
+  useEffect(() => {
+    if (value && !isLogMode && !logRequested) {
+      const hasLogContext = detectLogContext(value);
+      setShowLogSuggestion(hasLogContext);
+      setExpandLogButton(hasLogContext);
+    } else {
+      setShowLogSuggestion(false);
+      setExpandLogButton(false);
+    }
+  }, [value, isLogMode, logRequested]);
 
   const handleFileSelect = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -45,6 +60,24 @@ export default function MessageInput({
 
   return (
     <div className="ic-bg-white ic-border-t ic-border-gray-200">
+      {/* LOG Suggestion Banner (shown when LOG keywords detected) */}
+      {showLogSuggestion && !isLogMode && (
+        <div className="ic-bg-blue-50 ic-border-b ic-border-blue-200 ic-px-4 ic-py-2 ic-flex ic-items-center ic-gap-2 ic-text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-4 ic-h-4 ic-text-blue-600 ic-flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="ic-text-blue-800 ic-flex-1">
+            Need a Letter of Guarantee?
+          </span>
+          <button
+            onClick={onEnterLogMode}
+            className="ic-text-blue-600 hover:ic-text-blue-800 ic-font-medium ic-underline ic-flex-shrink-0"
+          >
+            Request LOG
+          </button>
+        </div>
+      )}
+
       {/* Email Input (shown when requesting LOG) */}
       {showEmailInput && (
         <EmailInput
@@ -154,19 +187,21 @@ export default function MessageInput({
               </button>
             </div>
           ) : (
-            /* Normal Mode: Show Request LOG button only if not already requested */
+            /* Normal Mode: Show LOG button (compact icon or expanded based on context) */
             !logRequested && (
               <button
                 onClick={onEnterLogMode}
                 disabled={disabled}
-                className="ic-px-3 ic-py-2 ic-text-white ic-rounded-md ic-transition-colors disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-opacity-90 ic-flex ic-items-center ic-gap-1 ic-text-sm ic-whitespace-nowrap ic-flex-shrink-0"
+                className={`ic-text-white ic-rounded-md ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-opacity-90 ic-flex ic-items-center ic-gap-1 ic-text-sm ic-whitespace-nowrap ic-flex-shrink-0 ${
+                  expandLogButton ? 'ic-px-3 ic-py-2' : 'ic-p-2'
+                }`}
                 style={{ backgroundColor: primaryColor }}
-                title="Request LOG"
+                title="Request Letter of Guarantee"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-4 ic-h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <span>LOG Request</span>
+                {expandLogButton && <span>LOG Request</span>}
               </button>
             )
           )}

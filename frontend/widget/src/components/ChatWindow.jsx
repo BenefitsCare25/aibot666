@@ -3,6 +3,7 @@ import { useChatStore } from '../store/chatStore';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import QuickQuestions from './QuickQuestions';
+import { isLogCategory } from '../utils/logDetection';
 
 export default function ChatWindow({ onClose, onLogout, primaryColor }) {
   const {
@@ -56,8 +57,14 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
     }
   };
 
-  const handleQuestionSelect = async (questionData) => {
+  const handleQuestionSelect = async (questionData, categoryTitle) => {
     setShowQuickQuestions(false);
+
+    // Check if this is a LOG-related category - auto-trigger LOG mode
+    if (categoryTitle && isLogCategory(categoryTitle)) {
+      await enterLogMode();
+      return;
+    }
 
     // Check if this is a Q&A object with pre-defined answer
     if (questionData && typeof questionData === 'object' && questionData.q && questionData.a) {
