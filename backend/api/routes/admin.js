@@ -1490,7 +1490,6 @@ router.get('/chat-history', async (req, res) => {
     const employeeMap = new Map(employees?.map(e => [e.id, e]) || []);
 
     // Get last message preview for each conversation
-    const conversationIds = paginatedConversations.map(c => c.conversation_id);
     const { data: lastMessages } = await req.supabase
       .from('chat_history')
       .select('conversation_id, content, role, created_at')
