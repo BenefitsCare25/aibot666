@@ -307,6 +307,21 @@ AS $$
   LIMIT match_count;
 $$;
 
+-- Function to increment knowledge usage count (schema-specific)
+CREATE OR REPLACE FUNCTION {{SCHEMA_NAME}}.increment_knowledge_usage(knowledge_ids UUID[])
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  UPDATE {{SCHEMA_NAME}}.knowledge_base
+  SET
+    usage_count = COALESCE(usage_count, 0) + 1,
+    last_used_at = NOW()
+  WHERE id = ANY(knowledge_ids);
+END;
+$$;
+
 -- ==========================================
 -- ROW-LEVEL SECURITY POLICIES
 -- ==========================================
