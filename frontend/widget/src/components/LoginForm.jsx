@@ -7,6 +7,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showCallbackForm, setShowCallbackForm] = useState(false);
   const { createSession } = useChatStore();
 
   const handleSubmit = async (e) => {
@@ -30,8 +31,10 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
       // Check if it's an "Employee not found" error
       if (errorMessage.includes('Employee not found') || errorMessage.includes('employee not found')) {
         setError('Invalid ID, please contact helpdesk at 64487707');
+        setShowCallbackForm(true); // Show callback form when employee ID is invalid
       } else {
         setError(errorMessage);
+        setShowCallbackForm(false); // Hide callback form for other errors
       }
     } finally {
       setIsLoading(false);
@@ -200,15 +203,18 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
           </button>
         </form>
 
-        {/* Divider */}
-        <div className="ic-my-4 ic-flex ic-items-center">
-          <div className="ic-flex-1 ic-border-t ic-border-gray-200"></div>
-          <span className="ic-px-3 ic-text-xs ic-text-gray-500">OR</span>
-          <div className="ic-flex-1 ic-border-t ic-border-gray-200"></div>
-        </div>
+        {/* Show callback form only when employee ID validation fails */}
+        {showCallbackForm && (
+          <>
+            {/* Divider */}
+            <div className="ic-my-4 ic-flex ic-items-center">
+              <div className="ic-flex-1 ic-border-t ic-border-gray-200"></div>
+              <span className="ic-px-3 ic-text-xs ic-text-gray-500">OR</span>
+              <div className="ic-flex-1 ic-border-t ic-border-gray-200"></div>
+            </div>
 
-        {/* Contact Number Form */}
-        <form onSubmit={handleContactSubmit}>
+            {/* Contact Number Form */}
+            <form onSubmit={handleContactSubmit}>
           <div className="ic-mb-4">
             <label
               htmlFor="contactNumber"
@@ -267,16 +273,19 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
           </button>
         </form>
 
-        {/* Error and Success Messages */}
+            {/* Success Message (inside callback form) */}
+            {successMessage && (
+              <div className="ic-mt-4 ic-p-3 ic-bg-green-50 ic-border ic-border-green-200 ic-rounded-md">
+                <p className="ic-text-sm ic-text-green-600">{successMessage}</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Error Message (outside callback form, always visible) */}
         {error && (
           <div className="ic-mt-4 ic-p-3 ic-bg-red-50 ic-border ic-border-red-200 ic-rounded-md">
             <p className="ic-text-sm ic-text-red-600">{error}</p>
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="ic-mt-4 ic-p-3 ic-bg-green-50 ic-border ic-border-green-200 ic-rounded-md">
-            <p className="ic-text-sm ic-text-green-600">{successMessage}</p>
           </div>
         )}
 
