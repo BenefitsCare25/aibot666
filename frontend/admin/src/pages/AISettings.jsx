@@ -6,7 +6,11 @@ const DEFAULT_SYSTEM_PROMPT = `You are an AI assistant for an employee insurance
 
 IMPORTANT INSTRUCTIONS:
 1. Answer based on the provided context from knowledge base and employee information
-2. CONTEXT USAGE PRIORITY: If context is provided from the knowledge base, USE IT to answer
+2. CONTEXT USAGE PRIORITY: If context is provided from the knowledge base, USE IT to answer:
+   - Context has been matched with similarity >{{SIMILARITY_THRESHOLD}} - it is relevant and passed quality threshold
+   - When {{CONTEXT_COUNT}} contexts are provided, you MUST use them to answer directly
+   - DO NOT ask for clarification when context is provided - the context IS the answer
+   - Provide the answer from the context word-for-word when appropriate
 3. ONLY escalate if NO context is provided AND you cannot answer from employee information
 4. When escalating, say: "For such query, let us check back with the team. You may leave your contact or email address for our team to follow up with you. Thank you."
 5. Be specific about policy limits, coverage amounts, and procedures
@@ -21,7 +25,15 @@ CRITICAL DATA PRIVACY RULES:
 FORMATTING GUIDELINES:
 - Use clean, readable formatting with markdown
 - Use bullet points (using -) for lists instead of asterisks
-- Keep paragraphs short and concise`;
+- Keep paragraphs short and concise
+
+{{EMPLOYEE_INFO}}
+
+CONTEXT FROM KNOWLEDGE BASE:
+{{CONTEXT}}
+
+USER QUESTION:
+{{QUERY}}`;
 
 export default function AISettings() {
   const [selectedCompany, setSelectedCompany] = useState(null);
@@ -295,18 +307,138 @@ export default function AISettings() {
           </button>
         </div>
 
+        {/* Variable Helpers */}
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start gap-2 mb-2">
+            <span className="text-blue-700 font-medium text-sm">💡 Available Variables:</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+            {/* Configuration Variables */}
+            <div>
+              <p className="font-semibold text-blue-800 mb-1">Configuration:</p>
+              <button onClick={() => navigator.clipboard.writeText('{{SIMILARITY_THRESHOLD}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{SIMILARITY_THRESHOLD}}'}<span className="text-gray-500 ml-1">(e.g., 0.60)</span>
+              </button>
+              <button onClick={() => navigator.clipboard.writeText('{{TOP_K_RESULTS}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{TOP_K_RESULTS}}'}<span className="text-gray-500 ml-1">(e.g., 5)</span>
+              </button>
+              <button onClick={() => navigator.clipboard.writeText('{{CONTEXT_COUNT}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{CONTEXT_COUNT}}'}<span className="text-gray-500 ml-1">(e.g., 3)</span>
+              </button>
+            </div>
+
+            {/* Query Variables */}
+            <div>
+              <p className="font-semibold text-blue-800 mb-1">User Query:</p>
+              <button onClick={() => navigator.clipboard.writeText('{{QUERY}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{QUERY}}'}<span className="text-gray-500 ml-1">(user question)</span>
+              </button>
+              <button onClick={() => navigator.clipboard.writeText('{{USER_QUESTION}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{USER_QUESTION}}'}<span className="text-gray-500 ml-1">(same as QUERY)</span>
+              </button>
+            </div>
+
+            {/* Context Variables */}
+            <div>
+              <p className="font-semibold text-blue-800 mb-1">Knowledge Base:</p>
+              <button onClick={() => navigator.clipboard.writeText('{{CONTEXT}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{CONTEXT}}'}<span className="text-gray-500 ml-1">(all contexts)</span>
+              </button>
+              <button onClick={() => navigator.clipboard.writeText('{{CONTEXTS}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{CONTEXTS}}'}<span className="text-gray-500 ml-1">(same as CONTEXT)</span>
+              </button>
+              <button onClick={() => navigator.clipboard.writeText('{{KNOWLEDGE_BASE}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{KNOWLEDGE_BASE}}'}<span className="text-gray-500 ml-1">(same as CONTEXT)</span>
+              </button>
+            </div>
+
+            {/* Employee Info Variables */}
+            <div>
+              <p className="font-semibold text-blue-800 mb-1">Employee (Full):</p>
+              <button onClick={() => navigator.clipboard.writeText('{{EMPLOYEE_INFO}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{EMPLOYEE_INFO}}'}<span className="text-gray-500 ml-1">(all fields)</span>
+              </button>
+            </div>
+
+            {/* Employee Specific Fields */}
+            <div>
+              <p className="font-semibold text-blue-800 mb-1">Employee (Specific):</p>
+              <button onClick={() => navigator.clipboard.writeText('{{EMPLOYEE_NAME}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{EMPLOYEE_NAME}}'}
+              </button>
+              <button onClick={() => navigator.clipboard.writeText('{{EMPLOYEE_ID}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{EMPLOYEE_ID}}'}
+              </button>
+              <button onClick={() => navigator.clipboard.writeText('{{EMPLOYEE_EMAIL}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{EMPLOYEE_EMAIL}}'}
+              </button>
+              <button onClick={() => navigator.clipboard.writeText('{{EMPLOYEE_POLICY_TYPE}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{EMPLOYEE_POLICY_TYPE}}'}
+              </button>
+            </div>
+
+            {/* Coverage Variables */}
+            <div>
+              <p className="font-semibold text-blue-800 mb-1">Coverage Limits:</p>
+              <button onClick={() => navigator.clipboard.writeText('{{COVERAGE_LIMIT}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{COVERAGE_LIMIT}}'}
+              </button>
+              <button onClick={() => navigator.clipboard.writeText('{{ANNUAL_CLAIM_LIMIT}}')} className="block text-left hover:bg-blue-100 px-2 py-1 rounded font-mono text-blue-600">
+                {'{{ANNUAL_CLAIM_LIMIT}}'}
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-blue-600 mt-2">💡 Click any variable to copy it to clipboard, then paste into your prompt</p>
+        </div>
+
         <textarea
           value={settings.system_prompt || DEFAULT_SYSTEM_PROMPT}
           onChange={(e) => setSettings({ ...settings, system_prompt: e.target.value })}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           rows={15}
-          placeholder="Enter custom system prompt"
+          placeholder="Enter custom system prompt with variables like {{CONTEXT}}, {{EMPLOYEE_INFO}}, {{QUERY}}"
         />
 
         <div className="mt-2 flex justify-between text-xs text-gray-500">
           <span>Markdown formatting supported</span>
           <span>{(settings.system_prompt || DEFAULT_SYSTEM_PROMPT).length} / 50,000 characters</span>
         </div>
+
+        {/* Example Prompt Preview */}
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm font-medium text-gray-700 hover:text-primary-600">
+            📝 Example: See how variables are replaced
+          </summary>
+          <div className="mt-3 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <p className="text-xs font-semibold text-gray-700 mb-2">Example Template:</p>
+            <pre className="text-xs bg-white p-3 rounded border font-mono text-gray-800 mb-3 overflow-x-auto">
+{`Answer based on context with similarity >{{SIMILARITY_THRESHOLD}}.
+
+User asked: {{QUERY}}
+
+Found {{CONTEXT_COUNT}} relevant knowledge base entries:
+{{CONTEXT}}
+
+Employee details: {{EMPLOYEE_NAME}} ({{EMPLOYEE_POLICY_TYPE}})`}
+            </pre>
+
+            <p className="text-xs font-semibold text-gray-700 mb-2">After Variable Replacement:</p>
+            <pre className="text-xs bg-white p-3 rounded border font-mono text-gray-800 overflow-x-auto">
+{`Answer based on context with similarity >0.60.
+
+User asked: How much will be covered and what do I have to pay?
+
+Found 1 relevant knowledge base entries:
+[Context 1]
+Title: How much will be covered and what do I have to pay?
+Category: benefits
+Similarity: 0.6105
+We are unable to advise on the interim, kindly provide...
+
+Employee details: Baharuddin, Ady Guntor Bin (Standard)`}
+            </pre>
+          </div>
+        </details>
       </div>
 
       {/* Advanced Settings */}

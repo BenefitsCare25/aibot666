@@ -69,13 +69,78 @@ export async function generateEmbeddingsBatch(texts) {
 }
 
 /**
+ * Inject variables into custom prompt template
+ * @param {string} template - Custom prompt template with {{VARIABLES}}
+ * @param {Object} data - Data to inject (query, contexts, employeeData, etc.)
+ * @returns {string} - Prompt with variables replaced
+ */
+function injectVariablesIntoPrompt(template, data) {
+  const { query, contexts, employeeData, similarityThreshold, topKResults, contextCount } = data;
+
+  // Format context text
+  const contextText = contexts && contexts.length > 0
+    ? contexts.map((ctx, idx) =>
+        `[Context ${idx + 1}]\n` +
+        `Title: ${ctx.title || 'N/A'}\n` +
+        `Category: ${ctx.category}\n` +
+        `Similarity: ${ctx.similarity?.toFixed(4) || 'N/A'}\n` +
+        `${ctx.content}`
+      ).join('\n\n---\n\n')
+    : 'No knowledge base context available for this query.';
+
+  // Format employee info
+  const employeeInfo = employeeData ? `
+Employee Information:
+- Name: ${employeeData.name}
+- Employee ID: ${employeeData.employee_id || 'N/A'}
+- User ID: ${employeeData.user_id || 'N/A'}
+- Email: ${employeeData.email || 'N/A'}
+- Policy Type: ${employeeData.policy_type}
+- Coverage Limit: $${employeeData.coverage_limit}
+- Annual Claim Limit: $${employeeData.annual_claim_limit}
+- Outpatient Limit: $${employeeData.outpatient_limit || 'N/A'}
+- Dental Limit: $${employeeData.dental_limit || 'N/A'}
+- Optical Limit: $${employeeData.optical_limit || 'N/A'}
+- Policy Period: ${employeeData.policy_start_date} to ${employeeData.policy_end_date}
+` : 'No employee information available.';
+
+  // Replace all variables in template
+  let result = template
+    // Configuration variables
+    .replace(/\{\{SIMILARITY_THRESHOLD\}\}/g, similarityThreshold.toFixed(2))
+    .replace(/\{\{TOP_K_RESULTS\}\}/g, topKResults)
+    .replace(/\{\{CONTEXT_COUNT\}\}/g, contextCount)
+
+    // Query variable
+    .replace(/\{\{QUERY\}\}/g, query)
+    .replace(/\{\{USER_QUESTION\}\}/g, query)
+
+    // Context variables
+    .replace(/\{\{CONTEXT\}\}/g, contextText)
+    .replace(/\{\{CONTEXTS\}\}/g, contextText)
+    .replace(/\{\{KNOWLEDGE_BASE\}\}/g, contextText)
+
+    // Employee variables
+    .replace(/\{\{EMPLOYEE_INFO\}\}/g, employeeInfo)
+    .replace(/\{\{EMPLOYEE_NAME\}\}/g, employeeData?.name || 'N/A')
+    .replace(/\{\{EMPLOYEE_ID\}\}/g, employeeData?.employee_id || 'N/A')
+    .replace(/\{\{EMPLOYEE_EMAIL\}\}/g, employeeData?.email || 'N/A')
+    .replace(/\{\{EMPLOYEE_POLICY_TYPE\}\}/g, employeeData?.policy_type || 'N/A')
+    .replace(/\{\{COVERAGE_LIMIT\}\}/g, employeeData?.coverage_limit || 'N/A')
+    .replace(/\{\{ANNUAL_CLAIM_LIMIT\}\}/g, employeeData?.annual_claim_limit || 'N/A');
+
+  return result;
+}
+
+/**
  * Create RAG prompt with retrieved context
  * @param {string} query - User query
  * @param {Array} contexts - Retrieved context chunks
  * @param {Object} employeeData - Employee information
+ * @param {number} similarityThreshold - The threshold used for knowledge search
  * @returns {string} - Formatted prompt with context
  */
-function createRAGPrompt(query, contexts, employeeData) {
+function createRAGPrompt(query, contexts, employeeData, similarityThreshold = 0.7) {
   const contextText = contexts
     .map((ctx, idx) =>
       `[Context ${idx + 1}]\n` +
@@ -105,10 +170,12 @@ Employee Information:
 IMPORTANT INSTRUCTIONS:
 1. Answer based on the provided context from knowledge base and employee information
 2. CONTEXT USAGE PRIORITY: If context is provided from the knowledge base, USE IT to answer:
-   a) The context has been matched with high similarity (>0.7) - it is relevant to the question
-   b) Even if the context says "login to portal" or "contact support", that IS the correct answer
-   c) Provide the answer/guidance from the context as-is - do NOT escalate
-   d) Only add helpful details from employee information if relevant (like policy type, name, etc.)
+   a) The context has been matched with similarity >${similarityThreshold.toFixed(2)} - it is relevant and has passed our quality threshold
+   b) CRITICAL: When context is provided, you MUST use it to answer the question directly
+   c) Even if the context says "login to portal" or "contact support", that IS the correct answer - provide it exactly as given
+   d) DO NOT ask for clarification when context is provided - the context IS the answer
+   e) DO NOT make up your own answer - use the context content word-for-word when appropriate
+   f) Only add helpful details from employee information if relevant (like policy type, name, etc.)
 3. ONLY escalate if NO context is provided AND you cannot answer from employee information
 4. When escalating, say: "For such query, let us check back with the team. You may leave your contact or email address for our team to follow up with you. Thank you."
 4. Be specific about policy limits, coverage amounts, and procedures
@@ -167,9 +234,41 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
     const temperature = customSettings?.temperature ?? TEMPERATURE;
     const maxTokens = customSettings?.max_tokens ?? MAX_TOKENS;
     const customPrompt = customSettings?.system_prompt;
+    const similarityThreshold = customSettings?.similarity_threshold ?? 0.7;
+    const topKResults = customSettings?.top_k_results ?? 5;
 
-    // Use custom system prompt if provided, otherwise generate default RAG prompt
-    const systemPrompt = customPrompt || createRAGPrompt(query, contexts, employeeData);
+    console.log(`[RAG] Using similarity threshold in prompt: ${similarityThreshold}`);
+
+    let systemPrompt;
+
+    // If custom prompt is provided, inject variables into it
+    if (customPrompt) {
+      console.log('[RAG] Using CUSTOM system prompt from database');
+      console.log(`[RAG] Custom prompt template length: ${customPrompt.length} characters`);
+
+      // Inject variables into custom prompt
+      systemPrompt = injectVariablesIntoPrompt(customPrompt, {
+        query,
+        contexts,
+        employeeData,
+        similarityThreshold,
+        topKResults,
+        contextCount: contexts?.length || 0
+      });
+
+      console.log('[RAG] Variables injected into custom prompt:');
+      console.log(`  - {{SIMILARITY_THRESHOLD}}: ${similarityThreshold}`);
+      console.log(`  - {{TOP_K_RESULTS}}: ${topKResults}`);
+      console.log(`  - {{CONTEXT_COUNT}}: ${contexts?.length || 0}`);
+      console.log(`  - {{EMPLOYEE_NAME}}: ${employeeData?.name || 'N/A'}`);
+      console.log(`  - {{EMPLOYEE_POLICY_TYPE}}: ${employeeData?.policy_type || 'N/A'}`);
+      console.log(`[RAG] Final prompt length: ${systemPrompt.length} characters`);
+    } else {
+      console.log('[RAG] Using DEFAULT system prompt');
+      console.log(`[RAG] Prompt configured with threshold: >${similarityThreshold}`);
+      console.log(`[RAG] Contexts provided: ${contexts?.length || 0}`);
+      systemPrompt = createRAGPrompt(query, contexts, employeeData, similarityThreshold);
+    }
 
     // Build messages array with conversation history
     const messages = [
