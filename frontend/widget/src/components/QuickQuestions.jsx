@@ -49,7 +49,7 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
         // Use domain override if provided, otherwise extract from current page URL
         const currentDomain = domain || window.location.hostname;
 
-        const response = await fetch(`${apiUrl}/api/admin/quick-questions`, {
+        const response = await fetch(`${apiUrl}/api/chat/quick-questions`, {
           headers: {
             'X-Widget-Domain': currentDomain
           }
