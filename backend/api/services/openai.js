@@ -69,6 +69,36 @@ export async function generateEmbeddingsBatch(texts) {
 }
 
 /**
+ * Inject conversation context awareness instructions into any prompt
+ * This ensures all prompts (custom or default) understand conversation flow
+ * @param {string} prompt - System prompt to enhance
+ * @returns {string} - Prompt with context awareness instructions appended
+ */
+function injectConversationContextAwareness(prompt) {
+  const contextAwarenessInstructions = `
+
+CRITICAL: CONVERSATION CONTEXT AWARENESS - ALWAYS APPLY THIS:
+- ALWAYS review the conversation history BEFORE responding
+- Check what YOUR PREVIOUS MESSAGE said - this is critical for understanding context
+- If YOUR PREVIOUS MESSAGE asked for contact information or contained an escalation phrase:
+  * The current user message is VERY LIKELY their contact information
+  * A standalone number (8+ digits) = phone number
+  * An email format (xxx@xxx.xxx) = email address
+  * DO NOT ask "what does this mean" or "I need more context"
+- Pattern recognition for contact info responses:
+  * Pure numbers like "88399967" or "12345678" after escalation = phone number
+  * Email format like "user@email.com" after escalation = email address
+  * Mixed format like "+65 8839 9967" = phone number with country code
+- When user provides contact information (especially after escalation):
+  * Acknowledge professionally: "Thank you for providing your contact information. Our team has received your inquiry and will follow up with you shortly."
+  * DO NOT ask for contact information again if already provided
+  * DO NOT repeat the escalation message
+  * DO NOT ask for clarification when context is obvious from conversation history`;
+
+  return prompt + contextAwarenessInstructions;
+}
+
+/**
  * Inject variables into custom prompt template
  * @param {string} template - Custom prompt template with {{VARIABLES}}
  * @param {Object} data - Data to inject (query, contexts, employeeData, etc.)
@@ -178,39 +208,20 @@ IMPORTANT INSTRUCTIONS:
    f) Only add helpful details from employee information if relevant (like policy type, name, etc.)
 3. ONLY escalate if NO context is provided AND you cannot answer from employee information
 4. When escalating, say: "For such query, let us check back with the team. You may leave your contact or email address for our team to follow up with you. Thank you."
-4. Be specific about policy limits, coverage amounts, and procedures
-5. Use clear, professional, and empathetic language
-6. If asked about claims status or personal medical information, direct to appropriate channels
-7. Never make assumptions about coverage not explicitly stated in the context or employee information
-8. CONVERSATION CONTEXT AWARENESS - READ THIS CAREFULLY:
-   - ALWAYS review the conversation history BEFORE responding
-   - Check what YOUR PREVIOUS MESSAGE said - this is critical for understanding context
-   - If YOUR PREVIOUS MESSAGE asked for contact information or contained an escalation:
-     * The current user message is VERY LIKELY their contact information
-     * A standalone number (8+ digits) = phone number
-     * An email format = email address
-     * DO NOT ask "what does this mean" or "I need more context"
-   - Pattern recognition for contact info responses:
-     * Pure numbers like "88399967" or "12345678" after escalation = phone number
-     * Email format like "user@email.com" after escalation = email address
-     * Mixed format like "+65 8839 9967" = phone number with country code
-
-9. CONTACT INFORMATION HANDLING:
-   - When user provides contact information (especially after escalation), acknowledge it professionally
-   - Say: "Thank you for providing your contact information. Our team has received your inquiry and will follow up with you shortly."
-   - DO NOT ask for contact information again if already provided
-   - DO NOT repeat the escalation message
-   - DO NOT ask for clarification when the context is obvious from conversation history
+5. Be specific about policy limits, coverage amounts, and procedures
+6. Use clear, professional, and empathetic language
+7. If asked about claims status or personal medical information, direct to appropriate channels
+8. Never make assumptions about coverage not explicitly stated in the context or employee information
 
 CRITICAL DATA PRIVACY RULES:
-10. NEVER provide information about OTHER employees (names, claims, benefits, personal data)
-11. You can ONLY discuss the logged-in employee's own information shown in "Employee Information" section
-12. If asked about another person (colleague, family member not in dependents, other employee):
+9. NEVER provide information about OTHER employees (names, claims, benefits, personal data)
+10. You can ONLY discuss the logged-in employee's own information shown in "Employee Information" section
+11. If asked about another person (colleague, family member not in dependents, other employee):
     - REFUSE to answer with: "I can only provide information about your own insurance benefits and coverage. For privacy reasons, I cannot access or discuss other employees' information."
     - DO NOT escalate queries about other employees - simply refuse
-13. NEVER search the web or external sources for employee data - you do NOT have web search capabilities
-14. NEVER hallucinate or guess information not explicitly provided in the context
-15. If you don't know something, use the escalation phrase from instruction #3 - never make up information
+12. NEVER search the web or external sources for employee data - you do NOT have web search capabilities
+13. NEVER hallucinate or guess information not explicitly provided in the context
+14. If you don't know something, use the escalation phrase from instruction #3 - never make up information
 
 FORMATTING GUIDELINES:
 - Use clean, readable formatting with markdown
@@ -275,13 +286,20 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
       console.log(`  - {{CONTEXT_COUNT}}: ${contexts?.length || 0}`);
       console.log(`  - {{EMPLOYEE_NAME}}: ${employeeData?.name || 'N/A'}`);
       console.log(`  - {{EMPLOYEE_POLICY_TYPE}}: ${employeeData?.policy_type || 'N/A'}`);
-      console.log(`[RAG] Final prompt length: ${systemPrompt.length} characters`);
+      console.log(`[RAG] Custom prompt length before context awareness: ${systemPrompt.length} characters`);
     } else {
       console.log('[RAG] Using DEFAULT system prompt');
       console.log(`[RAG] Prompt configured with threshold: >${similarityThreshold}`);
       console.log(`[RAG] Contexts provided: ${contexts?.length || 0}`);
       systemPrompt = createRAGPrompt(query, contexts, employeeData, similarityThreshold);
+      console.log(`[RAG] Default prompt length before context awareness: ${systemPrompt.length} characters`);
     }
+
+    // CRITICAL: Always inject conversation context awareness into ANY prompt (custom or default)
+    // This ensures the AI understands conversation flow regardless of prompt source
+    systemPrompt = injectConversationContextAwareness(systemPrompt);
+    console.log('[RAG] ✅ Conversation context awareness injected');
+    console.log(`[RAG] Final prompt length: ${systemPrompt.length} characters`);
 
     // Build messages array with conversation history
     const messages = [
