@@ -343,6 +343,55 @@ export async function checkRateLimit(identifier, maxRequests = 100, windowSecond
 }
 
 /**
+ * Update conversation state (for tracking bot actions like escalations)
+ * @param {string} sessionId - Session ID
+ * @param {Object} state - Conversation state to update
+ * @returns {Promise<boolean>} - Success status
+ */
+export async function updateConversationState(sessionId, state) {
+  try {
+    const session = await getSession(sessionId);
+
+    if (!session) {
+      return false;
+    }
+
+    // Initialize conversationState if it doesn't exist
+    if (!session.conversationState) {
+      session.conversationState = {};
+    }
+
+    // Update state fields
+    session.conversationState = {
+      ...session.conversationState,
+      ...state,
+      lastUpdated: new Date().toISOString()
+    };
+
+    await saveSession(sessionId, session);
+    return true;
+  } catch (error) {
+    console.error('Error updating conversation state:', error);
+    return false;
+  }
+}
+
+/**
+ * Get conversation state
+ * @param {string} sessionId - Session ID
+ * @returns {Promise<Object|null>} - Conversation state or null
+ */
+export async function getConversationState(sessionId) {
+  try {
+    const session = await getSession(sessionId);
+    return session?.conversationState || null;
+  } catch (error) {
+    console.error('Error getting conversation state:', error);
+    return null;
+  }
+}
+
+/**
  * Close Redis connection
  */
 export async function closeRedis() {
@@ -370,6 +419,8 @@ export default {
   cacheQueryResult,
   getCachedQueryResult,
   checkRateLimit,
+  updateConversationState,
+  getConversationState,
   closeRedis,
   redis
 };

@@ -10,7 +10,9 @@ import {
   getConversationHistory,
   checkRateLimit,
   cacheQueryResult,
-  getCachedQueryResult
+  getCachedQueryResult,
+  updateConversationState,
+  getConversationState
 } from '../utils/session.js';
 import supabase from '../../config/supabase.js';
 import { createHash } from 'crypto';
@@ -566,11 +568,43 @@ router.post('/message', async (req, res) => {
     }));
 
     console.log(`[Chat] Conversation history: ${formattedHistory.length} messages`);
+
+    // Pre-process: Check if user is responding to escalation with contact info
+    let messageToProcess = message;
+    const conversationState = await getConversationState(sessionId);
+    const lastAssistantMsg = formattedHistory
+      .filter(m => m.role === 'assistant')
+      .slice(-1)[0];
+
+    const wasEscalation = lastAssistantMsg?.content
+      ?.toLowerCase()
+      .includes('check back with the team');
+
+    const isContactInfo = isContactInformation(message);
+    const awaitingContact = conversationState?.awaitingContactInfo === true;
+
+    if ((wasEscalation || awaitingContact) && isContactInfo) {
+      console.log('[Chat] 🎯 Context detected: User providing contact info after escalation');
+      console.log(`[Chat] Escalation state: ${awaitingContact ? 'Active' : 'Not tracked'}`);
+      // Inject context hint to help AI understand this is a contact info response
+      messageToProcess = `[User is providing contact information in response to escalation request] ${message}`;
+
+      // Clear the awaiting contact info state
+      if (awaitingContact) {
+        await updateConversationState(sessionId, {
+          awaitingContactInfo: false,
+          lastBotAction: 'received_contact_info',
+          contactReceivedAt: new Date().toISOString()
+        });
+        console.log('[Chat] ✅ Conversation state cleared: contact info received');
+      }
+    }
+
     console.log(`[Chat] Generating AI response with model: ${companyAISettings?.model || 'default'}...\n`);
 
     // Generate RAG response with company-specific AI settings
     const response = await generateRAGResponse(
-      message,
+      messageToProcess,
       contexts,
       employee,
       formattedHistory,
@@ -652,7 +686,16 @@ router.post('/message', async (req, res) => {
     if (escalated) {
       console.log('[Escalation] Creating escalation record...');
       await handleEscalation(session, message, response, employee, escalationReason, req.supabase, req.company.schemaName);
-      console.log('[Escalation] ✅ Escalation record created\n');
+      console.log('[Escalation] ✅ Escalation record created');
+
+      // Update conversation state to track escalation
+      await updateConversationState(sessionId, {
+        lastBotAction: 'escalated',
+        awaitingContactInfo: true,
+        escalationTimestamp: new Date().toISOString(),
+        escalationReason
+      });
+      console.log('[Escalation] ✅ Conversation state updated: awaiting contact info\n');
     }
 
     // Cache the result if confidence is high
