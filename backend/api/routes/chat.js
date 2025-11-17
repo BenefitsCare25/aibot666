@@ -656,17 +656,18 @@ router.post('/message', async (req, res) => {
     console.log(`[Escalation Check] ESCALATE_ON_NO_KNOWLEDGE env: ${ESCALATE_ON_NO_KNOWLEDGE}`);
 
     // Check if AI explicitly says it cannot answer (uses the exact template phrase)
-    const aiSaysNoKnowledge = response.answer &&
-      response.answer.toLowerCase().includes('for such query, let us check back with the team');
+    // Strip markdown formatting (**, *, _, etc.) before checking
+    const cleanAnswer = response.answer ? response.answer.replace(/[*_]/g, '') : '';
+    const aiSaysNoKnowledge = cleanAnswer.toLowerCase().includes('for such query, let us check back with the team');
     console.log(`[Escalation Check] AI used escalation phrase: ${aiSaysNoKnowledge}`);
 
-    // Check if confidence is below threshold
-    const lowConfidence = response.confidence < escalationThreshold;
-    console.log(`[Escalation Check] Confidence below threshold: ${lowConfidence} (${response.confidence.toFixed(4)} < ${escalationThreshold})`);
+    // Check if confidence is at or below threshold
+    const lowConfidence = response.confidence <= escalationThreshold;
+    console.log(`[Escalation Check] Confidence at/below threshold: ${lowConfidence} (${response.confidence.toFixed(4)} <= ${escalationThreshold})`);
 
     // Escalate if:
     // 1. AI explicitly cannot answer (uses escalation phrase), OR
-    // 2. Confidence is below the escalation threshold
+    // 2. Confidence is at or below the escalation threshold
     if (ESCALATE_ON_NO_KNOWLEDGE && (aiSaysNoKnowledge || lowConfidence)) {
       escalated = true;
       escalationReason = aiSaysNoKnowledge ? 'ai_unable_to_answer' : 'low_confidence';
@@ -680,7 +681,7 @@ router.post('/message', async (req, res) => {
       console.log('!'.repeat(80) + '\n');
     } else {
       console.log(`[Escalation Check] ✅ No escalation needed`);
-      console.log(`[Escalation Check] Reason: Confidence ${response.confidence.toFixed(4)} >= ${escalationThreshold} AND no escalation phrase\n`);
+      console.log(`[Escalation Check] Reason: Confidence ${response.confidence.toFixed(4)} > ${escalationThreshold} AND no escalation phrase\n`);
     }
 
     if (escalated) {
