@@ -11,7 +11,6 @@ const navigation = [
   { name: 'Quick Questions', href: '/quick-questions', icon: '❓' },
   { name: 'Chat History', href: '/chat-history', icon: '💬' },
   { name: 'Escalations', href: '/escalations', icon: '🚨' },
-  { name: 'Analytics', href: '/analytics', icon: '📈' },
   { name: 'Companies', href: '/companies', icon: '🏢' }
 ];
 

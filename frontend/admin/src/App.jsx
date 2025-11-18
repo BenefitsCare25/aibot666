@@ -9,7 +9,6 @@ import Employees from './pages/Employees';
 import KnowledgeBase from './pages/KnowledgeBase';
 import ChatHistory from './pages/ChatHistory';
 import Escalations from './pages/Escalations';
-import Analytics from './pages/Analytics';
 import Companies from './pages/Companies';
 import QuickQuestions from './pages/QuickQuestions';
 import AISettings from './pages/AISettings';
@@ -36,7 +35,6 @@ export default function App() {
           <Route path="quick-questions" element={<QuickQuestions />} />
           <Route path="chat-history" element={<ChatHistory />} />
           <Route path="escalations" element={<Escalations />} />
-          <Route path="analytics" element={<Analytics />} />
           <Route path="companies" element={<Companies />} />
 
           {/* Super Admin Only Routes */}
