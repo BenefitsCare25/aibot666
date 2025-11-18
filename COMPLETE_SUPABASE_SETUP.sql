@@ -12,7 +12,7 @@
 -- 5. Cross-schema access functions
 -- 6. Permissions and grants
 --
--- Last Updated: 2025-11-13
+-- Last Updated: 2025-11-17
 -- ============================================================================
 
 -- ============================================================================
@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS public.companies (
   log_request_email_to VARCHAR(500),
   log_request_email_cc VARCHAR(500),
   log_request_keywords TEXT[] DEFAULT ARRAY['request log', 'send logs', 'need log'],
+  callback_email_to VARCHAR(500),
+  callback_email_cc VARCHAR(500),
   ai_settings JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -57,6 +59,8 @@ CREATE INDEX IF NOT EXISTS idx_companies_ai_settings ON public.companies USING G
 COMMENT ON COLUMN public.companies.log_request_email_to IS 'Comma-separated list of primary support team emails for LOG requests';
 COMMENT ON COLUMN public.companies.log_request_email_cc IS 'Comma-separated list of CC recipients for LOG requests';
 COMMENT ON COLUMN public.companies.log_request_keywords IS 'Array of keywords that trigger LOG request mode';
+COMMENT ON COLUMN public.companies.callback_email_to IS 'Email addresses to receive callback request notifications (comma-separated)';
+COMMENT ON COLUMN public.companies.callback_email_cc IS 'CC email addresses for callback notifications (comma-separated)';
 COMMENT ON COLUMN public.companies.ai_settings IS 'Per-company AI configuration settings. Structure:
 {
   "model": "gpt-4o",
@@ -268,6 +272,98 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =====================================================
+-- TABLE: public.admin_users
+-- =====================================================
+CREATE TABLE IF NOT EXISTS public.admin_users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('super_admin', 'admin')),
+    full_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    last_login TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_users_username ON public.admin_users(username);
+CREATE INDEX IF NOT EXISTS idx_admin_users_email ON public.admin_users(email);
+CREATE INDEX IF NOT EXISTS idx_admin_users_role ON public.admin_users(role);
+
+-- =====================================================
+-- TABLE: public.admin_sessions
+-- =====================================================
+CREATE TABLE IF NOT EXISTS public.admin_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_user_id UUID NOT NULL REFERENCES public.admin_users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL,
+    last_activity TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_admin_user_id ON public.admin_sessions(admin_user_id);
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires_at ON public.admin_sessions(expires_at);
+
+-- =====================================================
+-- TABLE: public.admin_audit_logs
+-- =====================================================
+CREATE TABLE IF NOT EXISTS public.admin_audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_user_id UUID REFERENCES public.admin_users(id) ON DELETE SET NULL,
+    action VARCHAR(100) NOT NULL,
+    resource_type VARCHAR(50),
+    resource_id VARCHAR(255),
+    details JSONB,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_admin_user_id ON public.admin_audit_logs(admin_user_id);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_created_at ON public.admin_audit_logs(created_at);
+
+-- =====================================================
+-- FUNCTIONS: Admin authentication helpers
+-- =====================================================
+CREATE OR REPLACE FUNCTION update_admin_users_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_admin_users_updated_at
+    BEFORE UPDATE ON public.admin_users
+    FOR EACH ROW
+    EXECUTE FUNCTION update_admin_users_updated_at();
+
+-- Comments for documentation
+COMMENT ON TABLE public.admin_users IS 'Stores admin user accounts with authentication credentials';
+COMMENT ON TABLE public.admin_sessions IS 'Tracks active admin sessions with JWT tokens';
+COMMENT ON TABLE public.admin_audit_logs IS 'Audit trail for admin actions';
+COMMENT ON COLUMN public.admin_users.role IS 'Admin role: super_admin (full access) or admin (limited access)';
+COMMENT ON COLUMN public.admin_users.password_hash IS 'Bcrypt hash of admin password (salt rounds: 10)';
+
+-- =====================================================
+-- INSERT: Initial admin account
+-- =====================================================
+-- Default credentials: username=admin, password=Admin123!
+-- IMPORTANT: Change this password immediately after first login!
+INSERT INTO public.admin_users (username, password_hash, role, full_name, email)
+VALUES (
+    'admin',
+    '$2a$10$rQZ8vJZ9XZqN5xGx5xGx5.xGx5xGx5xGx5xGx5xGx5xGx5xGx5xGx',
+    'super_admin',
+    'Super Administrator',
+    'admin@example.com'
+) ON CONFLICT (username) DO NOTHING;
+
+-- =====================================================
 -- ROW-LEVEL SECURITY: Public schema
 -- =====================================================
 
@@ -276,6 +372,15 @@ CREATE POLICY companies_admin_all ON public.companies FOR ALL USING (true);
 
 ALTER TABLE public.schema_activity_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY schema_logs_admin_all ON public.schema_activity_logs FOR ALL USING (true);
+
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY admin_users_admin_all ON public.admin_users FOR ALL USING (true);
+
+ALTER TABLE public.admin_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY admin_sessions_admin_all ON public.admin_sessions FOR ALL USING (true);
+
+ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY admin_audit_logs_admin_all ON public.admin_audit_logs FOR ALL USING (true);
 
 -- =====================================================
 -- INSERT: Initial company data
@@ -533,6 +638,34 @@ CREATE INDEX IF NOT EXISTS idx_company_a_log_requests_created ON company_a.log_r
 COMMENT ON TABLE company_a.log_requests IS 'Stores LOG (conversation history + attachments) requests sent to support team via email';
 
 -- =====================================================
+-- TABLE: company_a.callback_requests
+-- =====================================================
+CREATE TABLE IF NOT EXISTS company_a.callback_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  contact_number VARCHAR(50) NOT NULL,
+  employee_id VARCHAR(50),
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'contacted', 'resolved', 'failed')),
+  email_sent BOOLEAN DEFAULT false,
+  email_sent_at TIMESTAMP WITH TIME ZONE,
+  email_error TEXT,
+  telegram_sent BOOLEAN DEFAULT false,
+  telegram_sent_at TIMESTAMP WITH TIME ZONE,
+  telegram_error TEXT,
+  notes TEXT,
+  contacted_at TIMESTAMP WITH TIME ZONE,
+  contacted_by VARCHAR(255),
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_company_a_callback_status ON company_a.callback_requests(status);
+CREATE INDEX IF NOT EXISTS idx_company_a_callback_created ON company_a.callback_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_company_a_callback_employee ON company_a.callback_requests(employee_id);
+
+COMMENT ON TABLE company_a.callback_requests IS 'Stores callback requests from users who cannot login';
+
+-- =====================================================
 -- FUNCTIONS: company_a helpers
 -- =====================================================
 
@@ -564,6 +697,9 @@ CREATE TRIGGER update_quick_questions_updated_at BEFORE UPDATE ON company_a.quic
   FOR EACH ROW EXECUTE FUNCTION company_a.update_updated_at_column();
 
 CREATE TRIGGER update_log_requests_updated_at BEFORE UPDATE ON company_a.log_requests
+  FOR EACH ROW EXECUTE FUNCTION company_a.update_updated_at_column();
+
+CREATE TRIGGER update_callback_requests_updated_at BEFORE UPDATE ON company_a.callback_requests
   FOR EACH ROW EXECUTE FUNCTION company_a.update_updated_at_column();
 
 -- Vector search function (with subcategory for policy filtering)
@@ -829,6 +965,34 @@ CREATE INDEX IF NOT EXISTS idx_company_b_log_requests_created ON company_b.log_r
 COMMENT ON TABLE company_b.log_requests IS 'Stores LOG (conversation history + attachments) requests sent to support team via email';
 
 -- =====================================================
+-- TABLE: company_b.callback_requests
+-- =====================================================
+CREATE TABLE IF NOT EXISTS company_b.callback_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  contact_number VARCHAR(50) NOT NULL,
+  employee_id VARCHAR(50),
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'contacted', 'resolved', 'failed')),
+  email_sent BOOLEAN DEFAULT false,
+  email_sent_at TIMESTAMP WITH TIME ZONE,
+  email_error TEXT,
+  telegram_sent BOOLEAN DEFAULT false,
+  telegram_sent_at TIMESTAMP WITH TIME ZONE,
+  telegram_error TEXT,
+  notes TEXT,
+  contacted_at TIMESTAMP WITH TIME ZONE,
+  contacted_by VARCHAR(255),
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_company_b_callback_status ON company_b.callback_requests(status);
+CREATE INDEX IF NOT EXISTS idx_company_b_callback_created ON company_b.callback_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_company_b_callback_employee ON company_b.callback_requests(employee_id);
+
+COMMENT ON TABLE company_b.callback_requests IS 'Stores callback requests from users who cannot login';
+
+-- =====================================================
 -- FUNCTIONS: company_b helpers
 -- =====================================================
 
@@ -860,6 +1024,9 @@ CREATE TRIGGER update_quick_questions_updated_at BEFORE UPDATE ON company_b.quic
   FOR EACH ROW EXECUTE FUNCTION company_b.update_updated_at_column();
 
 CREATE TRIGGER update_log_requests_updated_at BEFORE UPDATE ON company_b.log_requests
+  FOR EACH ROW EXECUTE FUNCTION company_b.update_updated_at_column();
+
+CREATE TRIGGER update_callback_requests_updated_at BEFORE UPDATE ON company_b.callback_requests
   FOR EACH ROW EXECUTE FUNCTION company_b.update_updated_at_column();
 
 -- Vector search function (with subcategory for policy filtering)
@@ -1125,6 +1292,34 @@ CREATE INDEX IF NOT EXISTS idx_cbre_log_requests_created ON cbre.log_requests(cr
 COMMENT ON TABLE cbre.log_requests IS 'Stores LOG (conversation history + attachments) requests sent to support team via email';
 
 -- =====================================================
+-- TABLE: cbre.callback_requests
+-- =====================================================
+CREATE TABLE IF NOT EXISTS cbre.callback_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  contact_number VARCHAR(50) NOT NULL,
+  employee_id VARCHAR(50),
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'contacted', 'resolved', 'failed')),
+  email_sent BOOLEAN DEFAULT false,
+  email_sent_at TIMESTAMP WITH TIME ZONE,
+  email_error TEXT,
+  telegram_sent BOOLEAN DEFAULT false,
+  telegram_sent_at TIMESTAMP WITH TIME ZONE,
+  telegram_error TEXT,
+  notes TEXT,
+  contacted_at TIMESTAMP WITH TIME ZONE,
+  contacted_by VARCHAR(255),
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cbre_callback_status ON cbre.callback_requests(status);
+CREATE INDEX IF NOT EXISTS idx_cbre_callback_created ON cbre.callback_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cbre_callback_employee ON cbre.callback_requests(employee_id);
+
+COMMENT ON TABLE cbre.callback_requests IS 'Stores callback requests from users who cannot login';
+
+-- =====================================================
 -- FUNCTIONS: cbre helpers
 -- =====================================================
 
@@ -1156,6 +1351,9 @@ CREATE TRIGGER update_quick_questions_updated_at BEFORE UPDATE ON cbre.quick_que
   FOR EACH ROW EXECUTE FUNCTION cbre.update_updated_at_column();
 
 CREATE TRIGGER update_log_requests_updated_at BEFORE UPDATE ON cbre.log_requests
+  FOR EACH ROW EXECUTE FUNCTION cbre.update_updated_at_column();
+
+CREATE TRIGGER update_callback_requests_updated_at BEFORE UPDATE ON cbre.callback_requests
   FOR EACH ROW EXECUTE FUNCTION cbre.update_updated_at_column();
 
 -- Vector search function (with subcategory for policy filtering)

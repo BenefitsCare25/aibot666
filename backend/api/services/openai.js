@@ -302,6 +302,15 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
     console.log('[RAG] ✅ Conversation context awareness injected');
     console.log(`[RAG] Final prompt length: ${systemPrompt.length} characters`);
 
+    // Log the complete system prompt for debugging (only in development or when needed)
+    if (process.env.LOG_FULL_PROMPTS === 'true') {
+      console.log('\n' + '='.repeat(80));
+      console.log('[RAG] COMPLETE SYSTEM PROMPT SENT TO OPENAI:');
+      console.log('='.repeat(80));
+      console.log(systemPrompt);
+      console.log('='.repeat(80) + '\n');
+    }
+
     // Build messages array with conversation history
     const messages = [
       { role: 'system', content: systemPrompt }

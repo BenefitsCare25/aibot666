@@ -33,7 +33,13 @@
       "Bash(git revert:*)",
       "Bash(SCHEMA_NAME=cbre node scripts/diagnose-knowledge-search.js:*)",
       "Bash(git checkout:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(git stash:*)",
+      "Bash(nul)",
+      "Bash(npm run:*)",
+      "Bash(git config:*)",
+      "Bash(gh auth:*)",
+      "Bash(PGPASSWORD=\"$POSTGRES_PASSWORD:-$DATABASE_PASSWORD\" psql -h \"$POSTGRES_HOST:-aws-0-ap-southeast-1.pooler.supabase.com\" -U \"$POSTGRES_USER:-postgres.noqfldvjbtjpjxdwrjtt\" -d \"$POSTGRES_DB:-postgres\" -p \"$POSTGRES_PORT:-6543\")"
     ],
     "deny": [],
     "ask": []
