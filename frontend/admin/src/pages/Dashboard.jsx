@@ -273,7 +273,7 @@ export default function Dashboard() {
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Activity</h2>
         {recentActivity.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
             {recentActivity.map((activity, index) => (
               <div key={activity.id || index} className="flex items-start gap-4 p-4 border border-gray-200 rounded-lg hover:border-primary-300 transition-colors">
                 <div className="flex-shrink-0">
