@@ -71,6 +71,14 @@ export default function EmailConfigModal({ company, onClose, onSuccess }) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* LOG Request Configuration */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">LOG Request Configuration</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Configure email notifications for LOG requests from users
+            </p>
+          </div>
+
           {/* Support Team Email (To) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -103,23 +111,6 @@ export default function EmailConfigModal({ company, onClose, onSuccess }) {
             />
             <p className="text-xs text-gray-500 mt-1">
               CC recipients - comma-separated email addresses (optional)
-            </p>
-          </div>
-
-          {/* LOG Request Keywords */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              LOG Request Keywords
-            </label>
-            <input
-              type="text"
-              value={emailConfig.log_request_keywords?.join(', ') || ''}
-              onChange={(e) => handleKeywordsChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="request log, send logs, need log"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Comma-separated keywords that trigger LOG request mode
             </p>
           </div>
 
@@ -196,7 +187,6 @@ export default function EmailConfigModal({ company, onClose, onSuccess }) {
                   {emailConfig.log_request_email_cc && (
                     <p><span className="font-medium">CC:</span> {emailConfig.log_request_email_cc}</p>
                   )}
-                  <p><span className="font-medium">Keywords:</span> {emailConfig.log_request_keywords?.join(', ') || 'None'}</p>
                 </div>
                 <div className="border-t pt-2">
                   <p className="font-semibold text-gray-800">Callback Requests:</p>

@@ -86,27 +86,6 @@ export default function EmbedCodeModal({ company, onClose }) {
           </button>
         </div>
 
-        {/* Live Preview */}
-        <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-            <span>👁️</span> Live Preview
-          </h3>
-          <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-8 min-h-[200px] relative">
-            <div className="text-center text-gray-500">
-              <p className="mb-2">Widget will appear in the bottom-right corner</p>
-              <p className="text-sm">
-                The chatbot widget loads on your website and allows users to interact with your AI assistant
-              </p>
-            </div>
-            {/* Preview button indicator */}
-            <div className="absolute bottom-4 right-4 bg-primary-600 text-white rounded-full p-4 shadow-lg">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
         {/* Tabs */}
         <div className="mb-4 border-b border-gray-200">
           <div className="flex gap-4">
