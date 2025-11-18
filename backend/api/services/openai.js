@@ -107,14 +107,14 @@ CRITICAL: CONVERSATION CONTEXT AWARENESS - ALWAYS APPLY THIS:
 function injectVariablesIntoPrompt(template, data) {
   const { query, contexts, employeeData, similarityThreshold, topKResults, contextCount } = data;
 
-  // Format context text
+  // Format context text with clear Q&A structure
   const contextText = contexts && contexts.length > 0
     ? contexts.map((ctx, idx) =>
         `[Context ${idx + 1}]\n` +
-        `Title: ${ctx.title || 'N/A'}\n` +
+        `Question: ${ctx.title || 'N/A'}\n` +
         `Category: ${ctx.category}\n` +
         `Similarity: ${ctx.similarity?.toFixed(4) || 'N/A'}\n` +
-        `${ctx.content}`
+        `Answer: ${ctx.content}`
       ).join('\n\n---\n\n')
     : 'No knowledge base context available for this query.';
 
@@ -174,9 +174,9 @@ function createRAGPrompt(query, contexts, employeeData, similarityThreshold = 0.
   const contextText = contexts
     .map((ctx, idx) =>
       `[Context ${idx + 1}]\n` +
-      `Title: ${ctx.title || 'N/A'}\n` +
+      `Question: ${ctx.title || 'N/A'}\n` +
       `Category: ${ctx.category}\n` +
-      `${ctx.content}`
+      `Answer: ${ctx.content}`
     )
     .join('\n\n---\n\n');
 
@@ -201,11 +201,12 @@ IMPORTANT INSTRUCTIONS:
 1. Answer based on the provided context from knowledge base and employee information
 2. CONTEXT USAGE PRIORITY: If context is provided from the knowledge base, USE IT to answer:
    a) The context has been matched with similarity >${similarityThreshold.toFixed(2)} - it is relevant and has passed our quality threshold
-   b) CRITICAL: When context is provided, you MUST use it to answer the question directly
-   c) Even if the context says "login to portal" or "contact support", that IS the correct answer - provide it exactly as given
-   d) DO NOT ask for clarification when context is provided - the context IS the answer
-   e) DO NOT make up your own answer - use the context content word-for-word when appropriate
-   f) Only add helpful details from employee information if relevant (like policy type, name, etc.)
+   b) CRITICAL: Each context entry has a "Question" and an "Answer" field
+   c) CRITICAL: The "Answer" field contains the EXACT answer you should provide - USE IT DIRECTLY
+   d) DO NOT generate your own answer - the "Answer" field IS the correct response
+   e) Even if the Answer says "login to portal" or "contact support", that IS the correct answer - provide it exactly as given
+   f) You may rephrase the Answer slightly for clarity, but DO NOT change the core information or instructions
+   g) Only add helpful details from employee information if relevant (like policy type, name, etc.)
 3. ONLY escalate if NO context is provided AND you cannot answer from employee information
 4. When escalating, say: "For such query, let us check back with the team. You may leave your contact or email address for our team to follow up with you. Thank you."
 5. Be specific about policy limits, coverage amounts, and procedures
