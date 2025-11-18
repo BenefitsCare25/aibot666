@@ -1750,7 +1750,7 @@ router.get('/analytics/recent-activity', async (req, res) => {
     // Get recent conversations (user messages only)
     let query = req.supabase
       .from('chat_history')
-      .select('id, employee_id, content, created_at, was_escalated, confidence_score, employees(first_name, last_name, email)')
+      .select('id, employee_id, content, created_at, was_escalated, confidence_score, employees(name, email)')
       .eq('role', 'user')
       .order('created_at', { ascending: false })
       .limit(parseInt(limit));
@@ -1770,9 +1770,7 @@ router.get('/analytics/recent-activity', async (req, res) => {
     // Format the response
     const activity = data.map(item => ({
       id: item.id,
-      employeeName: item.employees
-        ? `${item.employees.first_name} ${item.employees.last_name}`
-        : 'Unknown',
+      employeeName: item.employees?.name || 'Unknown',
       employeeEmail: item.employees?.email || '',
       question: item.content,
       status: item.was_escalated ? 'escalated' : 'resolved',
