@@ -118,6 +118,8 @@ function formatConversationHTML(messages) {
  * @param {Object} data.companyConfig - Company-specific email configuration (optional)
  * @param {string} data.companyConfig.log_request_email_to - Support team email(s)
  * @param {string} data.companyConfig.log_request_email_cc - CC recipients (optional)
+ * @param {string} data.customSubject - Custom email subject (optional, overrides default)
+ * @param {string} data.customHeader - Custom email header text (optional, overrides default)
  */
 export async function sendLogRequestEmail(data) {
   try {
@@ -128,7 +130,9 @@ export async function sendLogRequestEmail(data) {
       requestType,
       requestMessage,
       attachments = [],
-      companyConfig = {}
+      companyConfig = {},
+      customSubject = null,
+      customHeader = null
     } = data;
 
     if (!AZURE_CLIENT_ID || !AZURE_CLIENT_SECRET || !AZURE_TENANT_ID) {
@@ -150,8 +154,8 @@ export async function sendLogRequestEmail(data) {
 
     const client = getGraphClient();
 
-    // Prepare email subject
-    const subject = `🚨 LOG Request - ${employee.name} - ${employee.policy_type}`;
+    // Prepare email subject - use custom subject if provided, otherwise use default
+    const subject = customSubject || `🚨 LOG Request - ${employee.name} - ${employee.policy_type}`;
 
     // Format conversation history
     const conversationHTML = formatConversationHTML(conversationHistory);
@@ -174,7 +178,7 @@ export async function sendLogRequestEmail(data) {
       <body>
         <div style="max-width: 800px; margin: 0 auto; border: 1px solid #ddd; border-radius: 8px;">
           <div class="header">
-            <h2 style="margin: 0;">🚨 LOG Request Received</h2>
+            <h2 style="margin: 0;">${customHeader || '🚨 LOG Request Received'}</h2>
             <p style="margin: 5px 0 0 0; opacity: 0.9;">New support request from chatbot</p>
           </div>
 

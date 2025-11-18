@@ -1276,7 +1276,9 @@ async function sendCallbackNotificationEmail(data) {
     requestType: 'button',
     requestMessage: `Callback requested - Contact number: ${contactNumber}`,
     attachments: [],
-    companyConfig
+    companyConfig,
+    customSubject: '📞 Invalid ID, Callback Request',
+    customHeader: '📞 Callback Request Received'
   };
 
   return await sendLogRequestEmail(emailData);
