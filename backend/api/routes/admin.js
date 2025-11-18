@@ -1676,19 +1676,17 @@ router.get('/analytics', async (req, res) => {
 
     if (chatError) throw chatError;
 
-    // Calculate metrics
-    const totalQueries = chatData.length;
-    const escalatedQueries = chatData.filter(c => c.was_escalated).length;
-    const avgConfidence = chatData.reduce((sum, c) => sum + (c.confidence_score || 0), 0) / totalQueries;
+    // Calculate metrics - only count user messages as queries
+    const userMessages = chatData.filter(c => c.role === 'user');
+    const totalQueries = userMessages.length;
+    const escalatedQueries = userMessages.filter(c => c.was_escalated).length;
+    const avgConfidence = chatData.reduce((sum, c) => sum + (c.confidence_score || 0), 0) / chatData.length;
 
     // Count unique employees
     const uniqueEmployees = new Set(chatData.map(c => c.employee_id).filter(id => id)).size;
 
     // Count total AI responses (messages where role is 'assistant')
     const totalResponses = chatData.filter(c => c.role === 'assistant').length;
-
-    // Calculate resolution rate (non-escalated queries / total queries)
-    const resolutionRate = totalQueries > 0 ? ((totalQueries - escalatedQueries) / totalQueries * 100).toFixed(2) : 0;
 
     // Get escalation statistics
     const { data: escalations, error: escError } = await req.supabase
@@ -1719,8 +1717,7 @@ router.get('/analytics', async (req, res) => {
           totalResponses: totalResponses,
           escalated: escalatedQueries,
           escalationRate: totalQueries > 0 ? (escalatedQueries / totalQueries * 100).toFixed(2) : 0,
-          avgConfidence: avgConfidence.toFixed(2),
-          resolutionRate: resolutionRate
+          avgConfidence: avgConfidence.toFixed(2)
         },
         escalations: {
           total: escalations.length,

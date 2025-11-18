@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { analyticsApi } from '../api/analytics';
 import toast from 'react-hot-toast';
 import { Line } from 'react-chartjs-2';
@@ -107,7 +106,7 @@ export default function Dashboard() {
     },
     {
       title: 'Escalations',
-      value: stats?.escalations?.total || 0,
+      value: `${stats?.escalations?.pending || 0} pending / ${stats?.escalations?.total || 0} total`,
       icon: '🚨',
       color: 'bg-yellow-500'
     },
@@ -116,12 +115,6 @@ export default function Dashboard() {
       value: stats?.queries?.escalationRate ? `${stats.queries.escalationRate}%` : '0%',
       icon: '📊',
       color: 'bg-red-500'
-    },
-    {
-      title: 'Resolution Rate',
-      value: stats?.queries?.resolutionRate ? `${stats.queries.resolutionRate}%` : '0%',
-      icon: '✅',
-      color: 'bg-green-500'
     }
   ];
 
@@ -198,7 +191,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat) => (
           <div key={stat.title} className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
@@ -212,47 +205,6 @@ export default function Dashboard() {
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link
-            to="/employees"
-            className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
-          >
-            <span className="text-2xl">👥</span>
-            <div>
-              <p className="font-medium text-gray-900">Manage Employees</p>
-              <p className="text-sm text-gray-600">Add or edit employee data</p>
-            </div>
-          </Link>
-
-          <Link
-            to="/knowledge"
-            className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
-          >
-            <span className="text-2xl">📚</span>
-            <div>
-              <p className="font-medium text-gray-900">Knowledge Base</p>
-              <p className="text-sm text-gray-600">Update AI knowledge</p>
-            </div>
-          </Link>
-
-          <Link
-            to="/escalations"
-            className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
-          >
-            <span className="text-2xl">🚨</span>
-            <div>
-              <p className="font-medium text-gray-900">View Escalations</p>
-              <p className="text-sm text-gray-600">
-                {stats?.escalations?.pending || 0} pending
-              </p>
-            </div>
-          </Link>
-        </div>
       </div>
 
       {/* 7-Day Query Trend Chart */}
