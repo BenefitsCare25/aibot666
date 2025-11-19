@@ -3,8 +3,11 @@
  * Form to create new admin accounts (Super Admin only)
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createAdminUser } from '../api/adminUsers';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export default function CreateAdminModal({ onClose, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -12,11 +15,15 @@ export default function CreateAdminModal({ onClose, onSuccess }) {
     password: '',
     confirmPassword: '',
     role: 'admin',
+    roleId: '',
     fullName: '',
     email: ''
   });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [roles, setRoles] = useState([]);
+  const [loadingRoles, setLoadingRoles] = useState(true);
+  const [useNewRoleSystem, setUseNewRoleSystem] = useState(false);
 
   const passwordRequirements = [
     { label: 'At least 8 characters', met: formData.password.length >= 8 },
@@ -27,6 +34,35 @@ export default function CreateAdminModal({ onClose, onSuccess }) {
   ];
 
   const allRequirementsMet = passwordRequirements.every(req => req.met);
+
+  useEffect(() => {
+    fetchRoles();
+  }, []);
+
+  const fetchRoles = async () => {
+    try {
+      setLoadingRoles(true);
+      const response = await axios.get(`${API_URL}/api/roles`, {
+        withCredentials: true
+      });
+
+      if (response.data.success && response.data.roles && response.data.roles.length > 0) {
+        setRoles(response.data.roles);
+        setUseNewRoleSystem(true);
+        const defaultRole = response.data.roles.find(r => !r.is_system) || response.data.roles[0];
+        setFormData(prev => ({ ...prev, roleId: defaultRole.id }));
+      } else {
+        setUseNewRoleSystem(false);
+        setFormData(prev => ({ ...prev, role: 'admin' }));
+      }
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+      setUseNewRoleSystem(false);
+      setFormData(prev => ({ ...prev, role: 'admin' }));
+    } finally {
+      setLoadingRoles(false);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -51,13 +87,20 @@ export default function CreateAdminModal({ onClose, onSuccess }) {
     setIsSubmitting(true);
 
     try {
-      await createAdminUser({
+      const payload = {
         username: formData.username,
         password: formData.password,
-        role: formData.role,
         fullName: formData.fullName,
         email: formData.email
-      });
+      };
+
+      if (useNewRoleSystem && formData.roleId) {
+        payload.roleId = formData.roleId;
+      } else {
+        payload.role = formData.role;
+      }
+
+      await createAdminUser(payload);
       onSuccess();
     } catch (err) {
       setError(err.message || 'Failed to create admin user');
@@ -152,19 +195,48 @@ export default function CreateAdminModal({ onClose, onSuccess }) {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Role <span className="text-red-500">*</span>
               </label>
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="admin">Admin</option>
-                <option value="super_admin">Super Admin</option>
-              </select>
-              <p className="mt-1 text-xs text-gray-500">
-                Super Admin can manage other admin users
-              </p>
+              {loadingRoles ? (
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                  Loading roles...
+                </div>
+              ) : useNewRoleSystem ? (
+                <>
+                  <select
+                    name="roleId"
+                    value={formData.roleId}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a role...</option>
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name} {role.is_system && '(System)'}
+                        {role.permission_count > 0 && ` - ${role.permission_count} permissions`}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Assign a role to define user permissions
+                  </p>
+                </>
+              ) : (
+                <>
+                  <select
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Super Admin can manage other admin users
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
