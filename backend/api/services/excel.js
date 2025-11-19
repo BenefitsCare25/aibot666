@@ -246,6 +246,7 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
     let imported = [];
     let updated = [];
     let skipped = [];
+    let validationErrors = [];
 
     // Handle new employees in batches to avoid payload size limits
     if (newEmployees.length > 0) {
@@ -272,10 +273,30 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
         console.log(`Updating ${duplicates.length} existing employees with embedding regeneration...`);
 
         // First, get the existing employee records to get their UUIDs
-        const { data: existingRecords } = await supabaseClient
-          .from('employees')
-          .select('id, employee_id')
-          .in('employee_id', duplicates.map(e => e.employee_id));
+        // IMPORTANT: Batch this query to avoid URL length limits (same as duplicate check)
+        const duplicateEmployeeIds = duplicates.map(e => e.employee_id);
+        let existingRecords = [];
+
+        for (let i = 0; i < duplicateEmployeeIds.length; i += BATCH_SIZE) {
+          const batch = duplicateEmployeeIds.slice(i, i + BATCH_SIZE);
+          console.log(`Fetching UUIDs for batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(duplicateEmployeeIds.length / BATCH_SIZE)} (${batch.length} IDs)`);
+
+          const { data, error: uuidError } = await supabaseClient
+            .from('employees')
+            .select('id, employee_id')
+            .in('employee_id', batch);
+
+          if (uuidError) {
+            console.error(`Failed to fetch UUIDs for batch: ${uuidError.message}`);
+            throw new Error(`Failed to fetch employee UUIDs: ${uuidError.message}`);
+          }
+
+          if (data) {
+            existingRecords = existingRecords.concat(data);
+          }
+        }
+
+        console.log(`Retrieved ${existingRecords.length} UUIDs for ${duplicateEmployeeIds.length} duplicate employee IDs`);
 
         // Create a map of employee_id to UUID
         const idMap = new Map(existingRecords?.map(e => [e.employee_id, e.id]) || []);
@@ -285,7 +306,14 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
             const employeeUUID = idMap.get(emp.employee_id);
 
             if (!employeeUUID) {
-              console.error(`Could not find UUID for employee ${emp.employee_id}`);
+              const errorMsg = `Could not find UUID for employee ${emp.employee_id} (${emp.name})`;
+              console.error(errorMsg);
+              validationErrors.push({
+                employee_id: emp.employee_id,
+                name: emp.name,
+                email: emp.email,
+                error: 'Employee ID exists in file but not found in database'
+              });
               continue;
             }
 
@@ -313,11 +341,21 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
               console.log(`Updated ${updated.length}/${duplicates.length} employees with embeddings`);
             }
           } catch (updateError) {
-            console.error(`Failed to update employee ${emp.employee_id}:`, updateError);
+            const errorMsg = `Failed to update employee ${emp.employee_id}`;
+            console.error(errorMsg, updateError);
+            validationErrors.push({
+              employee_id: emp.employee_id,
+              name: emp.name,
+              email: emp.email,
+              error: updateError.message || 'Update failed'
+            });
           }
         }
 
         console.log(`✅ Successfully updated ${updated.length} employees with regenerated embeddings`);
+        if (validationErrors.length > 0) {
+          console.warn(`⚠️ ${validationErrors.length} employees failed to update`);
+        }
       } else {
         console.log(`Skipping ${duplicates.length} duplicate employees`);
         skipped = duplicates;
@@ -394,10 +432,10 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
       skipped: skipped.length,
       deactivated: deactivated,
       duplicates: duplicateInfo,
-      errors: [],
+      errors: validationErrors,
       message: syncMode
-        ? `Processed ${totalProcessed} employees: ${imported.length} imported, ${updated.length} updated, ${skipped.length} skipped, ${deactivated} deactivated`
-        : `Processed ${totalProcessed} employees: ${imported.length} imported, ${updated.length} updated, ${skipped.length} skipped`
+        ? `Processed ${totalProcessed} employees: ${imported.length} imported, ${updated.length} updated, ${skipped.length} skipped, ${deactivated} deactivated${validationErrors.length > 0 ? `, ${validationErrors.length} errors` : ''}`
+        : `Processed ${totalProcessed} employees: ${imported.length} imported, ${updated.length} updated, ${skipped.length} skipped${validationErrors.length > 0 ? `, ${validationErrors.length} errors` : ''}`
     };
   } catch (error) {
     console.error('Error importing employees:', error);

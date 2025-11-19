@@ -62,6 +62,11 @@ export default function Employees() {
 
       setUploadResult(result);
 
+      // Show validation errors first if any
+      if (result.errors && result.errors.length > 0) {
+        toast.error(`⚠️ ${result.errors.length} employee(s) failed to process. Click "Upload Complete" section to view details.`);
+      }
+
       // Show success message
       if (result.imported > 0 || result.updated > 0 || result.deactivated > 0) {
         toast.success(result.message || 'Employees processed successfully!');
@@ -354,6 +359,29 @@ export default function Employees() {
                 <strong className="text-gray-900">Summary:</strong> {uploadResult.message || 'Upload completed successfully'}
               </p>
             </div>
+
+            {/* Validation Errors (if any) */}
+            {uploadResult.errors && uploadResult.errors.length > 0 && (
+              <details className="mt-3 bg-red-50 p-3 rounded-lg border border-red-300">
+                <summary className="cursor-pointer font-medium text-sm text-red-800">
+                  ⚠️ {uploadResult.errors.length} validation error(s) - Click to view details
+                </summary>
+                <div className="mt-2 space-y-2">
+                  <p className="text-xs text-red-700 mb-2">
+                    The following employees could not be processed:
+                  </p>
+                  <ul className="ml-4 space-y-2 text-sm text-red-700 max-h-60 overflow-y-auto">
+                    {uploadResult.errors.map((err, idx) => (
+                      <li key={idx} className="border-b border-red-200 pb-2">
+                        <div className="font-semibold">{err.employee_id} - {err.name}</div>
+                        <div className="text-xs text-red-600">{err.email}</div>
+                        <div className="text-xs text-red-800 mt-1">Error: {err.error}</div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </details>
+            )}
 
             {/* Duplicates Details (if any) */}
             {uploadResult.duplicates && uploadResult.duplicates.length > 0 && (
