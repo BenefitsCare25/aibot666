@@ -50,25 +50,10 @@ export const useChatStore = create((set, get) => ({
     // Use domain override if provided, otherwise extract from current page URL
     const domain = domainOverride || window.location.hostname;
 
-    // Detect identifier type and send with appropriate field name
-    const identifierPayload = {};
-
-    // Check if it's an email (contains @ symbol)
-    if (identifier.includes('@')) {
-      identifierPayload.email = identifier;
-    }
-    // Check if it looks like a UUID (user_id format)
-    else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier)) {
-      identifierPayload.userId = identifier;
-    }
-    // Otherwise treat as employee_id
-    else {
-      identifierPayload.employeeId = identifier;
-    }
-
     try {
+      // Send single identifier - backend will try it against all columns
       const response = await axios.post(`${apiUrl}/api/chat/session`, {
-        ...identifierPayload,
+        identifier,
         metadata: {
           source: 'widget',
           timestamp: new Date().toISOString()

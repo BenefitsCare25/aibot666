@@ -76,14 +76,16 @@ const upload = multer({
 /**
  * POST /api/chat/session
  * Create a new chat session
- * Accepts employeeId, userId, or email for flexible verification
+ * Accepts identifier (tries against employeeId, userId, and email columns)
  */
 router.post('/session', async (req, res) => {
   try {
-    const { employeeId, userId, email, metadata } = req.body;
+    const { employeeId, userId, email, identifier, metadata } = req.body;
 
-    // Validate that at least one identifier is provided
-    if (!employeeId && !userId && !email) {
+    // Support both new 'identifier' field and legacy separate fields
+    const searchValue = identifier || employeeId || userId || email;
+
+    if (!searchValue) {
       return res.status(400).json({
         success: false,
         error: 'Employee ID, User ID, or Email is required'
@@ -92,7 +94,7 @@ router.post('/session', async (req, res) => {
 
     // Verify employee exists using flexible lookup (use company-specific client)
     const employee = await getEmployeeByIdentifier(
-      { employeeId, userId, email },
+      searchValue,
       req.supabase
     );
 

@@ -737,42 +737,50 @@ export async function getEmployeeByUserId(userId, supabaseClient = null, include
 }
 
 /**
- * Flexible employee lookup - accepts employee_id, user_id, or email
- * @param {Object} identifier - Object with one of: employeeId, userId, or email
+ * Flexible employee lookup - tries a single identifier value against all columns
+ * @param {string|Object} identifier - Either a string value or object with employeeId/userId/email
  * @param {Object} supabaseClient - Supabase client (for multi-tenancy)
  * @param {boolean} includeInactive - Whether to include inactive employees
  * @returns {Promise<Object>} - Employee data
  */
 export async function getEmployeeByIdentifier(identifier, supabaseClient = null, includeInactive = false) {
-  const { employeeId, userId, email } = identifier;
+  // Support both string and object input for backwards compatibility
+  let searchValue;
 
-  // Validate that at least one identifier is provided
-  if (!employeeId && !userId && !email) {
-    throw new Error('At least one identifier (employeeId, userId, or email) must be provided');
+  if (typeof identifier === 'string') {
+    searchValue = identifier;
+  } else {
+    const { employeeId, userId, email } = identifier;
+    searchValue = email || userId || employeeId;
   }
 
-  try {
-    // Try email first (most user-friendly)
-    if (email) {
-      console.log(`[Employee Lookup] Searching by email: ${email}`);
-      return await getEmployeeByEmail(email, supabaseClient, includeInactive);
-    }
-
-    // Try user_id second
-    if (userId) {
-      console.log(`[Employee Lookup] Searching by user_id: ${userId}`);
-      return await getEmployeeByUserId(userId, supabaseClient, includeInactive);
-    }
-
-    // Fall back to employee_id
-    if (employeeId) {
-      console.log(`[Employee Lookup] Searching by employee_id: ${employeeId}`);
-      return await getEmployeeByEmployeeId(employeeId, supabaseClient, includeInactive);
-    }
-  } catch (error) {
-    console.error('[Employee Lookup] Failed:', error.message);
-    throw error;
+  if (!searchValue) {
+    throw new Error('Identifier value is required');
   }
+
+  console.log(`[Employee Lookup] Searching for: "${searchValue}"`);
+
+  // Try all three columns in order until we find a match
+  const lookupMethods = [
+    { name: 'email', fn: getEmployeeByEmail },
+    { name: 'user_id', fn: getEmployeeByUserId },
+    { name: 'employee_id', fn: getEmployeeByEmployeeId }
+  ];
+
+  for (const method of lookupMethods) {
+    try {
+      console.log(`[Employee Lookup] Trying ${method.name}...`);
+      const employee = await method.fn(searchValue, supabaseClient, includeInactive);
+      console.log(`[Employee Lookup] ✅ Found via ${method.name}`);
+      return employee;
+    } catch (error) {
+      console.log(`[Employee Lookup] ❌ Not found via ${method.name}`);
+      // Continue to next lookup method
+    }
+  }
+
+  // If we get here, no match was found in any column
+  throw new Error(`Employee not found with identifier: ${searchValue}`);
 }
 
 /**
