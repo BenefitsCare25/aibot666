@@ -548,7 +548,7 @@ export async function updateEmployeesBatch(employeesData, supabaseClient = null)
 
       const embeddings = await generateEmbeddingsBatch(embeddingContents);
 
-      // Prepare employee embeddings for upsert
+      // Prepare employee embeddings
       const employeeEmbeddings = batchUpdatedEmployees.map((emp, idx) => ({
         employee_id: emp.id,
         content: embeddingContents[idx],
@@ -556,16 +556,21 @@ export async function updateEmployeesBatch(employeesData, supabaseClient = null)
         updated_at: new Date().toISOString()
       }));
 
-      // Upsert embeddings (update if exists, insert if not)
+      // Delete existing embeddings for these employees, then insert new ones
+      const employeeIds = batchUpdatedEmployees.map(emp => emp.id);
+
+      await client
+        .from('employee_embeddings')
+        .delete()
+        .in('employee_id', employeeIds);
+
+      // Insert new embeddings
       const { error: embError } = await client
         .from('employee_embeddings')
-        .upsert(employeeEmbeddings, {
-          onConflict: 'employee_id',
-          ignoreDuplicates: false
-        });
+        .insert(employeeEmbeddings);
 
       if (embError) {
-        console.error('[Batch Update] Failed to upsert employee embeddings:', embError);
+        console.error('[Batch Update] Failed to insert employee embeddings:', embError);
       }
 
       console.log(`[Batch Update] Completed batch ${Math.floor(i / BATCH_SIZE) + 1} - Updated ${batchUpdatedEmployees.length} employees with embeddings`);
