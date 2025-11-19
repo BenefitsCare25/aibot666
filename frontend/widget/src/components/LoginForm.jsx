@@ -28,13 +28,20 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
     } catch (err) {
       const errorMessage = err.message || 'Failed to start chat session';
 
-      // Check if it's an "Employee not found" error
-      if (errorMessage.includes('Employee not found') || errorMessage.includes('employee not found')) {
+      // Show callback form for employee validation errors (not found OR deactivated)
+      // This includes: "Employee not found", "Failed to create session" (when employee is deactivated)
+      const isEmployeeValidationError =
+        errorMessage.includes('Employee not found') ||
+        errorMessage.includes('employee not found') ||
+        errorMessage.includes('Failed to create session');
+
+      if (isEmployeeValidationError) {
         setError('Invalid ID, please contact helpdesk at 64487707');
-        setShowCallbackForm(true); // Show callback form when employee ID is invalid
+        setShowCallbackForm(true); // Show callback form for any employee validation failure
       } else {
+        // Only server/network errors go here
         setError(errorMessage);
-        setShowCallbackForm(false); // Hide callback form for other errors
+        setShowCallbackForm(false);
       }
     } finally {
       setIsLoading(false);
