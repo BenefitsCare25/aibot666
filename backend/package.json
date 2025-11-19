@@ -8,6 +8,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "migrate": "node scripts/migrate-excel.js",
+    "migrate:rbac": "node scripts/run-rbac-migration.js",
     "generate-embeddings": "node scripts/generate-embeddings.js"
   },
   "keywords": [

@@ -425,3 +425,31 @@ router.post('/reset-password', [
 });
 
 export default router;
+
+/**
+ * GET /api/auth/me/permissions
+ * Get current user's permissions
+ */
+router.get('/me/permissions', authenticateToken, async (req, res) => {
+  try {
+    // Import permission service dynamically to avoid circular dependencies
+    const { getUserPermissions, getUserRole } = await import('../services/permissionService.js');
+
+    const [permissions, roleData] = await Promise.all([
+      getUserPermissions(req.user.id),
+      getUserRole(req.user.id)
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      permissions: permissions,
+      role: roleData
+    });
+  } catch (error) {
+    console.error('Get permissions error:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch permissions',
+      message: 'An error occurred while fetching user permissions'
+    });
+  }
+});
