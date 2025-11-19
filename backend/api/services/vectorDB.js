@@ -494,6 +494,92 @@ export async function addEmployeesBatch(employeesData, supabaseClient = null) {
 }
 
 /**
+ * Update multiple employees in batch with embedding regeneration
+ * @param {Array} employeesData - Array of {id, updateData} objects
+ * @param {Object} supabaseClient - Company-specific Supabase client
+ * @returns {Promise<Array>} - Array of updated employees
+ */
+export async function updateEmployeesBatch(employeesData, supabaseClient = null) {
+  const client = supabaseClient || supabase;
+
+  try {
+    console.log(`[Batch Update] Processing ${employeesData.length} employees...`);
+
+    // Update employees in batches to avoid payload size limits
+    const BATCH_SIZE = 100;
+    let allUpdatedEmployees = [];
+
+    for (let i = 0; i < employeesData.length; i += BATCH_SIZE) {
+      const batch = employeesData.slice(i, i + BATCH_SIZE);
+      console.log(`[Batch Update] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(employeesData.length / BATCH_SIZE)} (${batch.length} employees)`);
+
+      // Update each employee in the batch (Supabase doesn't support bulk update with different values easily)
+      // But we can do it faster by using Promise.all for parallel updates
+      const updatePromises = batch.map(({ id, updateData }) =>
+        client
+          .from('employees')
+          .update(updateData)
+          .eq('id', id)
+          .select()
+          .single()
+      );
+
+      const results = await Promise.all(updatePromises);
+      const batchUpdatedEmployees = results
+        .filter(r => !r.error)
+        .map(r => r.data);
+
+      allUpdatedEmployees = allUpdatedEmployees.concat(batchUpdatedEmployees);
+
+      // Generate embeddings for this batch
+      const embeddingContents = batchUpdatedEmployees.map(emp => `
+        Employee: ${emp.name}
+        Employee ID: ${emp.employee_id || 'N/A'}
+        User ID: ${emp.user_id || 'N/A'}
+        Email: ${emp.email || 'N/A'}
+        Department: ${emp.department}
+        Policy Type: ${emp.policy_type}
+        Coverage Limit: ${emp.coverage_limit}
+        Annual Claim Limit: ${emp.annual_claim_limit}
+        Outpatient Limit: ${emp.outpatient_limit}
+        Dental Limit: ${emp.dental_limit}
+        Optical Limit: ${emp.optical_limit}
+      `.trim());
+
+      const embeddings = await generateEmbeddingsBatch(embeddingContents);
+
+      // Prepare employee embeddings for upsert
+      const employeeEmbeddings = batchUpdatedEmployees.map((emp, idx) => ({
+        employee_id: emp.id,
+        content: embeddingContents[idx],
+        embedding: embeddings[idx],
+        updated_at: new Date().toISOString()
+      }));
+
+      // Upsert embeddings (update if exists, insert if not)
+      const { error: embError } = await client
+        .from('employee_embeddings')
+        .upsert(employeeEmbeddings, {
+          onConflict: 'employee_id',
+          ignoreDuplicates: false
+        });
+
+      if (embError) {
+        console.error('[Batch Update] Failed to upsert employee embeddings:', embError);
+      }
+
+      console.log(`[Batch Update] Completed batch ${Math.floor(i / BATCH_SIZE) + 1} - Updated ${batchUpdatedEmployees.length} employees with embeddings`);
+    }
+
+    console.log(`[Batch Update] ✅ Total updated: ${allUpdatedEmployees.length} employees`);
+    return allUpdatedEmployees;
+  } catch (error) {
+    console.error('Error updating employees batch:', error.message);
+    throw error;
+  }
+}
+
+/**
  * Update usage statistics for knowledge base entries
  * @param {Array} ids - Array of knowledge base entry IDs
  */
@@ -816,6 +902,7 @@ export default {
   addEmployee,
   addEmployeesBatch,
   updateEmployee,
+  updateEmployeesBatch,
   getEmployeeByEmployeeId,
   getEmployeeByEmail,
   deactivateEmployee,

@@ -1,5 +1,5 @@
 import XLSX from 'xlsx';
-import { addEmployeesBatch, updateEmployee } from './vectorDB.js';
+import { addEmployeesBatch, updateEmployee, updateEmployeesBatch } from './vectorDB.js';
 import fs from 'fs';
 
 /**
@@ -301,58 +301,67 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
         // Create a map of employee_id to UUID
         const idMap = new Map(existingRecords?.map(e => [e.employee_id, e.id]) || []);
 
+        // Prepare batch update data
+        const employeesToUpdate = [];
+
         for (const emp of duplicates) {
-          try {
-            const employeeUUID = idMap.get(emp.employee_id);
+          const employeeUUID = idMap.get(emp.employee_id);
 
-            if (!employeeUUID) {
-              const errorMsg = `Could not find UUID for employee ${emp.employee_id} (${emp.name})`;
-              console.error(errorMsg);
-              validationErrors.push({
-                employee_id: emp.employee_id,
-                name: emp.name,
-                email: emp.email,
-                error: 'Employee ID exists in file but not found in database'
-              });
-              continue;
-            }
-
-            // Use updateEmployee which regenerates embeddings
-            const updatedEmployee = await updateEmployee(
-              employeeUUID,
-              {
-                name: emp.name,
-                email: emp.email,
-                department: emp.department,
-                policy_type: emp.policy_type,
-                coverage_limit: emp.coverage_limit,
-                annual_claim_limit: emp.annual_claim_limit,
-                outpatient_limit: emp.outpatient_limit,
-                dental_limit: emp.dental_limit,
-                optical_limit: emp.optical_limit,
-                updated_at: new Date().toISOString()
-              },
-              supabaseClient
-            );
-
-            updated.push(updatedEmployee);
-
-            if (updated.length % 10 === 0) {
-              console.log(`Updated ${updated.length}/${duplicates.length} employees with embeddings`);
-            }
-          } catch (updateError) {
-            const errorMsg = `Failed to update employee ${emp.employee_id}`;
-            console.error(errorMsg, updateError);
+          if (!employeeUUID) {
+            const errorMsg = `Could not find UUID for employee ${emp.employee_id} (${emp.name})`;
+            console.error(errorMsg);
             validationErrors.push({
               employee_id: emp.employee_id,
               name: emp.name,
               email: emp.email,
-              error: updateError.message || 'Update failed'
+              error: 'Employee ID exists in file but not found in database'
             });
+            continue;
+          }
+
+          employeesToUpdate.push({
+            id: employeeUUID,
+            updateData: {
+              name: emp.name,
+              email: emp.email,
+              department: emp.department,
+              policy_type: emp.policy_type,
+              coverage_limit: emp.coverage_limit,
+              annual_claim_limit: emp.annual_claim_limit,
+              outpatient_limit: emp.outpatient_limit,
+              dental_limit: emp.dental_limit,
+              optical_limit: emp.optical_limit,
+              updated_at: new Date().toISOString()
+            }
+          });
+        }
+
+        // Use batch update for better performance
+        if (employeesToUpdate.length > 0) {
+          try {
+            updated = await updateEmployeesBatch(employeesToUpdate, supabaseClient);
+            console.log(`✅ Successfully updated ${updated.length} employees with regenerated embeddings`);
+          } catch (updateError) {
+            console.error('Batch update error:', updateError);
+            // Fall back to individual updates if batch fails
+            console.log('Falling back to individual updates...');
+            for (const { id, updateData } of employeesToUpdate) {
+              try {
+                const updatedEmployee = await updateEmployee(id, updateData, supabaseClient);
+                updated.push(updatedEmployee);
+              } catch (individualError) {
+                const emp = duplicates.find(e => idMap.get(e.employee_id) === id);
+                validationErrors.push({
+                  employee_id: emp?.employee_id || 'unknown',
+                  name: emp?.name || 'unknown',
+                  email: emp?.email || 'unknown',
+                  error: individualError.message || 'Update failed'
+                });
+              }
+            }
           }
         }
 
-        console.log(`✅ Successfully updated ${updated.length} employees with regenerated embeddings`);
         if (validationErrors.length > 0) {
           console.warn(`⚠️ ${validationErrors.length} employees failed to update`);
         }
