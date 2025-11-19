@@ -9,6 +9,7 @@
     "dev": "nodemon server.js",
     "migrate": "node scripts/migrate-excel.js",
     "migrate:rbac": "node scripts/run-rbac-migration.js",
+    "seed:permissions": "node scripts/seed-permissions.js",
     "generate-embeddings": "node scripts/generate-embeddings.js"
   },
   "keywords": [
