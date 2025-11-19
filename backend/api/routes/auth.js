@@ -121,11 +121,11 @@ router.post('/login', [
       userAgent: req.get('user-agent')
     });
 
-    // Set HTTP-only cookie
+    // Set HTTP-only cookie (cross-domain compatible)
     res.cookie('adminToken', tokenWithSession, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Allow cross-domain in production
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
 
@@ -215,11 +215,11 @@ router.post('/refresh', authenticateToken, async (req, res) => {
     };
     const newToken = generateToken(tokenPayload);
 
-    // Set new cookie
+    // Set new cookie (cross-domain compatible)
     res.cookie('adminToken', newToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Allow cross-domain in production
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
 
