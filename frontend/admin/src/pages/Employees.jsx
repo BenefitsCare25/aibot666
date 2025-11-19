@@ -11,8 +11,7 @@ export default function Employees() {
   const [totalPages, setTotalPages] = useState(1);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [duplicateAction, setDuplicateAction] = useState('skip');
-  const [syncMode, setSyncMode] = useState(false);
+  const [syncMode, setSyncMode] = useState(true);
   const [statusFilter, setStatusFilter] = useState('active');
   const [uploadResult, setUploadResult] = useState(null);
   const [editingEmployee, setEditingEmployee] = useState(null);
@@ -57,7 +56,7 @@ export default function Employees() {
     setUploadResult(null);
 
     try {
-      const result = await employeeApi.uploadExcel(file, duplicateAction, syncMode, (progress) => {
+      const result = await employeeApi.uploadExcel(file, 'update', syncMode, (progress) => {
         setUploadProgress(progress);
       });
 
@@ -68,13 +67,9 @@ export default function Employees() {
         toast.success(result.message || 'Employees processed successfully!');
       }
 
-      // Show warnings for duplicates
-      if (result.duplicates && result.duplicates.length > 0) {
-        if (duplicateAction === 'skip') {
-          toast.warning(`${result.skipped} duplicate(s) were skipped`);
-        } else {
-          toast.success(`${result.updated} duplicate(s) were updated`);
-        }
+      // Show update results for existing employees
+      if (result.updated > 0) {
+        toast.success(`${result.updated} existing employee(s) updated`);
       }
 
       // Show sync mode results
@@ -220,56 +215,44 @@ export default function Employees() {
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Upload Employee Data</h2>
 
-        {/* Duplicate Handling Option */}
+        {/* Upload Options */}
         <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            How to handle duplicate Employee IDs:
-          </label>
-          <div className="flex gap-4">
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="duplicateAction"
-                value="skip"
-                checked={duplicateAction === 'skip'}
-                onChange={(e) => setDuplicateAction(e.target.value)}
-                className="mr-2"
-              />
-              <span className="text-sm text-gray-700">Skip duplicates (keep existing)</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="duplicateAction"
-                value="update"
-                checked={duplicateAction === 'update'}
-                onChange={(e) => setDuplicateAction(e.target.value)}
-                className="mr-2"
-              />
-              <span className="text-sm text-gray-700">Update existing employees</span>
-            </label>
-          </div>
-
-          <div className="mt-4">
-            <label className="flex items-start">
-              <input
-                type="checkbox"
-                checked={syncMode}
-                onChange={(e) => setSyncMode(e.target.checked)}
-                className="mr-2 mt-1"
-              />
-              <div>
-                <span className="text-sm font-medium text-gray-900">Sync mode</span>
-                <p className="text-xs text-gray-600 mt-1">
-                  Deactivate employees not in the uploaded file. Historical data will be preserved.
-                </p>
-                {syncMode && (
-                  <p className="text-xs text-amber-600 mt-1 font-medium">
-                    ⚠️ Warning: Employees missing from Excel will be marked inactive
-                  </p>
-                )}
+          <div className="flex items-start justify-between gap-6">
+            {/* Left side - Info about update behavior */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm font-medium text-gray-900">Update existing employees</span>
               </div>
-            </label>
+              <p className="text-xs text-gray-600 ml-7">
+                Add new employees + update existing employee data
+              </p>
+            </div>
+
+            {/* Right side - Sync mode checkbox */}
+            <div className="flex-1">
+              <label className="flex items-start cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={syncMode}
+                  onChange={(e) => setSyncMode(e.target.checked)}
+                  className="mr-2 mt-1"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-900">Sync mode</span>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Deactivate employees not in file (historical data preserved)
+                  </p>
+                  {syncMode && (
+                    <p className="text-xs text-amber-600 mt-1 font-medium">
+                      ⚠️ Employees missing from Excel will be marked inactive
+                    </p>
+                  )}
+                </div>
+              </label>
+            </div>
           </div>
         </div>
 
