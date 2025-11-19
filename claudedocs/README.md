@@ -18,6 +18,7 @@ This directory contains technical documentation and architecture guides for the 
 
 Historical implementation notes and feature deployment guides are archived in:
 - **[archive/implementation-logs/](./archive/implementation-logs/)** - Session logs, deployment guides, and feature implementation summaries
+- **[archive/cleanup-reports/](./archive/cleanup-reports/)** - Historical cleanup reports and codebase maintenance logs
 
 ## Related Documentation
 
