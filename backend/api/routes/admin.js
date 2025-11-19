@@ -255,14 +255,13 @@ router.post('/employees/upload', upload.single('file'), async (req, res) => {
 
     res.json({
       success: true,
-      data: {
-        imported: result.imported,
-        updated: result.updated,
-        skipped: result.skipped,
-        deactivated: result.deactivated || 0,
-        duplicates: result.duplicates,
-        message: result.message
-      }
+      imported: result.imported,
+      updated: result.updated,
+      skipped: result.skipped,
+      deactivated: result.deactivated || 0,
+      duplicates: result.duplicates,
+      errors: result.errors || [],
+      message: result.message
     });
   } catch (error) {
     console.error('Error uploading employees:', error);
