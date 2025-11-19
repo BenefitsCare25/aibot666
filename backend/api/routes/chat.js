@@ -1,6 +1,6 @@
 import express from 'express';
 import { generateRAGResponse } from '../services/openai.js';
-import { searchKnowledgeBase, getEmployeeByEmployeeId } from '../services/vectorDB.js';
+import { searchKnowledgeBase, getEmployeeByEmployeeId, getEmployeeByIdentifier } from '../services/vectorDB.js';
 import {
   createSession,
   getSession,
@@ -76,20 +76,25 @@ const upload = multer({
 /**
  * POST /api/chat/session
  * Create a new chat session
+ * Accepts employeeId, userId, or email for flexible verification
  */
 router.post('/session', async (req, res) => {
   try {
-    const { employeeId, metadata } = req.body;
+    const { employeeId, userId, email, metadata } = req.body;
 
-    if (!employeeId) {
+    // Validate that at least one identifier is provided
+    if (!employeeId && !userId && !email) {
       return res.status(400).json({
         success: false,
-        error: 'Employee ID is required'
+        error: 'Employee ID, User ID, or Email is required'
       });
     }
 
-    // Verify employee exists (use company-specific client)
-    const employee = await getEmployeeByEmployeeId(employeeId, req.supabase);
+    // Verify employee exists using flexible lookup (use company-specific client)
+    const employee = await getEmployeeByIdentifier(
+      { employeeId, userId, email },
+      req.supabase
+    );
 
     if (!employee) {
       return res.status(404).json({
@@ -109,7 +114,9 @@ router.post('/session', async (req, res) => {
           id: employee.id,
           name: employee.name,
           policyType: employee.policy_type,
-          email: employee.email || null
+          email: employee.email || null,
+          employeeId: employee.employee_id,
+          userId: employee.user_id
         },
         company: {
           name: req.company.name
@@ -123,7 +130,7 @@ router.post('/session', async (req, res) => {
     if (error.message && error.message.includes('Employee not found')) {
       return res.status(404).json({
         success: false,
-        error: 'Employee not found'
+        error: 'Employee not found. Please check your credentials.'
       });
     }
 
@@ -1126,10 +1133,11 @@ async function handleEscalation(session, query, response, employee, reason, supa
 /**
  * POST /api/chat/callback-request
  * Create a callback request when user cannot login
+ * Accepts employeeId, userId, or email for identification
  */
 router.post('/callback-request', async (req, res) => {
   try {
-    const { contactNumber, employeeId } = req.body;
+    const { contactNumber, employeeId, userId, email } = req.body;
     const supabaseClient = req.supabaseClient;
     const company = req.company;
 
@@ -1143,17 +1151,23 @@ router.post('/callback-request', async (req, res) => {
       return res.status(400).json({ error: 'Invalid contact number format' });
     }
 
+    // Store the identifier that was provided (for reference)
+    const identifierUsed = employeeId || userId || email || 'Not provided';
+    const identifierType = employeeId ? 'employee_id' : (userId ? 'user_id' : (email ? 'email' : 'none'));
+
     // Create callback request record
     const { data: callbackRequest, error: insertError } = await supabaseClient
       .from('callback_requests')
       .insert({
         contact_number: contactNumber.trim(),
-        employee_id: employeeId || null,
+        employee_id: identifierUsed,
         status: 'pending',
         metadata: {
           user_agent: req.headers['user-agent'],
           ip_address: req.ip,
-          company_id: company?.id
+          company_id: company?.id,
+          identifier_type: identifierType,
+          identifier_value: identifierUsed
         }
       })
       .select()
@@ -1171,7 +1185,8 @@ router.post('/callback-request', async (req, res) => {
       await sendCallbackNotificationEmail({
         callbackRequest,
         contactNumber: contactNumber.trim(),
-        employeeId: employeeId || 'Not provided',
+        employeeId: identifierUsed,
+        identifierType: identifierType,
         company
       });
       emailSent = true;
@@ -1204,7 +1219,8 @@ router.post('/callback-request', async (req, res) => {
       await sendCallbackTelegramNotification({
         callbackRequest,
         contactNumber: contactNumber.trim(),
-        employeeId: employeeId || 'Not provided',
+        employeeId: identifierUsed,
+        identifierType: identifierType,
         company,
         schemaName: req.schemaName
       });
@@ -1248,7 +1264,7 @@ router.post('/callback-request', async (req, res) => {
  * Send callback notification email to support team
  */
 async function sendCallbackNotificationEmail(data) {
-  const { callbackRequest, contactNumber, employeeId, company } = data;
+  const { callbackRequest, contactNumber, employeeId, identifierType, company } = data;
 
   // Import at function level to avoid circular dependencies
   const { sendLogRequestEmail } = await import('../services/email.js');
@@ -1258,23 +1274,28 @@ async function sendCallbackNotificationEmail(data) {
     log_request_email_cc: company?.callback_email_cc || company?.log_request_email_cc
   };
 
+  // Format identifier label based on type
+  const identifierLabel = identifierType === 'employee_id' ? 'Employee ID' :
+                         identifierType === 'user_id' ? 'User ID' :
+                         identifierType === 'email' ? 'Email' : 'Identifier';
+
   // Format as if it's a LOG request but for callback
   const emailData = {
     employee: {
       name: 'Callback Request',
-      employee_id: employeeId,
+      employee_id: `${identifierLabel}: ${employeeId}`,
       policy_type: 'N/A',
-      email: 'Not available',
+      email: identifierType === 'email' ? employeeId : 'Not available',
       coverage_limit: 0
     },
     conversationHistory: [{
       role: 'user',
-      content: `User requested a callback at: ${contactNumber}`,
+      content: `User requested a callback at: ${contactNumber}\n${identifierLabel}: ${employeeId}`,
       created_at: new Date().toISOString()
     }],
     conversationId: callbackRequest.id,
     requestType: 'button',
-    requestMessage: `Callback requested - Contact number: ${contactNumber}`,
+    requestMessage: `Callback requested - Contact number: ${contactNumber}, ${identifierLabel}: ${employeeId}`,
     attachments: [],
     companyConfig,
     customSubject: '📞 Invalid ID, Callback Request',
@@ -1288,7 +1309,7 @@ async function sendCallbackNotificationEmail(data) {
  * Send callback notification to Telegram
  */
 async function sendCallbackTelegramNotification(data) {
-  const { callbackRequest, contactNumber, employeeId, company, schemaName } = data;
+  const { callbackRequest, contactNumber, employeeId, identifierType, company, schemaName } = data;
 
   // Check if bot is configured
   if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_CHAT_ID) {
@@ -1299,11 +1320,16 @@ async function sendCallbackTelegramNotification(data) {
   const { Telegraf } = await import('telegraf');
   const telegramBot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
+  // Format identifier label based on type
+  const identifierLabel = identifierType === 'employee_id' ? 'Employee ID' :
+                         identifierType === 'user_id' ? 'User ID' :
+                         identifierType === 'email' ? 'Email' : 'Identifier';
+
   const message = `
 🔔 <b>Callback Request</b>
 
 <b>Contact Number:</b> ${contactNumber}
-<b>Employee ID:</b> ${employeeId}
+<b>${identifierLabel}:</b> ${employeeId}
 <b>Company:</b> ${company?.name || 'Unknown'}
 <b>Status:</b> 🟡 Pending Callback
 

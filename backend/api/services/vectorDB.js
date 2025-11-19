@@ -659,17 +659,24 @@ export async function getEmployeeByEmployeeId(employeeId, supabaseClient = null,
  * @param {Object} supabaseClient - Company-specific Supabase client
  * @returns {Promise<Object>} - Employee data
  */
-export async function getEmployeeByEmail(email, supabaseClient = null) {
+export async function getEmployeeByEmail(email, supabaseClient = null, includeInactive = false) {
   const client = supabaseClient || supabase;
 
   try {
-    // Query without .single() to handle potential duplicates
-    const { data, error } = await client
+    // Build query with optional active status filter
+    let query = client
       .from('employees')
       .select('*')
       .eq('email', email)
       .order('created_at', { ascending: false })
       .limit(1);
+
+    // Filter by active status unless includeInactive is true
+    if (!includeInactive) {
+      query = query.eq('is_active', true);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw new Error(`Employee lookup failed: ${error.message}`);
@@ -687,6 +694,83 @@ export async function getEmployeeByEmail(email, supabaseClient = null) {
     return data[0];
   } catch (error) {
     console.error('Error getting employee by email:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Get employee by user_id
+ * @param {string} userId - User ID from admin_users table
+ * @param {Object} supabaseClient - Supabase client (for multi-tenancy)
+ * @param {boolean} includeInactive - Whether to include inactive employees
+ * @returns {Promise<Object>} - Employee data
+ */
+export async function getEmployeeByUserId(userId, supabaseClient = null, includeInactive = false) {
+  const client = supabaseClient || supabase;
+
+  try {
+    // Build query with optional active status filter
+    let query = client
+      .from('employees')
+      .select('*')
+      .eq('user_id', userId);
+
+    // Filter by active status unless includeInactive is true
+    if (!includeInactive) {
+      query = query.eq('is_active', true);
+    }
+
+    const { data, error } = await query.single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        throw new Error(`Employee not found with user_id: ${userId}`);
+      }
+      throw new Error(`Employee lookup failed: ${error.message}`);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error getting employee by user_id:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Flexible employee lookup - accepts employee_id, user_id, or email
+ * @param {Object} identifier - Object with one of: employeeId, userId, or email
+ * @param {Object} supabaseClient - Supabase client (for multi-tenancy)
+ * @param {boolean} includeInactive - Whether to include inactive employees
+ * @returns {Promise<Object>} - Employee data
+ */
+export async function getEmployeeByIdentifier(identifier, supabaseClient = null, includeInactive = false) {
+  const { employeeId, userId, email } = identifier;
+
+  // Validate that at least one identifier is provided
+  if (!employeeId && !userId && !email) {
+    throw new Error('At least one identifier (employeeId, userId, or email) must be provided');
+  }
+
+  try {
+    // Try email first (most user-friendly)
+    if (email) {
+      console.log(`[Employee Lookup] Searching by email: ${email}`);
+      return await getEmployeeByEmail(email, supabaseClient, includeInactive);
+    }
+
+    // Try user_id second
+    if (userId) {
+      console.log(`[Employee Lookup] Searching by user_id: ${userId}`);
+      return await getEmployeeByUserId(userId, supabaseClient, includeInactive);
+    }
+
+    // Fall back to employee_id
+    if (employeeId) {
+      console.log(`[Employee Lookup] Searching by employee_id: ${employeeId}`);
+      return await getEmployeeByEmployeeId(employeeId, supabaseClient, includeInactive);
+    }
+  } catch (error) {
+    console.error('[Employee Lookup] Failed:', error.message);
     throw error;
   }
 }
@@ -909,7 +993,9 @@ export default {
   updateEmployee,
   updateEmployeesBatch,
   getEmployeeByEmployeeId,
+  getEmployeeByUserId,
   getEmployeeByEmail,
+  getEmployeeByIdentifier,
   deactivateEmployee,
   reactivateEmployee,
   deactivateEmployeesBulk

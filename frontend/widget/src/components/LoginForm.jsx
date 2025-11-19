@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useChatStore } from '../store/chatStore';
 
 export default function LoginForm({ onLogin, onClose, primaryColor }) {
-  const [employeeId, setEmployeeId] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -15,15 +15,15 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
     setError('');
     setSuccessMessage('');
 
-    if (!employeeId.trim()) {
-      setError('Please enter your employee ID');
+    if (!identifier.trim()) {
+      setError('Please enter your employee ID, user ID, or email');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const sessionData = await createSession(employeeId.trim());
+      const sessionData = await createSession(identifier.trim());
       onLogin(sessionData);
     } catch (err) {
       const errorMessage = err.message || 'Failed to start chat session';
@@ -36,7 +36,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
         errorMessage.includes('Failed to create session');
 
       if (isEmployeeValidationError) {
-        setError('Invalid ID, please contact helpdesk at 64487707');
+        setError('Invalid credentials, please contact helpdesk at 64487707');
         setShowCallbackForm(true); // Show callback form for any employee validation failure
       } else {
         // Only server/network errors go here
@@ -79,7 +79,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
         },
         body: JSON.stringify({
           contactNumber: contactNumber.trim(),
-          employeeId: employeeId || null
+          employeeId: identifier || null
         })
       });
 
@@ -160,28 +160,31 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
       {/* Login Form */}
       <div className="ic-p-6">
         <p className="ic-text-gray-600 ic-mb-4 ic-text-sm">
-          Welcome! Please enter your employee ID to start chatting with our AI support assistant.
+          Welcome! Please enter your employee ID, user ID, or email to start chatting with our AI support assistant.
         </p>
 
         <form onSubmit={handleSubmit}>
           <div className="ic-mb-4">
             <label
-              htmlFor="employeeId"
+              htmlFor="identifier"
               className="ic-block ic-text-sm ic-font-medium ic-text-gray-700 ic-mb-2"
             >
-              Employee ID
+              Employee ID / User ID / Email
             </label>
             <input
               type="text"
-              id="employeeId"
-              value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
-              placeholder="e.g., EMP001"
+              id="identifier"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="e.g., EMP001 or user@example.com"
               className="ic-w-full ic-px-3 ic-py-2 ic-border ic-border-gray-300 ic-rounded-md focus:ic-outline-none focus:ic-ring-2 ic-text-gray-900"
               style={{ '--tw-ring-color': primaryColor }}
               disabled={isLoading}
               autoFocus
             />
+            <p className="ic-text-xs ic-text-gray-500 ic-mt-1">
+              You can use your employee ID, user ID, or email address
+            </p>
           </div>
 
           <button
