@@ -73,42 +73,6 @@ function mapEmployeeData(row) {
     'email', 'Email', 'Email Address', 'EmailAddress'
   ]);
 
-  const department = getField(row, [
-    'department', 'Department', 'Dept'
-  ]);
-
-  const policyType = getField(row, [
-    'policy_type', 'Policy Type', 'PolicyType', 'Policy', 'Plan'
-  ]);
-
-  const coverageLimit = parseFloat(getField(row, [
-    'coverage_limit', 'Coverage Limit', 'CoverageLimit', 'Coverage', 'Total Coverage'
-  ]) || 0);
-
-  const annualClaimLimit = parseFloat(getField(row, [
-    'annual_claim_limit', 'Annual Claim Limit', 'AnnualClaimLimit', 'Annual Limit', 'Claim Limit'
-  ]) || 0);
-
-  const outpatientLimit = parseFloat(getField(row, [
-    'outpatient_limit', 'Outpatient Limit', 'OutpatientLimit', 'Outpatient'
-  ]) || 0);
-
-  const dentalLimit = parseFloat(getField(row, [
-    'dental_limit', 'Dental Limit', 'DentalLimit', 'Dental'
-  ]) || 0);
-
-  const opticalLimit = parseFloat(getField(row, [
-    'optical_limit', 'Optical Limit', 'OpticalLimit', 'Optical'
-  ]) || 0);
-
-  const policyStartDate = parseExcelDate(getField(row, [
-    'policy_start_date', 'Policy Start Date', 'StartDate', 'Start Date', 'Effective Date'
-  ]));
-
-  const policyEndDate = parseExcelDate(getField(row, [
-    'policy_end_date', 'Policy End Date', 'EndDate', 'End Date', 'Expiry Date'
-  ]));
-
   // Validate required fields
   if (!employeeId) {
     throw new Error('Employee ID is required');
@@ -122,9 +86,6 @@ function mapEmployeeData(row) {
     throw new Error('Email is required');
   }
 
-  // Use default policy type if not provided
-  const finalPolicyType = policyType || 'Standard';
-
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
@@ -136,16 +97,6 @@ function mapEmployeeData(row) {
     user_id: userId ? String(userId).trim() : null,
     name: String(name).trim(),
     email: String(email).trim().toLowerCase(),
-    department: department ? String(department).trim() : null,
-    policy_type: String(finalPolicyType).trim(),
-    coverage_limit: coverageLimit,
-    annual_claim_limit: annualClaimLimit,
-    outpatient_limit: outpatientLimit || null,
-    dental_limit: dentalLimit || null,
-    optical_limit: opticalLimit || null,
-    policy_start_date: policyStartDate,
-    policy_end_date: policyEndDate,
-    dependents: [],
     metadata: {}
   };
 }
@@ -324,13 +275,6 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
             updateData: {
               name: emp.name,
               email: emp.email,
-              department: emp.department,
-              policy_type: emp.policy_type,
-              coverage_limit: emp.coverage_limit,
-              annual_claim_limit: emp.annual_claim_limit,
-              outpatient_limit: emp.outpatient_limit,
-              dental_limit: emp.dental_limit,
-              optical_limit: emp.optical_limit,
               updated_at: new Date().toISOString()
             }
           });
@@ -558,15 +502,13 @@ export function generateExcelTemplate(minimal = false) {
         'Employee ID': 'EMP001',
         'UserID': 'USER001',
         'Name': 'John Doe',
-        'Email': 'john.doe@company.com',
-        'Policy Type': 'Premium'
+        'Email': 'john.doe@company.com'
       },
       {
         'Employee ID': 'EMP002',
         'UserID': 'USER002',
         'Name': 'Jane Smith',
-        'Email': 'jane.smith@company.com',
-        'Policy Type': 'Standard'
+        'Email': 'jane.smith@company.com'
       }
     ];
   } else {
@@ -576,31 +518,13 @@ export function generateExcelTemplate(minimal = false) {
         'employee_id': 'EMP001',
         'user_id': 'USER001',
         'name': 'John Doe',
-        'email': 'john.doe@company.com',
-        'department': 'Engineering',
-        'policy_type': 'Premium',
-        'coverage_limit': 100000,
-        'annual_claim_limit': 50000,
-        'outpatient_limit': 10000,
-        'dental_limit': 2000,
-        'optical_limit': 1000,
-        'policy_start_date': '2024-01-01',
-        'policy_end_date': '2024-12-31'
+        'email': 'john.doe@company.com'
       },
       {
         'employee_id': 'EMP002',
         'user_id': 'USER002',
         'name': 'Jane Smith',
-        'email': 'jane.smith@company.com',
-        'department': 'Marketing',
-        'policy_type': 'Standard',
-        'coverage_limit': 50000,
-        'annual_claim_limit': 25000,
-        'outpatient_limit': 5000,
-        'dental_limit': 1000,
-        'optical_limit': 500,
-        'policy_start_date': '2024-01-01',
-        'policy_end_date': '2024-12-31'
+        'email': 'jane.smith@company.com'
       }
     ];
   }
@@ -615,24 +539,14 @@ export function generateExcelTemplate(minimal = false) {
       { wch: 15 }, // Employee ID
       { wch: 12 }, // UserID
       { wch: 20 }, // Name
-      { wch: 30 }, // Email
-      { wch: 15 }  // Policy Type
+      { wch: 30 }  // Email
     ];
   } else {
     worksheet['!cols'] = [
       { wch: 12 }, // employee_id
       { wch: 12 }, // user_id
       { wch: 20 }, // name
-      { wch: 30 }, // email
-      { wch: 15 }, // department
-      { wch: 15 }, // policy_type
-      { wch: 15 }, // coverage_limit
-      { wch: 18 }, // annual_claim_limit
-      { wch: 17 }, // outpatient_limit
-      { wch: 14 }, // dental_limit
-      { wch: 14 }, // optical_limit
-      { wch: 18 }, // policy_start_date
-      { wch: 18 }  // policy_end_date
+      { wch: 30 }  // email
     ];
   }
 

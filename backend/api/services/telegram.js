@@ -137,7 +137,7 @@ export function initializeTelegramBot() {
             id,
             query,
             created_at,
-            employees (name, policy_type)
+            employees (name)
           `)
           .eq('status', 'pending')
           .order('created_at', { ascending: false })
@@ -306,7 +306,7 @@ export function initializeTelegramBot() {
           .from('escalations')
           .select(`
             *,
-            employees (name, email, policy_type)
+            employees (name, email)
           `)
           .eq('id', escalationId)
           .single();
@@ -330,7 +330,7 @@ export function initializeTelegramBot() {
             .from('escalations')
             .select(`
               *,
-              employees (name, email, policy_type)
+              employees (name, email)
             `)
             .eq('id', escalationId)
             .single();
@@ -456,11 +456,10 @@ export function initializeTelegramBot() {
           title: escalation.query.substring(0, 200),
           content: `Question: ${escalation.query}\n\nAnswer: ${answerToSave}`,
           category: 'hitl_learning',
-          subcategory: escalation.employees?.policy_type || 'general',
+          subcategory: 'general',
           metadata: {
             escalation_id: escalationId,
             resolved_by: ctx.from.username || ctx.from.first_name,
-            employee_policy: escalation.employees?.policy_type,
             source_type: isCorrectCommand ? 'ai_confirmed' : 'human_provided'
           },
           source: 'hitl_learning'
@@ -608,7 +607,6 @@ export async function notifyTelegramEscalation(escalation, query, employee, aiRe
 🔔 <b>New Escalation</b>
 
 <b>Employee:</b> ${employee.name}
-<b>Policy:</b> ${employee.policy_type} | <b>Coverage:</b> $${employee.coverage_limit}
 
 📧 <b>Registered Email:</b> ${registeredEmail}
 💬 <b>Contact from Chat:</b> ${chatContact}
@@ -682,7 +680,6 @@ export async function notifyContactProvided(escalationId, contactInfo, employee)
 📞 <b>Contact Information Provided</b>
 
 <b>Employee:</b> ${employee.name}
-<b>Policy:</b> ${employee.policy_type} | <b>Coverage:</b> $${employee.coverage_limit}
 
 💬 <b>Contact Provided:</b> ${contactInfo}
 

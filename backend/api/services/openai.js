@@ -118,20 +118,15 @@ function injectVariablesIntoPrompt(template, data) {
       ).join('\n\n---\n\n')
     : 'No knowledge base context available for this query.';
 
-  // Format employee info
+  // Format employee info (policy details not included for security)
   const employeeInfo = employeeData ? `
 Employee Information:
 - Name: ${employeeData.name}
 - Employee ID: ${employeeData.employee_id || 'N/A'}
 - User ID: ${employeeData.user_id || 'N/A'}
 - Email: ${employeeData.email || 'N/A'}
-- Policy Type: ${employeeData.policy_type}
-- Coverage Limit: $${employeeData.coverage_limit}
-- Annual Claim Limit: $${employeeData.annual_claim_limit}
-- Outpatient Limit: $${employeeData.outpatient_limit || 'N/A'}
-- Dental Limit: $${employeeData.dental_limit || 'N/A'}
-- Optical Limit: $${employeeData.optical_limit || 'N/A'}
-- Policy Period: ${employeeData.policy_start_date} to ${employeeData.policy_end_date}
+
+Note: For your specific policy details and coverage limits, please refer to your employee portal.
 ` : 'No employee information available.';
 
   // Replace all variables in template
@@ -154,10 +149,7 @@ Employee Information:
     .replace(/\{\{EMPLOYEE_INFO\}\}/g, employeeInfo)
     .replace(/\{\{EMPLOYEE_NAME\}\}/g, employeeData?.name || 'N/A')
     .replace(/\{\{EMPLOYEE_ID\}\}/g, employeeData?.employee_id || 'N/A')
-    .replace(/\{\{EMPLOYEE_EMAIL\}\}/g, employeeData?.email || 'N/A')
-    .replace(/\{\{EMPLOYEE_POLICY_TYPE\}\}/g, employeeData?.policy_type || 'N/A')
-    .replace(/\{\{COVERAGE_LIMIT\}\}/g, employeeData?.coverage_limit || 'N/A')
-    .replace(/\{\{ANNUAL_CLAIM_LIMIT\}\}/g, employeeData?.annual_claim_limit || 'N/A');
+    .replace(/\{\{EMPLOYEE_EMAIL\}\}/g, employeeData?.email || 'N/A');
 
   return result;
 }
@@ -186,13 +178,8 @@ Employee Information:
 - Employee ID: ${employeeData.employee_id || 'N/A'}
 - User ID: ${employeeData.user_id || 'N/A'}
 - Email: ${employeeData.email || 'N/A'}
-- Policy Type: ${employeeData.policy_type}
-- Coverage Limit: $${employeeData.coverage_limit}
-- Annual Claim Limit: $${employeeData.annual_claim_limit}
-- Outpatient Limit: $${employeeData.outpatient_limit || 'N/A'}
-- Dental Limit: $${employeeData.dental_limit || 'N/A'}
-- Optical Limit: $${employeeData.optical_limit || 'N/A'}
-- Policy Period: ${employeeData.policy_start_date} to ${employeeData.policy_end_date}
+
+Note: For your specific policy details and coverage limits, please refer to your employee portal.
 ` : '';
 
   return `You are an AI assistant for an employee insurance benefits portal. Your role is to help employees understand their insurance coverage, benefits, and claims procedures.
@@ -286,7 +273,6 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
       console.log(`  - {{TOP_K_RESULTS}}: ${topKResults}`);
       console.log(`  - {{CONTEXT_COUNT}}: ${contexts?.length || 0}`);
       console.log(`  - {{EMPLOYEE_NAME}}: ${employeeData?.name || 'N/A'}`);
-      console.log(`  - {{EMPLOYEE_POLICY_TYPE}}: ${employeeData?.policy_type || 'N/A'}`);
       console.log(`[RAG] Custom prompt length before context awareness: ${systemPrompt.length} characters`);
     } else {
       console.log('[RAG] Using DEFAULT system prompt');

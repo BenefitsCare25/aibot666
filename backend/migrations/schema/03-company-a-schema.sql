@@ -10,30 +10,29 @@ CREATE SCHEMA IF NOT EXISTS company_a;
 -- Set search path to include extensions schema for vector type
 SET search_path TO company_a, public, extensions;
 
--- Employees table: Store employee information and insurance details
+-- Employees table: Store employee information for chatbot access verification
+-- Note: Policy data is NOT stored here for security reasons
+-- Employees access policy information through their dedicated employee portal
 CREATE TABLE IF NOT EXISTS company_a.employees (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_id VARCHAR(50) UNIQUE NOT NULL,
+  user_id VARCHAR(100),
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
-  department VARCHAR(100),
-  policy_type VARCHAR(100) NOT NULL,
-  coverage_limit DECIMAL(12, 2),
-  annual_claim_limit DECIMAL(12, 2),
-  outpatient_limit DECIMAL(12, 2),
-  dental_limit DECIMAL(12, 2),
-  optical_limit DECIMAL(12, 2),
-  policy_start_date DATE,
-  policy_end_date DATE,
-  dependents JSONB DEFAULT '[]',
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  is_active BOOLEAN DEFAULT true,
+  deactivated_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+  deactivated_by VARCHAR(255) DEFAULT NULL,
+  deactivation_reason TEXT DEFAULT NULL
 );
 
 -- Create indexes for faster employee lookups
 CREATE INDEX IF NOT EXISTS idx_company_a_employees_employee_id ON company_a.employees(employee_id);
 CREATE INDEX IF NOT EXISTS idx_company_a_employees_email ON company_a.employees(email);
+CREATE INDEX IF NOT EXISTS idx_company_a_employees_user_id ON company_a.employees(user_id);
+CREATE INDEX IF NOT EXISTS idx_company_a_employees_is_active ON company_a.employees(is_active);
 
 -- Knowledge base table: Store insurance policies, FAQs, and procedures
 CREATE TABLE IF NOT EXISTS company_a.knowledge_base (

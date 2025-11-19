@@ -155,7 +155,7 @@ export async function sendLogRequestEmail(data) {
     const client = getGraphClient();
 
     // Prepare email subject - use custom subject if provided, otherwise use default
-    const subject = customSubject || `🚨 LOG Request - ${employee.name} - ${employee.policy_type}`;
+    const subject = customSubject || `🚨 LOG Request - ${employee.name}`;
 
     // Format conversation history
     const conversationHTML = formatConversationHTML(conversationHistory);

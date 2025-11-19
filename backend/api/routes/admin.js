@@ -912,7 +912,7 @@ router.get('/escalations', async (req, res) => {
       .from('escalations')
       .select(`
         *,
-        employees (name, email, policy_type)
+        employees (name, email)
       `, { count: 'exact' });
 
     if (status) {
@@ -1601,7 +1601,7 @@ router.get('/chat-history', async (req, res) => {
     const employeeIds = [...new Set(paginatedConversations.map(c => c.employee_id))];
     const { data: employees } = await req.supabase
       .from('employees')
-      .select('id, name, email, policy_type')
+      .select('id, name, email')
       .in('id', employeeIds);
 
     const employeeMap = new Map(employees?.map(e => [e.id, e]) || []);

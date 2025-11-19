@@ -8,11 +8,11 @@
 -- ============================================
 
 -- Company A: Test Employees
-INSERT INTO company_a.employees (employee_id, name, email, department, policy_type, coverage_limit, annual_claim_limit, outpatient_limit, dental_limit, optical_limit, policy_start_date, policy_end_date)
+INSERT INTO company_a.employees (employee_id, name, email)
 VALUES
-  ('EMP001', 'Alice Anderson', 'alice@company-a.local', 'Engineering', 'Premium', 150000.00, 100000.00, 5000.00, 2000.00, 1000.00, '2024-01-01', '2024-12-31'),
-  ('EMP002', 'Bob Brown', 'bob@company-a.local', 'Sales', 'Standard', 100000.00, 75000.00, 3000.00, 1500.00, 500.00, '2024-01-01', '2024-12-31'),
-  ('EMP003', 'Carol Chen', 'carol@company-a.local', 'HR', 'Premium', 150000.00, 100000.00, 5000.00, 2000.00, 1000.00, '2024-01-01', '2024-12-31')
+  ('EMP001', 'Alice Anderson', 'alice@company-a.local'),
+  ('EMP002', 'Bob Brown', 'bob@company-a.local'),
+  ('EMP003', 'Carol Chen', 'carol@company-a.local')
 ON CONFLICT (employee_id) DO NOTHING;
 
 -- Company A: Knowledge Base Entries
@@ -53,11 +53,11 @@ ON CONFLICT DO NOTHING;
 -- ============================================
 
 -- Company B: Test Employees
-INSERT INTO company_b.employees (employee_id, name, email, department, policy_type, coverage_limit, annual_claim_limit, outpatient_limit, dental_limit, optical_limit, policy_start_date, policy_end_date)
+INSERT INTO company_b.employees (employee_id, name, email)
 VALUES
-  ('EMP001', 'David Davis', 'david@company-b.local', 'Finance', 'Basic', 80000.00, 60000.00, 2000.00, 1000.00, 300.00, '2024-01-01', '2024-12-31'),
-  ('EMP002', 'Emma Evans', 'emma@company-b.local', 'Marketing', 'Enhanced', 120000.00, 90000.00, 4000.00, 1800.00, 800.00, '2024-01-01', '2024-12-31'),
-  ('EMP003', 'Frank Foster', 'frank@company-b.local', 'Operations', 'Basic', 80000.00, 60000.00, 2000.00, 1000.00, 300.00, '2024-01-01', '2024-12-31')
+  ('EMP001', 'David Davis', 'david@company-b.local'),
+  ('EMP002', 'Emma Evans', 'emma@company-b.local'),
+  ('EMP003', 'Frank Foster', 'frank@company-b.local')
 ON CONFLICT (employee_id) DO NOTHING;
 
 -- Company B: Knowledge Base Entries
@@ -137,8 +137,8 @@ ORDER BY company, type;
 -- Company B | Knowledge Base | 5
 
 -- Verify data isolation (test employees only see their own company)
-SELECT name, email, policy_type FROM company_a.employees;
+SELECT name, email FROM company_a.employees;
 -- Should only show Alice, Bob, Carol
 
-SELECT name, email, policy_type FROM company_b.employees;
+SELECT name, email FROM company_b.employees;
 -- Should only show David, Emma, Frank

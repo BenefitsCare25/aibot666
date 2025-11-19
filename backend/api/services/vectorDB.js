@@ -402,13 +402,6 @@ export async function addEmployee(employeeData, supabaseClient = null) {
       Employee ID: ${employeeData.employee_id || 'N/A'}
       User ID: ${employeeData.user_id || 'N/A'}
       Email: ${employeeData.email || 'N/A'}
-      Department: ${employeeData.department}
-      Policy Type: ${employeeData.policy_type}
-      Coverage Limit: ${employeeData.coverage_limit}
-      Annual Claim Limit: ${employeeData.annual_claim_limit}
-      Outpatient Limit: ${employeeData.outpatient_limit}
-      Dental Limit: ${employeeData.dental_limit}
-      Optical Limit: ${employeeData.optical_limit}
     `.trim();
 
     const embedding = await generateEmbedding(embeddingContent);
@@ -459,13 +452,6 @@ export async function addEmployeesBatch(employeesData, supabaseClient = null) {
       Employee ID: ${emp.employee_id || 'N/A'}
       User ID: ${emp.user_id || 'N/A'}
       Email: ${emp.email || 'N/A'}
-      Department: ${emp.department}
-      Policy Type: ${emp.policy_type}
-      Coverage Limit: ${emp.coverage_limit}
-      Annual Claim Limit: ${emp.annual_claim_limit}
-      Outpatient Limit: ${emp.outpatient_limit}
-      Dental Limit: ${emp.dental_limit}
-      Optical Limit: ${emp.optical_limit}
     `.trim());
 
     const embeddings = await generateEmbeddingsBatch(embeddingContents);
@@ -537,13 +523,6 @@ export async function updateEmployeesBatch(employeesData, supabaseClient = null)
         Employee ID: ${emp.employee_id || 'N/A'}
         User ID: ${emp.user_id || 'N/A'}
         Email: ${emp.email || 'N/A'}
-        Department: ${emp.department}
-        Policy Type: ${emp.policy_type}
-        Coverage Limit: ${emp.coverage_limit}
-        Annual Claim Limit: ${emp.annual_claim_limit}
-        Outpatient Limit: ${emp.outpatient_limit}
-        Dental Limit: ${emp.dental_limit}
-        Optical Limit: ${emp.optical_limit}
       `.trim());
 
       const embeddings = await generateEmbeddingsBatch(embeddingContents);
@@ -812,13 +791,6 @@ export async function updateEmployee(employeeId, updateData, supabaseClient = nu
       Employee ID: ${employee.employee_id || 'N/A'}
       User ID: ${employee.user_id || 'N/A'}
       Email: ${employee.email || 'N/A'}
-      Department: ${employee.department}
-      Policy Type: ${employee.policy_type}
-      Coverage Limit: ${employee.coverage_limit}
-      Annual Claim Limit: ${employee.annual_claim_limit}
-      Outpatient Limit: ${employee.outpatient_limit}
-      Dental Limit: ${employee.dental_limit}
-      Optical Limit: ${employee.optical_limit}
     `.trim();
 
     const embedding = await generateEmbedding(embeddingContent);

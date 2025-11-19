@@ -115,7 +115,6 @@ router.post('/session', async (req, res) => {
         employee: {
           id: employee.id,
           name: employee.name,
-          policyType: employee.policy_type,
           email: employee.email || null,
           employeeId: employee.employee_id,
           userId: employee.user_id
@@ -540,19 +539,16 @@ router.post('/message', async (req, res) => {
     console.log('\n' + '='.repeat(80));
     console.log(`[Chat] Processing message for employee: ${employee.name} (${employee.employee_id})`);
     console.log(`[Chat] Company: ${req.company?.name}, Schema: ${req.company?.schemaName}`);
-    console.log(`[Chat] Employee Policy Type: ${employee.policy_type}`);
     console.log(`[Chat] AI Settings: topK=${companyAISettings?.top_k_results || 5}, threshold=${companyAISettings?.similarity_threshold || 0.7}, escalation_threshold=${companyAISettings?.escalation_threshold ?? 0.5}`);
     console.log('='.repeat(80) + '\n');
 
     // Search knowledge base (use company-specific client and settings)
-    // Pass employee's policy_type for filtering to reduce token usage
     const contexts = await searchKnowledgeBase(
       message,
       req.supabase,
       companyAISettings?.top_k_results || 5,           // topK from company settings
       companyAISettings?.similarity_threshold || 0.7,  // threshold from company settings
-      null,        // category
-      employee.policy_type  // policyType for filtering
+      null        // category
     );
 
     // Additional context logging after search
@@ -1103,8 +1099,7 @@ async function handleEscalation(session, query, response, employee, reason, supa
           knowledgeMatch: response.knowledgeMatch,
           sources: response.sources,
           employee: {
-            name: employee.name,
-            policyType: employee.policy_type
+            name: employee.name
           }
         },
         status: 'pending'
@@ -1286,9 +1281,7 @@ async function sendCallbackNotificationEmail(data) {
     employee: {
       name: 'Callback Request',
       employee_id: `${identifierLabel}: ${employeeId}`,
-      policy_type: 'N/A',
-      email: identifierType === 'email' ? employeeId : 'Not available',
-      coverage_limit: 0
+      email: identifierType === 'email' ? employeeId : 'Not available'
     },
     conversationHistory: [{
       role: 'user',
