@@ -141,6 +141,32 @@ export default function Employees() {
     }
   };
 
+  const handleDeactivateClick = async (employee) => {
+    if (!window.confirm(`Deactivate employee ${employee.name}? They will not be able to access the chatbot.`)) {
+      return;
+    }
+
+    try {
+      await employeeApi.deactivate(employee.id, 'Manually deactivated by admin', 'admin');
+      toast.success(`Employee ${employee.name} deactivated successfully!`);
+      loadEmployees();
+    } catch (error) {
+      toast.error('Failed to deactivate employee');
+      console.error(error);
+    }
+  };
+
+  const handleActivateClick = async (employee) => {
+    try {
+      await employeeApi.reactivate(employee.id);
+      toast.success(`Employee ${employee.name} activated successfully!`);
+      loadEmployees();
+    } catch (error) {
+      toast.error('Failed to activate employee');
+      console.error(error);
+    }
+  };
+
   const handleSelectAllCurrentPage = () => {
     setSelectedEmployees(employees.map(emp => emp.id));
     setSelectAllMode(false);
@@ -290,31 +316,80 @@ export default function Employees() {
 
         {/* Upload Result Summary */}
         {uploadResult && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="font-medium text-blue-900 mb-2">Upload Summary</h3>
-            <div className="text-sm text-blue-800 space-y-1">
-              <p>✅ New employees imported: <strong>{uploadResult.imported}</strong></p>
-              {uploadResult.updated > 0 && (
-                <p>🔄 Existing employees updated: <strong>{uploadResult.updated}</strong></p>
-              )}
-              {uploadResult.skipped > 0 && (
-                <p>⏭️ Duplicates skipped: <strong>{uploadResult.skipped}</strong></p>
-              )}
-              {uploadResult.duplicates && uploadResult.duplicates.length > 0 && (
-                <details className="mt-2">
-                  <summary className="cursor-pointer font-medium">
-                    View {uploadResult.duplicates.length} duplicate(s)
-                  </summary>
-                  <ul className="mt-2 ml-4 space-y-1">
-                    {uploadResult.duplicates.map((dup, idx) => (
-                      <li key={idx}>
-                        {dup.employee_id} - {dup.name} ({dup.email})
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
+          <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-green-900 text-lg">✅ Upload Complete</h3>
+              <button
+                onClick={() => setUploadResult(null)}
+                className="text-gray-500 hover:text-gray-700"
+                title="Close"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
             </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+              {/* New Employees */}
+              <div className="bg-white p-3 rounded-lg border border-green-200">
+                <div className="text-xs text-gray-600 mb-1">New Employees</div>
+                <div className="text-2xl font-bold text-green-700">
+                  {uploadResult.imported || 0}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">Added to system</div>
+              </div>
+
+              {/* Updated Employees */}
+              <div className="bg-white p-3 rounded-lg border border-blue-200">
+                <div className="text-xs text-gray-600 mb-1">Updated</div>
+                <div className="text-2xl font-bold text-blue-700">
+                  {uploadResult.updated || 0}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">Data refreshed</div>
+              </div>
+
+              {/* Deactivated Employees */}
+              <div className="bg-white p-3 rounded-lg border border-orange-200">
+                <div className="text-xs text-gray-600 mb-1">Deactivated</div>
+                <div className="text-2xl font-bold text-orange-700">
+                  {uploadResult.deactivated || 0}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">Not in file</div>
+              </div>
+
+              {/* Total Processed */}
+              <div className="bg-white p-3 rounded-lg border border-purple-200">
+                <div className="text-xs text-gray-600 mb-1">Total Processed</div>
+                <div className="text-2xl font-bold text-purple-700">
+                  {(uploadResult.imported || 0) + (uploadResult.updated || 0) + (uploadResult.deactivated || 0)}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">All changes</div>
+              </div>
+            </div>
+
+            {/* Summary Message */}
+            <div className="bg-white p-3 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-700">
+                <strong className="text-gray-900">Summary:</strong> {uploadResult.message || 'Upload completed successfully'}
+              </p>
+            </div>
+
+            {/* Duplicates Details (if any) */}
+            {uploadResult.duplicates && uploadResult.duplicates.length > 0 && (
+              <details className="mt-3 bg-white p-3 rounded-lg border border-gray-200">
+                <summary className="cursor-pointer font-medium text-sm text-gray-700">
+                  📋 View {uploadResult.duplicates.length} processed duplicate(s)
+                </summary>
+                <ul className="mt-2 ml-4 space-y-1 text-sm text-gray-600">
+                  {uploadResult.duplicates.map((dup, idx) => (
+                    <li key={idx} className="border-b border-gray-100 pb-1">
+                      <strong>{dup.employee_id}</strong> - {dup.name} ({dup.email})
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </div>
         )}
       </div>
@@ -472,6 +547,9 @@ export default function Employees() {
                       Coverage
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -507,6 +585,17 @@ export default function Employees() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         ${employee.coverage_limit?.toLocaleString()}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {employee.is_active ? (
+                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                            Inactive
+                          </span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         <div className="flex items-center gap-2">
                           <button
@@ -516,6 +605,23 @@ export default function Employees() {
                           >
                             Edit
                           </button>
+                          {employee.is_active ? (
+                            <button
+                              onClick={() => handleDeactivateClick(employee)}
+                              className="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
+                              title="Deactivate employee"
+                            >
+                              Deactivate
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleActivateClick(employee)}
+                              className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                              title="Reactivate employee"
+                            >
+                              Activate
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDeleteClick(employee)}
                             className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
