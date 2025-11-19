@@ -521,16 +521,23 @@ async function updateKnowledgeUsage(ids, supabaseClient = null) {
  * @param {string} employeeId - Employee ID
  * @returns {Promise<Object>} - Employee data
  */
-export async function getEmployeeByEmployeeId(employeeId, supabaseClient = null) {
+export async function getEmployeeByEmployeeId(employeeId, supabaseClient = null, includeInactive = false) {
   try {
     // Use provided client or fallback to default
     const client = supabaseClient || supabase;
 
-    // Query without .single() to handle potential duplicates
-    const { data, error } = await client
+    // Build query with optional active status filter
+    let query = client
       .from('employees')
       .select('*')
-      .eq('employee_id', employeeId)
+      .eq('employee_id', employeeId);
+
+    // Filter by active status unless includeInactive is true
+    if (!includeInactive) {
+      query = query.eq('is_active', true);
+    }
+
+    const { data, error } = await query
       .order('created_at', { ascending: false })
       .limit(1);
 
@@ -539,7 +546,8 @@ export async function getEmployeeByEmployeeId(employeeId, supabaseClient = null)
     }
 
     if (!data || data.length === 0) {
-      throw new Error(`Employee not found with ID: ${employeeId}`);
+      const statusMsg = includeInactive ? 'Employee not found' : 'Active employee not found';
+      throw new Error(`${statusMsg} with ID: ${employeeId}`);
     }
 
     // If duplicates exist, warn but use most recent
@@ -668,6 +676,136 @@ export async function updateEmployee(employeeId, updateData, supabaseClient = nu
   }
 }
 
+/**
+ * Deactivate an employee (soft delete)
+ * @param {string} employeeId - Employee UUID
+ * @param {Object} options - Deactivation options
+ * @param {string} options.reason - Reason for deactivation
+ * @param {string} options.deactivatedBy - Who deactivated the employee
+ * @param {Object} supabaseClient - Supabase client instance
+ * @returns {Promise<Object>} - Deactivated employee data
+ */
+export async function deactivateEmployee(employeeId, options = {}, supabaseClient = null) {
+  try {
+    const client = supabaseClient || supabase;
+    const { reason, deactivatedBy } = options;
+
+    const updateData = {
+      is_active: false,
+      deactivated_at: new Date().toISOString(),
+      deactivated_by: deactivatedBy || 'system',
+      deactivation_reason: reason || 'No reason provided'
+    };
+
+    const { data, error } = await client
+      .from('employees')
+      .update(updateData)
+      .eq('id', employeeId)
+      .eq('is_active', true)  // Only deactivate if currently active
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to deactivate employee: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error('Employee not found or already inactive');
+    }
+
+    console.log(`[Deactivate] Employee ${employeeId} deactivated by ${deactivatedBy}`);
+    return data;
+  } catch (error) {
+    console.error('Error deactivating employee:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Reactivate a previously deactivated employee
+ * @param {string} employeeId - Employee UUID
+ * @param {Object} supabaseClient - Supabase client instance
+ * @returns {Promise<Object>} - Reactivated employee data
+ */
+export async function reactivateEmployee(employeeId, supabaseClient = null) {
+  try {
+    const client = supabaseClient || supabase;
+
+    const updateData = {
+      is_active: true,
+      deactivated_at: null,
+      deactivated_by: null,
+      deactivation_reason: null
+    };
+
+    const { data, error } = await client
+      .from('employees')
+      .update(updateData)
+      .eq('id', employeeId)
+      .eq('is_active', false)  // Only reactivate if currently inactive
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to reactivate employee: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error('Employee not found or already active');
+    }
+
+    console.log(`[Reactivate] Employee ${employeeId} reactivated`);
+    return data;
+  } catch (error) {
+    console.error('Error reactivating employee:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Deactivate multiple employees in bulk
+ * @param {Array<string>} employeeIds - Array of employee UUIDs
+ * @param {Object} options - Deactivation options
+ * @param {string} options.reason - Reason for deactivation
+ * @param {string} options.deactivatedBy - Who deactivated the employees
+ * @param {Object} supabaseClient - Supabase client instance
+ * @returns {Promise<Object>} - Result with success count
+ */
+export async function deactivateEmployeesBulk(employeeIds, options = {}, supabaseClient = null) {
+  try {
+    const client = supabaseClient || supabase;
+    const { reason, deactivatedBy } = options;
+
+    const updateData = {
+      is_active: false,
+      deactivated_at: new Date().toISOString(),
+      deactivated_by: deactivatedBy || 'system',
+      deactivation_reason: reason || 'Bulk deactivation'
+    };
+
+    const { data, error } = await client
+      .from('employees')
+      .update(updateData)
+      .in('id', employeeIds)
+      .eq('is_active', true)
+      .select();
+
+    if (error) {
+      throw new Error(`Failed to bulk deactivate employees: ${error.message}`);
+    }
+
+    console.log(`[Bulk Deactivate] ${data.length} employees deactivated by ${deactivatedBy}`);
+
+    return {
+      deactivated: data.length,
+      employees: data
+    };
+  } catch (error) {
+    console.error('Error bulk deactivating employees:', error.message);
+    throw error;
+  }
+}
+
 export default {
   searchKnowledgeBase,
   searchEmployeeData,
@@ -679,5 +817,8 @@ export default {
   addEmployeesBatch,
   updateEmployee,
   getEmployeeByEmployeeId,
-  getEmployeeByEmail
+  getEmployeeByEmail,
+  deactivateEmployee,
+  reactivateEmployee,
+  deactivateEmployeesBulk
 };

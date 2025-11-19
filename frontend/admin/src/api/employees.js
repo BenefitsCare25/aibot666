@@ -3,8 +3,8 @@ import apiClient from './client';
 export const employeeApi = {
   // Get all employees with pagination and search
   getAll: async (params = {}) => {
-    const { page = 1, limit = 50, search = '' } = params;
-    return apiClient.get('/api/admin/employees', { params: { page, limit, search } });
+    const { page = 1, limit = 50, search = '', status = 'active' } = params;
+    return apiClient.get('/api/admin/employees', { params: { page, limit, search, status } });
   },
 
   // Get employee by ID
@@ -39,10 +39,11 @@ export const employeeApi = {
   },
 
   // Upload employees via Excel
-  uploadExcel: async (file, duplicateAction = 'skip', onProgress) => {
+  uploadExcel: async (file, duplicateAction = 'skip', syncMode = false, onProgress) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('duplicateAction', duplicateAction);
+    formData.append('syncMode', syncMode);
 
     return apiClient.post('/api/admin/employees/upload', formData, {
       headers: {
@@ -85,5 +86,27 @@ export const employeeApi = {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+  },
+
+  // Deactivate employee (soft delete)
+  deactivate: async (id, reason, deactivatedBy) => {
+    return apiClient.patch(`/api/admin/employees/${id}/deactivate`, {
+      reason,
+      deactivatedBy
+    });
+  },
+
+  // Reactivate employee
+  reactivate: async (id) => {
+    return apiClient.patch(`/api/admin/employees/${id}/reactivate`);
+  },
+
+  // Bulk deactivate employees
+  bulkDeactivate: async (employeeIds, reason, deactivatedBy) => {
+    return apiClient.post('/api/admin/employees/bulk-deactivate', {
+      employeeIds,
+      reason,
+      deactivatedBy
+    });
   }
 };

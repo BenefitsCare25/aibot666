@@ -12,6 +12,8 @@ export default function Employees() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [duplicateAction, setDuplicateAction] = useState('skip');
+  const [syncMode, setSyncMode] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('active');
   const [uploadResult, setUploadResult] = useState(null);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -24,7 +26,7 @@ export default function Employees() {
 
   useEffect(() => {
     loadEmployees();
-  }, [currentPage, searchTerm]);
+  }, [currentPage, searchTerm, statusFilter]);
 
   const loadEmployees = async () => {
     try {
@@ -32,7 +34,8 @@ export default function Employees() {
       const response = await employeeApi.getAll({
         page: currentPage,
         limit: 20,
-        search: searchTerm
+        search: searchTerm,
+        status: statusFilter
       });
 
       setEmployees(response.data.employees);
@@ -54,14 +57,14 @@ export default function Employees() {
     setUploadResult(null);
 
     try {
-      const result = await employeeApi.uploadExcel(file, duplicateAction, (progress) => {
+      const result = await employeeApi.uploadExcel(file, duplicateAction, syncMode, (progress) => {
         setUploadProgress(progress);
       });
 
       setUploadResult(result);
 
       // Show success message
-      if (result.imported > 0 || result.updated > 0) {
+      if (result.imported > 0 || result.updated > 0 || result.deactivated > 0) {
         toast.success(result.message || 'Employees processed successfully!');
       }
 
@@ -72,6 +75,11 @@ export default function Employees() {
         } else {
           toast.success(`${result.updated} duplicate(s) were updated`);
         }
+      }
+
+      // Show sync mode results
+      if (syncMode && result.deactivated > 0) {
+        toast.info(`${result.deactivated} employee(s) deactivated (not in file)`);
       }
 
       loadEmployees();
@@ -241,6 +249,28 @@ export default function Employees() {
               <span className="text-sm text-gray-700">Update existing employees</span>
             </label>
           </div>
+
+          <div className="mt-4">
+            <label className="flex items-start">
+              <input
+                type="checkbox"
+                checked={syncMode}
+                onChange={(e) => setSyncMode(e.target.checked)}
+                className="mr-2 mt-1"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-900">Sync mode</span>
+                <p className="text-xs text-gray-600 mt-1">
+                  Deactivate employees not in the uploaded file. Historical data will be preserved.
+                </p>
+                {syncMode && (
+                  <p className="text-xs text-amber-600 mt-1 font-medium">
+                    ⚠️ Warning: Employees missing from Excel will be marked inactive
+                  </p>
+                )}
+              </div>
+            </label>
+          </div>
         </div>
 
         <div
@@ -309,6 +339,18 @@ export default function Employees() {
       {/* Search and Filter */}
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between gap-4">
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          >
+            <option value="active">Active Employees</option>
+            <option value="inactive">Inactive Employees</option>
+            <option value="all">All Employees</option>
+          </select>
           <input
             type="text"
             placeholder="Search by name, email, employee ID, or user ID..."

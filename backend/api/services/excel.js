@@ -192,7 +192,7 @@ function parseExcelDate(dateValue) {
  * @param {string} duplicateAction - How to handle duplicates: 'skip' or 'update' (default: 'skip')
  * @returns {Promise<Object>} - Import results
  */
-export async function importEmployeesFromExcel(filePath, supabaseClient, duplicateAction = 'skip') {
+export async function importEmployeesFromExcel(filePath, supabaseClient, duplicateAction = 'skip', syncMode = false) {
   try {
     console.log('Parsing Excel file...');
     const employees = await parseEmployeeExcel(filePath);
@@ -331,14 +331,73 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
       email: e.email
     }));
 
+    // Handle sync mode: deactivate employees not in Excel file
+    let deactivated = 0;
+    if (syncMode) {
+      console.log('Sync mode enabled: checking for employees to deactivate...');
+
+      const excelEmployeeIds = employees.map(e => e.employee_id);
+
+      // Get all active employees
+      const { data: allActiveEmployees, error: activeError } = await supabaseClient
+        .from('employees')
+        .select('id, employee_id, name')
+        .eq('is_active', true);
+
+      if (activeError) {
+        console.error('Failed to fetch active employees for sync:', activeError.message);
+      } else {
+        // Find employees not in Excel file
+        const employeesToDeactivate = allActiveEmployees.filter(
+          emp => !excelEmployeeIds.includes(emp.employee_id)
+        );
+
+        if (employeesToDeactivate.length > 0) {
+          console.log(`Found ${employeesToDeactivate.length} employees to deactivate`);
+
+          // Import deactivateEmployeesBulk
+          const { deactivateEmployeesBulk } = await import('./vectorDB.js');
+
+          const employeeIdsToDeactivate = employeesToDeactivate.map(e => e.id);
+
+          // Deactivate in batches of 100
+          const DEACTIVATE_BATCH_SIZE = 100;
+          for (let i = 0; i < employeeIdsToDeactivate.length; i += DEACTIVATE_BATCH_SIZE) {
+            const batch = employeeIdsToDeactivate.slice(i, i + DEACTIVATE_BATCH_SIZE);
+
+            try {
+              const result = await deactivateEmployeesBulk(
+                batch,
+                {
+                  reason: 'Not in uploaded Excel file (sync mode)',
+                  deactivatedBy: 'system'
+                },
+                supabaseClient
+              );
+              deactivated += result.deactivated;
+            } catch (deactivateError) {
+              console.error('Error deactivating batch:', deactivateError.message);
+            }
+          }
+
+          console.log(`Deactivated ${deactivated} employees (sync mode)`);
+        } else {
+          console.log('No employees to deactivate');
+        }
+      }
+    }
+
     return {
       success: true,
       imported: imported.length,
       updated: updated.length,
       skipped: skipped.length,
+      deactivated: deactivated,
       duplicates: duplicateInfo,
       errors: [],
-      message: `Processed ${totalProcessed} employees: ${imported.length} imported, ${updated.length} updated, ${skipped.length} skipped`
+      message: syncMode
+        ? `Processed ${totalProcessed} employees: ${imported.length} imported, ${updated.length} updated, ${skipped.length} skipped, ${deactivated} deactivated`
+        : `Processed ${totalProcessed} employees: ${imported.length} imported, ${updated.length} updated, ${skipped.length} skipped`
     };
   } catch (error) {
     console.error('Error importing employees:', error);

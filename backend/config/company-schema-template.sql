@@ -37,13 +37,18 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.employees (
   dependents JSONB DEFAULT '[]',
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  is_active BOOLEAN DEFAULT true,
+  deactivated_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+  deactivated_by VARCHAR(255) DEFAULT NULL,
+  deactivation_reason TEXT DEFAULT NULL
 );
 
 -- Create indexes for faster employee lookups
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_employees_employee_id ON {{SCHEMA_NAME}}.employees(employee_id);
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_employees_email ON {{SCHEMA_NAME}}.employees(email);
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_employees_user_id ON {{SCHEMA_NAME}}.employees(user_id);
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_employees_is_active ON {{SCHEMA_NAME}}.employees(is_active);
 
 -- Knowledge base table: Store insurance policies, FAQs, and procedures
 CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.knowledge_base (

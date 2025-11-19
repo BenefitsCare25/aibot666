@@ -14,7 +14,10 @@ import {
   deleteKnowledgeEntry,
   addEmployee,
   updateEmployee,
-  getEmployeeByEmployeeId
+  getEmployeeByEmployeeId,
+  deactivateEmployee,
+  reactivateEmployee,
+  deactivateEmployeesBulk
 } from '../services/vectorDB.js';
 import supabase from '../../config/supabase.js';
 import { getAllCompanies, getCompanyById } from '../services/companySchema.js';
@@ -233,8 +236,11 @@ router.post('/employees/upload', upload.single('file'), async (req, res) => {
     // Get duplicate handling action from request (skip or update)
     const duplicateAction = req.body.duplicateAction || 'skip';
 
+    // Get sync mode from request (true or false)
+    const syncMode = req.body.syncMode === 'true' || req.body.syncMode === true;
+
     // Import employees with company-specific client
-    const result = await importEmployeesFromExcel(filePath, req.supabase, duplicateAction);
+    const result = await importEmployeesFromExcel(filePath, req.supabase, duplicateAction, syncMode);
 
     // Clean up uploaded file
     fs.unlinkSync(filePath);
@@ -253,6 +259,7 @@ router.post('/employees/upload', upload.single('file'), async (req, res) => {
         imported: result.imported,
         updated: result.updated,
         skipped: result.skipped,
+        deactivated: result.deactivated || 0,
         duplicates: result.duplicates,
         message: result.message
       }
@@ -354,12 +361,20 @@ router.get('/employees/ids', async (req, res) => {
  */
 router.get('/employees', async (req, res) => {
   try {
-    const { page = 1, limit = 50, search = '' } = req.query;
+    const { page = 1, limit = 50, search = '', status = 'active' } = req.query;
     const offset = (page - 1) * limit;
 
     let query = req.supabase
       .from('employees')
       .select('*', { count: 'exact' });
+
+    // Add status filter
+    if (status === 'active') {
+      query = query.eq('is_active', true);
+    } else if (status === 'inactive') {
+      query = query.eq('is_active', false);
+    }
+    // 'all' status shows both active and inactive
 
     // Add search filter if provided
     if (search) {
@@ -558,6 +573,109 @@ router.post('/employees/bulk-delete', async (req, res) => {
       success: false,
       error: 'Failed to bulk delete employees',
       details: error.message || 'Unknown error occurred'
+    });
+  }
+});
+
+/**
+ * PATCH /api/admin/employees/:id/deactivate
+ * Deactivate an employee (soft delete)
+ */
+router.patch('/employees/:id/deactivate', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason, deactivatedBy } = req.body;
+
+    console.log(`[Deactivate] Employee ID: ${id}`);
+
+    const employee = await deactivateEmployee(
+      id,
+      {
+        reason: reason || 'No reason provided',
+        deactivatedBy: deactivatedBy || 'admin'
+      },
+      req.supabase
+    );
+
+    res.json({
+      success: true,
+      message: 'Employee deactivated successfully',
+      data: employee
+    });
+  } catch (error) {
+    console.error('Error deactivating employee:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to deactivate employee',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * PATCH /api/admin/employees/:id/reactivate
+ * Reactivate a previously deactivated employee
+ */
+router.patch('/employees/:id/reactivate', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`[Reactivate] Employee ID: ${id}`);
+
+    const employee = await reactivateEmployee(id, req.supabase);
+
+    res.json({
+      success: true,
+      message: 'Employee reactivated successfully',
+      data: employee
+    });
+  } catch (error) {
+    console.error('Error reactivating employee:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to reactivate employee',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/admin/employees/bulk-deactivate
+ * Deactivate multiple employees (bulk soft delete)
+ */
+router.post('/employees/bulk-deactivate', async (req, res) => {
+  try {
+    const { employeeIds, reason, deactivatedBy } = req.body;
+
+    if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'employeeIds array is required'
+      });
+    }
+
+    console.log(`[Bulk Deactivate] Attempting to deactivate ${employeeIds.length} employee(s)`);
+
+    const result = await deactivateEmployeesBulk(
+      employeeIds,
+      {
+        reason: reason || 'Bulk deactivation',
+        deactivatedBy: deactivatedBy || 'admin'
+      },
+      req.supabase
+    );
+
+    res.json({
+      success: true,
+      message: `${result.deactivated} employee(s) deactivated successfully`,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error bulk deactivating employees:', error);
+    res.status(400).json({
+      success: false,
+      error: 'Failed to bulk deactivate employees',
+      details: error.message
     });
   }
 });
