@@ -68,7 +68,7 @@ export const employeeApi = {
       {
         responseType: 'blob',
         headers: {
-          'Authorization': localStorage.getItem('admin_token') ? `Bearer ${localStorage.getItem('admin_token')}` : '',
+          'Authorization': localStorage.getItem('adminToken') ? `Bearer ${localStorage.getItem('adminToken')}` : '',
           'X-Widget-Domain': localStorage.getItem('selected_company_domain') || ''
         }
       }

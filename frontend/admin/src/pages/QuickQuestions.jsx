@@ -143,19 +143,7 @@ export default function QuickQuestions() {
 
   const handleDownloadTemplate = async () => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const selectedCompany = localStorage.getItem('selected_company_domain');
-
-      // Create a temporary link to download the file
-      const link = document.createElement('a');
-      link.href = `${apiUrl}/api/admin/quick-questions/download-template`;
-      if (selectedCompany) {
-        link.href += `?domain=${encodeURIComponent(selectedCompany)}`;
-      }
-      link.download = 'QuickQuestions_Template.xlsx';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      await quickQuestionsApi.downloadTemplate();
     } catch (err) {
       console.error('Error downloading template:', err);
       setError('Failed to download template');

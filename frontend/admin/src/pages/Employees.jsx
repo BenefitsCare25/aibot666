@@ -250,7 +250,6 @@ export default function Employees() {
               </svg>
               <span className="text-sm text-gray-900">Update existing employees (Add new employees + update existing employee data)</span>
             </div>
-
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
