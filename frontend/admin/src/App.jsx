@@ -13,6 +13,7 @@ import Companies from './pages/Companies';
 import QuickQuestions from './pages/QuickQuestions';
 import AISettings from './pages/AISettings';
 import AdminUsers from './pages/AdminUsers';
+import Roles from './pages/Roles';
 
 export default function App() {
   return (
@@ -46,6 +47,11 @@ export default function App() {
           <Route path="admin-users" element={
             <ProtectedRoute requireSuperAdmin>
               <AdminUsers />
+            </ProtectedRoute>
+          } />
+          <Route path="roles" element={
+            <ProtectedRoute requireSuperAdmin>
+              <Roles />
             </ProtectedRoute>
           } />
         </Route>
