@@ -263,7 +263,6 @@ export async function cleanupExpiredSessions() {
       .delete()
       .lt('expires_at', now);
 
-    console.log('Expired sessions cleaned up successfully');
   } catch (error) {
     console.error('Error cleaning up expired sessions:', error);
   }

@@ -169,7 +169,6 @@ app.use((err, req, res, next) => {
 
 // Graceful shutdown
 const gracefulShutdown = async (signal) => {
-  console.log(`\n${signal} received. Starting graceful shutdown...`);
 
   try {
     // Close Redis connection
@@ -177,7 +176,6 @@ const gracefulShutdown = async (signal) => {
 
     // Close server
     server.close(() => {
-      console.log('HTTP server closed');
       process.exit(0);
     });
 
@@ -202,32 +200,6 @@ try {
 
 // Start server
 const server = app.listen(PORT, () => {
-  console.log('');
-  console.log('═══════════════════════════════════════════════════════');
-  console.log('  Insurance Chatbot API Server');
-  console.log('═══════════════════════════════════════════════════════');
-  console.log('');
-  console.log(`  🚀 Server running on port ${PORT}`);
-  console.log(`  🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`  📡 API Base URL: http://localhost:${PORT}`);
-  console.log(`  🏥 Health Check: http://localhost:${PORT}/health`);
-  console.log('');
-  console.log('  Endpoints:');
-  console.log(`    - Auth API: /api/auth`);
-  console.log(`    - Admin Users API: /api/admin-users`);
-  console.log(`    - Chat API: /api/chat`);
-  console.log(`    - Admin API: /api/admin`);
-  console.log(`    - AI Settings API: /api/ai-settings`);
-  console.log('');
-  console.log('  Services:');
-  console.log(`    ✓ OpenAI API: ${process.env.OPENAI_API_KEY ? 'Configured' : '⚠ Not configured'}`);
-  console.log(`    ✓ Supabase: ${process.env.SUPABASE_URL ? 'Configured' : '⚠ Not configured'}`);
-  console.log(`    ✓ Redis: ${redis.status === 'ready' ? 'Connected' : '⚠ Not connected'}`);
-  console.log(`    ✓ Telegram Bot: ${process.env.TELEGRAM_BOT_TOKEN ? 'Configured' : '⚠ Not configured'}`);
-  console.log('');
-  console.log('  Press Ctrl+C to stop the server');
-  console.log('═══════════════════════════════════════════════════════');
-  console.log('');
 });
 
 // Handle shutdown signals

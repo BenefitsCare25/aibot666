@@ -20,13 +20,11 @@ if (!supabaseUrl || !supabaseKey) {
 const extractPostgresUrl = () => {
   // Option 1: Use DATABASE_URL if available (Render, Heroku, etc.)
   if (process.env.DATABASE_URL) {
-    console.log('[PostgreSQL] Using DATABASE_URL from environment');
     return process.env.DATABASE_URL;
   }
 
   // Option 2: Use SUPABASE_CONNECTION_STRING if set (manual override)
   if (process.env.SUPABASE_CONNECTION_STRING) {
-    console.log('[PostgreSQL] Using SUPABASE_CONNECTION_STRING from environment');
     return process.env.SUPABASE_CONNECTION_STRING;
   }
 
@@ -44,7 +42,6 @@ const extractPostgresUrl = () => {
   const port = process.env.POSTGRES_PORT || 5432;
   const host = process.env.POSTGRES_HOST || `db.${projectRef}.supabase.co`;
 
-  console.log(`[PostgreSQL] Constructing connection string for host: ${host}:${port}`);
   return `postgresql://postgres.${projectRef}:${dbPassword}@${host}:${port}/postgres`;
 };
 
@@ -57,7 +54,6 @@ if (postgresUrl) {
     // Log connection details (mask password for security)
     // Match: postgresql://username:password@host → postgresql://username:***@host
     const maskedUrl = postgresUrl.replace(/(:\/\/[^:]+):([^@]+)@/, '$1:***@');
-    console.log('[PostgreSQL] Connection string:', maskedUrl);
 
     // Parse connection string to check for sslmode parameter
     const hasSSLDisabled = postgresUrl.includes('sslmode=disable');
@@ -65,16 +61,12 @@ if (postgresUrl) {
 
     let sslConfig;
     if (hasSSLDisabled) {
-      console.log('[PostgreSQL] SSL disabled in connection string (sslmode=disable)');
       sslConfig = false; // Explicitly disable SSL
     } else if (hasSSLModeInUrl) {
-      console.log('[PostgreSQL] SSL mode specified in connection string, using connection string SSL config');
       sslConfig = undefined; // Let connection string handle SSL
     } else if (process.env.POSTGRES_SSL === 'false') {
-      console.log('[PostgreSQL] SSL disabled via POSTGRES_SSL env var');
       sslConfig = false;
     } else {
-      console.log('[PostgreSQL] SSL enabled with rejectUnauthorized: false');
       sslConfig = { rejectUnauthorized: false };
     }
 
@@ -104,7 +96,6 @@ if (postgresUrl) {
     });
 
     pgPool.on('connect', (client) => {
-      console.log('[PostgreSQL] New client connected to pool');
     });
 
     // Test the connection on initialization
@@ -127,14 +118,9 @@ if (postgresUrl) {
           console.error('[PostgreSQL]   - Format: postgresql://postgres:password@your-vm-ip:5432/postgres');
         }
       } else {
-        console.log('[PostgreSQL] Connection test successful!');
-        console.log('[PostgreSQL] Server version:', result.rows[0].version.split(' ')[0] + ' ' + result.rows[0].version.split(' ')[1]);
-        console.log('[PostgreSQL] Current user:', result.rows[0].current_user);
-        console.log('[PostgreSQL] Current database:', result.rows[0].current_database);
       }
     });
 
-    console.log('[PostgreSQL] Connection pool initialized successfully');
   } catch (error) {
     console.error('[PostgreSQL] Failed to initialize connection pool:', error);
     pgPool = null;
@@ -178,7 +164,6 @@ export function createSchemaClient(schemaName) {
     throw new Error('Schema name is required for multi-tenant client');
   }
 
-  console.log(`[Supabase] Creating schema client for: ${schemaName}`);
 
   // Create base Supabase client
   const baseClient = createClient(supabaseUrl, supabaseKey, {
@@ -191,7 +176,6 @@ export function createSchemaClient(schemaName) {
     }
   });
 
-  console.log(`[Supabase] Client configured with db.schema=${schemaName}`);
 
   // Wrapper that provides schema-aware operations
   const schemaClient = {
@@ -203,7 +187,6 @@ export function createSchemaClient(schemaName) {
      * Uses the db.schema configuration
      */
     from: (table) => {
-      console.log(`[Supabase] Querying table: ${table} in schema: ${schemaName}`);
       return baseClient.from(table);
     },
 
@@ -211,7 +194,6 @@ export function createSchemaClient(schemaName) {
      * Call RPC functions in the configured schema
      */
     rpc: (fnName, params, options) => {
-      console.log(`[Supabase] Calling RPC: ${fnName} in schema: ${schemaName}`);
       return baseClient.rpc(fnName, params, options);
     },
 

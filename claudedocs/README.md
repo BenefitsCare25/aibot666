@@ -14,18 +14,24 @@ This directory contains technical documentation and architecture guides for the 
 - **[EMBEDDING_GENERATION_REFERENCE.md](./EMBEDDING_GENERATION_REFERENCE.md)** - Technical reference for vector embedding generation
 - **[complete-ai-integration-and-model-recommendations.md](./complete-ai-integration-and-model-recommendations.md)** - AI model integration guide and recommendations
 
-## Implementation Logs
+### Deployment & Operations
+- **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** - Production deployment instructions and configuration
+- **[RBAC_DEPLOYMENT_GUIDE.md](./RBAC_DEPLOYMENT_GUIDE.md)** - Role-based access control deployment guide
+- **[QUICK_START_MIGRATION.md](./QUICK_START_MIGRATION.md)** - Migration guide for quick start setup
 
-Historical implementation notes and feature deployment guides are archived in:
-- **[archive/implementation-logs/](./archive/implementation-logs/)** - Session logs, deployment guides, and feature implementation summaries
-- **[archive/cleanup-reports/](./archive/cleanup-reports/)** - Historical cleanup reports and codebase maintenance logs
+### Recent Updates & Fixes
+- **[EMPLOYEE_LIFECYCLE_SOLUTION.md](./EMPLOYEE_LIFECYCLE_SOLUTION.md)** - Employee lifecycle management implementation
+- **[RBAC_PERMISSION_MODEL.md](./RBAC_PERMISSION_MODEL.md)** - Permission model and access control design
+- **[IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)** - Recent implementation summary
+
+### Historical Archive
+- **[archive/](./archive/)** - Historical implementation notes and analysis reports
 
 ## Related Documentation
 
 - **Frontend Widget**: See `frontend/widget/README.md` and `frontend/widget/EMBED.md`
 - **Admin Panel**: See `frontend/admin/README.md`
-- **Database Setup**: See `backend/config/supabase-setup/README.md`
-- **Diagnostic Tools**: See `backend/scripts/README-DIAGNOSTICS.md`
+- **Database Setup**: See `COMPLETE_SUPABASE_SETUP.sql` in `backend/migrations/`
 
 ## Documentation Guidelines
 

@@ -420,7 +420,6 @@ router.put('/:id', [
     // Invalidate permission cache if role was changed
     if (role !== undefined || roleId !== undefined) {
       await invalidatePermissionCache(id);
-      console.log(`[AdminUsers] Permission cache invalidated for user: ${id}`);
     }
 
     // Log admin update

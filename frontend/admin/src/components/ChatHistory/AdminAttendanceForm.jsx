@@ -30,11 +30,6 @@ export default function AdminAttendanceForm({ conversation, onUpdate }) {
       return;
     }
 
-    console.log('💾 Submitting attendance update:', {
-      conversationId: conversation.conversation_id,
-      attendedBy: attendedBy.trim(),
-      adminNotes: adminNotes.trim() || null
-    });
 
     setSaving(true);
 
@@ -45,22 +40,18 @@ export default function AdminAttendanceForm({ conversation, onUpdate }) {
         adminNotes.trim() || null
       );
 
-      console.log('✅ Attendance update response:', response);
 
       if (response.success) {
         setSuccessMessage('Attendance recorded successfully');
-        console.log('✓ Success message set, collapsing form');
 
         // Notify parent component to refresh
         if (onUpdate) {
-          console.log('🔄 Calling onUpdate to refresh conversation list');
           await onUpdate();
         }
 
         // Keep expanded to show success message for 2 seconds, then collapse
         setTimeout(() => {
           setIsExpanded(false);
-          console.log('📋 Form collapsed after success');
         }, 2000);
 
         // Clear success message after 4 seconds

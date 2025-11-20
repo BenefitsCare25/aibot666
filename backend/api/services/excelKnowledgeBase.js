@@ -20,7 +20,6 @@ export async function parseKnowledgeBaseExcel(filePath) {
   // Use first worksheet
   const worksheet = workbook.worksheets[0];
 
-  console.log(`Processing worksheet: ${worksheet.name}`);
 
   let rowCount = 0;
   worksheet.eachRow((row, rowNumber) => {
@@ -44,7 +43,6 @@ export async function parseKnowledgeBaseExcel(filePath) {
 
     // Validate required fields
     if (!title || !content) {
-      console.log(`Warning: Row ${rowNumber} missing required fields (title or content)`);
       return;
     }
 
@@ -58,7 +56,6 @@ export async function parseKnowledgeBaseExcel(filePath) {
     rowCount++;
   });
 
-  console.log(`Parsed ${entries.length} knowledge base entries`);
   return entries;
 }
 
@@ -95,11 +92,9 @@ export async function importKnowledgeBaseFromExcel(filePath, schemaName, replace
     let inserted = 0;
     const failed = [];
 
-    console.log(`Processing ${entries.length} entries in batches of ${BATCH_SIZE}...`);
 
     for (let i = 0; i < entries.length; i += BATCH_SIZE) {
       const batch = entries.slice(i, i + BATCH_SIZE);
-      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(entries.length / BATCH_SIZE)} (${batch.length} entries)...`);
 
       try {
         // Use addKnowledgeEntriesBatch which generates embeddings
@@ -107,7 +102,6 @@ export async function importKnowledgeBaseFromExcel(filePath, schemaName, replace
 
         if (result && result.length > 0) {
           inserted += result.length;
-          console.log(`✅ Batch ${Math.floor(i / BATCH_SIZE) + 1} completed: ${result.length} entries with embeddings`);
         }
       } catch (batchError) {
         console.error(`❌ Error processing batch ${Math.floor(i / BATCH_SIZE) + 1}:`, batchError);
@@ -123,9 +117,7 @@ export async function importKnowledgeBaseFromExcel(filePath, schemaName, replace
       }
     }
 
-    console.log(`✅ Successfully imported ${inserted} entries from Excel with embeddings`);
     if (failed.length > 0) {
-      console.log(`⚠️  ${failed.length} entries failed to import`);
     }
 
     return {

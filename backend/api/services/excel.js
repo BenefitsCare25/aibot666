@@ -145,10 +145,8 @@ function parseExcelDate(dateValue) {
  */
 export async function importEmployeesFromExcel(filePath, supabaseClient, duplicateAction = 'skip', syncMode = false) {
   try {
-    console.log('Parsing Excel file...');
     const employees = await parseEmployeeExcel(filePath);
 
-    console.log(`Found ${employees.length} employees in Excel file`);
 
     if (employees.length === 0) {
       return {
@@ -163,7 +161,6 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
     }
 
     // Check for existing employees
-    console.log('Checking for duplicate employee IDs...');
     const employeeIds = employees.map(e => e.employee_id);
 
     // Batch the duplicate check to avoid URL length limits (max 500 IDs per batch)
@@ -172,7 +169,6 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
 
     for (let i = 0; i < employeeIds.length; i += BATCH_SIZE) {
       const batch = employeeIds.slice(i, i + BATCH_SIZE);
-      console.log(`Checking batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(employeeIds.length / BATCH_SIZE)} (${batch.length} IDs)`);
 
       const { data, error: checkError } = await supabaseClient
         .from('employees')
@@ -192,7 +188,6 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
     const duplicates = employees.filter(e => existingIds.has(e.employee_id));
     const newEmployees = employees.filter(e => !existingIds.has(e.employee_id));
 
-    console.log(`Found ${duplicates.length} duplicates, ${newEmployees.length} new employees`);
 
     let imported = [];
     let updated = [];
@@ -201,12 +196,10 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
 
     // Handle new employees in batches to avoid payload size limits
     if (newEmployees.length > 0) {
-      console.log(`Importing ${newEmployees.length} new employees in batches...`);
       const INSERT_BATCH_SIZE = 100; // Smaller batches for inserts due to embedding generation
 
       for (let i = 0; i < newEmployees.length; i += INSERT_BATCH_SIZE) {
         const batch = newEmployees.slice(i, i + INSERT_BATCH_SIZE);
-        console.log(`Importing batch ${Math.floor(i / INSERT_BATCH_SIZE) + 1}/${Math.ceil(newEmployees.length / INSERT_BATCH_SIZE)} (${batch.length} employees)`);
 
         try {
           const batchImported = await addEmployeesBatch(batch, supabaseClient);
@@ -221,7 +214,6 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
     // Handle duplicates based on action
     if (duplicates.length > 0) {
       if (duplicateAction === 'update') {
-        console.log(`Updating ${duplicates.length} existing employees with embedding regeneration...`);
 
         // First, get the existing employee records to get their UUIDs
         // IMPORTANT: Batch this query to avoid URL length limits (same as duplicate check)
@@ -230,7 +222,6 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
 
         for (let i = 0; i < duplicateEmployeeIds.length; i += BATCH_SIZE) {
           const batch = duplicateEmployeeIds.slice(i, i + BATCH_SIZE);
-          console.log(`Fetching UUIDs for batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(duplicateEmployeeIds.length / BATCH_SIZE)} (${batch.length} IDs)`);
 
           const { data, error: uuidError } = await supabaseClient
             .from('employees')
@@ -247,7 +238,6 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
           }
         }
 
-        console.log(`Retrieved ${existingRecords.length} UUIDs for ${duplicateEmployeeIds.length} duplicate employee IDs`);
 
         // Create a map of employee_id to UUID
         const idMap = new Map(existingRecords?.map(e => [e.employee_id, e.id]) || []);
@@ -284,11 +274,9 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
         if (employeesToUpdate.length > 0) {
           try {
             updated = await updateEmployeesBatch(employeesToUpdate, supabaseClient);
-            console.log(`✅ Successfully updated ${updated.length} employees with regenerated embeddings`);
           } catch (updateError) {
             console.error('Batch update error:', updateError);
             // Fall back to individual updates if batch fails
-            console.log('Falling back to individual updates...');
             for (const { id, updateData } of employeesToUpdate) {
               try {
                 const updatedEmployee = await updateEmployee(id, updateData, supabaseClient);
@@ -310,7 +298,6 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
           console.warn(`⚠️ ${validationErrors.length} employees failed to update`);
         }
       } else {
-        console.log(`Skipping ${duplicates.length} duplicate employees`);
         skipped = duplicates;
       }
     }
@@ -325,7 +312,6 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
     // Handle sync mode: deactivate employees not in Excel file
     let deactivated = 0;
     if (syncMode) {
-      console.log('Sync mode enabled: checking for employees to deactivate...');
 
       const excelEmployeeIds = employees.map(e => e.employee_id);
 
@@ -344,7 +330,6 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
         );
 
         if (employeesToDeactivate.length > 0) {
-          console.log(`Found ${employeesToDeactivate.length} employees to deactivate`);
 
           // Import deactivateEmployeesBulk
           const { deactivateEmployeesBulk } = await import('./vectorDB.js');
@@ -371,9 +356,7 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
             }
           }
 
-          console.log(`Deactivated ${deactivated} employees (sync mode)`);
         } else {
-          console.log('No employees to deactivate');
         }
       }
     }
@@ -435,8 +418,6 @@ export function validateExcelFormat(filePath) {
       String(h).toLowerCase().replace(/[\s_-]+/g, '')
     );
 
-    console.log('Excel validation - Original headers:', headers);
-    console.log('Excel validation - Normalized headers:', headerLower);
 
     requiredFields.forEach(field => {
       // Normalize the required field name for comparison

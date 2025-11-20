@@ -17,7 +17,6 @@ export default function CompanySelector() {
 
     // Listen for company changes (create/update/delete)
     const handleCompanyChange = () => {
-      console.log('[CompanySelector] Received company-changed event, reloading...');
       loadCompanies();
     };
 

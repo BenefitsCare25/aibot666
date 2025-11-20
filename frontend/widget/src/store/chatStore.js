@@ -67,7 +67,6 @@ export const useChatStore = create((set, get) => ({
       if (response.data.success) {
         const { sessionId, conversationId, employee } = response.data.data;
 
-        console.log('[ChatStore] Session created - Employee email:', employee.email);
 
         set({
           sessionId,
@@ -276,12 +275,10 @@ export const useChatStore = create((set, get) => ({
   enterLogMode: async () => {
     const { employeeEmail, messages, sessionId, apiUrl, domain: domainOverride } = get();
 
-    console.log('[ChatStore] Entering LOG mode - Employee email from state:', employeeEmail);
 
     // Auto-populate email if available from employee database
     const autoEmail = employeeEmail || '';
 
-    console.log('[ChatStore] Auto-populating email field with:', autoEmail);
 
     // Create the bot message with document requirements
     const botMessageContent = `For LOG request, you may attached the following documents:
@@ -321,7 +318,6 @@ Alternatively, you may provide the following information:
           'X-Widget-Domain': domain
         }
       });
-      console.log('[ChatStore] Bot message saved to database');
     } catch (error) {
       console.error('[ChatStore] Error saving bot message:', error);
       // Don't block the UI if saving fails
@@ -343,7 +339,6 @@ Alternatively, you may provide the following information:
     const { sessionId, attachments, logRequested, userEmail, apiUrl, domain: domainOverride, messages: currentMessages } = get();
 
     if (logRequested) {
-      console.log('LOG already requested for this conversation');
       return;
     }
 
@@ -406,7 +401,6 @@ Alternatively, you may provide the following information:
           }]
         }));
 
-        console.log('LOG request sent successfully');
       }
     } catch (error) {
       console.error('Error requesting LOG:', error);
@@ -439,7 +433,6 @@ Alternatively, you may provide the following information:
         }
       });
 
-      console.log('Instant answer saved to chat history');
     } catch (error) {
       console.error('Error saving instant answer:', error);
       // Don't show error to user - this is a background operation

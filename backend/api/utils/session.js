@@ -18,7 +18,6 @@ const redis = new Redis(REDIS_URL, {
 });
 
 redis.on('connect', () => {
-  console.log('✓ Redis connected successfully');
 });
 
 redis.on('error', (err) => {
@@ -397,7 +396,6 @@ export async function getConversationState(sessionId) {
 export async function closeRedis() {
   try {
     await redis.quit();
-    console.log('Redis connection closed');
   } catch (error) {
     console.error('Error closing Redis connection:', error);
   }

@@ -77,7 +77,6 @@ export async function schemaExists(schemaName) {
       // Only retry on connection timeout errors
       if (error.message.includes('timeout') && attempt < maxRetries) {
         const backoffMs = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-        console.log(`[SchemaAutomation] Retrying in ${backoffMs}ms...`);
         await new Promise(resolve => setTimeout(resolve, backoffMs));
         continue;
       }
@@ -173,7 +172,6 @@ export async function loadSchemaTemplate(schemaName) {
     // Replace all instances of {{SCHEMA_NAME}} with actual schema name
     const processedSQL = templateContent.replace(/\{\{SCHEMA_NAME\}\}/g, schemaName);
 
-    console.log(`[SchemaAutomation] Template loaded and processed for schema: ${schemaName}`);
     return processedSQL;
   } catch (error) {
     console.error('[SchemaAutomation] Error loading template:', error);
@@ -193,7 +191,6 @@ export async function executeSQL(sql) {
 
   try {
     await postgres.query(sql);
-    console.log('[SchemaAutomation] SQL executed successfully');
   } catch (error) {
     console.error('[SchemaAutomation] SQL execution error:', error);
     throw error;
@@ -243,7 +240,6 @@ export async function exposeSchemaToAPI(schemaName) {
     // Reload PostgREST schema cache
     await postgres.query(`NOTIFY pgrst, 'reload schema';`);
 
-    console.log(`[SchemaAutomation] Schema ${schemaName} exposed to PostgREST API successfully`);
   } catch (error) {
     console.error('[SchemaAutomation] Error exposing schema to API:', error);
     throw error;
@@ -259,7 +255,6 @@ export async function exposeSchemaToAPI(schemaName) {
  * @returns {Promise<Object>} - Result with log ID and status
  */
 export async function createCompanySchema({ schemaName, companyId, adminUser = 'system' }) {
-  console.log(`[SchemaAutomation] Starting schema creation for: ${schemaName}`);
 
   // Step 1: Validate schema name
   const validation = validateSchemaName(schemaName);
@@ -296,7 +291,6 @@ export async function createCompanySchema({ schemaName, companyId, adminUser = '
     const duration = Date.now() - startTime;
 
     // Step 7: Expose schema to PostgREST API
-    console.log(`[SchemaAutomation] Exposing schema ${schemaName} to PostgREST API...`);
     await exposeSchemaToAPI(schemaName);
 
     // Step 8: Verify schema was created
@@ -308,7 +302,6 @@ export async function createCompanySchema({ schemaName, companyId, adminUser = '
     // Step 9: Update log to completed
     await updateSchemaActivityLog(log.id, 'completed', null);
 
-    console.log(`[SchemaAutomation] Schema created successfully in ${duration}ms`);
 
     return {
       success: true,
@@ -333,7 +326,6 @@ export async function createCompanySchema({ schemaName, companyId, adminUser = '
  * @returns {Promise<void>}
  */
 export async function rollbackCompanyCreation(companyId) {
-  console.log(`[SchemaAutomation] Rolling back company creation: ${companyId}`);
 
   const { error } = await supabase
     .from('companies')
@@ -345,7 +337,6 @@ export async function rollbackCompanyCreation(companyId) {
     throw new Error(`Failed to rollback company creation: ${error.message}`);
   }
 
-  console.log('[SchemaAutomation] Company rollback completed');
 }
 
 /**
@@ -355,7 +346,6 @@ export async function rollbackCompanyCreation(companyId) {
  * @returns {Promise<Object>} - Updated company record
  */
 export async function softDeleteCompany(companyId, adminUser = 'system') {
-  console.log(`[SchemaAutomation] Soft deleting company: ${companyId}`);
 
   // Get company details for logging
   const { data: company, error: fetchError } = await supabase
@@ -394,7 +384,6 @@ export async function softDeleteCompany(companyId, adminUser = 'system') {
     }
   });
 
-  console.log(`[SchemaAutomation] Company soft deleted: ${company.name}`);
 
   return data;
 }
@@ -406,7 +395,6 @@ export async function softDeleteCompany(companyId, adminUser = 'system') {
  * @returns {Promise<Object>} - Result with deletion details
  */
 export async function hardDeleteCompany(companyId, adminUser = 'system') {
-  console.log(`[SchemaAutomation] Hard deleting company: ${companyId}`);
 
   // Get company details for logging
   const { data: company, error: fetchError } = await supabase
@@ -453,7 +441,6 @@ export async function hardDeleteCompany(companyId, adminUser = 'system') {
     // Update log to completed
     await updateSchemaActivityLog(log.id, 'completed', null);
 
-    console.log(`[SchemaAutomation] Company hard deleted: ${company.name}`);
 
     return {
       success: true,
@@ -484,7 +471,6 @@ export async function dropCompanySchema(schemaName) {
     throw new Error(`Invalid schema name: ${validation.error}`);
   }
 
-  console.log(`[SchemaAutomation] Dropping schema "${schemaName}"...`);
 
   // WORKAROUND: If direct PostgreSQL connection is not available (firewall/network issues),
   // use Supabase REST API to delete all tables in the schema instead of DROP SCHEMA CASCADE
@@ -508,7 +494,6 @@ export async function dropCompanySchema(schemaName) {
     return;
   }
 
-  console.log(`[SchemaAutomation] Terminating active connections to schema "${schemaName}"...`);
 
   // Terminate any active connections that might be using the schema
   const terminateSQL = `
@@ -521,7 +506,6 @@ export async function dropCompanySchema(schemaName) {
 
   try {
     await postgres.query(terminateSQL);
-    console.log(`[SchemaAutomation] Active connections terminated`);
   } catch (error) {
     console.warn('[SchemaAutomation] Could not terminate connections:', error.message);
   }
@@ -529,7 +513,6 @@ export async function dropCompanySchema(schemaName) {
   // Drop schema cascade
   const dropSQL = `DROP SCHEMA IF EXISTS "${schemaName}" CASCADE;`;
 
-  console.log(`[SchemaAutomation] Dropping schema "${schemaName}" with CASCADE...`);
 
   try {
     // Set a longer statement timeout just for this query (2 minutes)
@@ -539,7 +522,6 @@ export async function dropCompanySchema(schemaName) {
     await postgres.query(dropSQL);
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
-    console.log(`[SchemaAutomation] Schema "${schemaName}" dropped successfully in ${duration}s`);
 
     // Reset statement timeout to default
     await postgres.query('RESET statement_timeout');
@@ -562,7 +544,6 @@ export async function dropCompanySchema(schemaName) {
  * @param {string} schemaName - Schema name to clean
  */
 async function dropSchemaViaSoftDelete(schemaName) {
-  console.log(`[SchemaAutomation] Using REST API workaround to delete schema data: ${schemaName}`);
 
   const schemaClient = supabase.schema(schemaName);
   const tables = ['chat_history', 'escalations', 'analytics', 'log_requests',
@@ -570,7 +551,6 @@ async function dropSchemaViaSoftDelete(schemaName) {
 
   for (const table of tables) {
     try {
-      console.log(`[SchemaAutomation] Deleting all rows from ${schemaName}.${table}...`);
 
       // Delete all rows (no filter = delete all)
       const { error } = await schemaClient
@@ -581,14 +561,12 @@ async function dropSchemaViaSoftDelete(schemaName) {
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found (expected)
         console.warn(`[SchemaAutomation] Warning deleting ${table}:`, error.message);
       } else {
-        console.log(`[SchemaAutomation] Deleted all rows from ${schemaName}.${table}`);
       }
     } catch (error) {
       console.warn(`[SchemaAutomation] Could not delete ${table}:`, error.message);
     }
   }
 
-  console.log(`[SchemaAutomation] Schema data deletion complete (schema structure remains, only data deleted)`);
   console.warn(`[SchemaAutomation] NOTE: Schema ${schemaName} still exists in database, only data was deleted`);
   console.warn(`[SchemaAutomation] To fully remove schema, fix PostgreSQL connection and use DROP SCHEMA CASCADE`);
 }

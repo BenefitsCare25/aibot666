@@ -193,13 +193,11 @@ export async function invalidatePermissionCache(userId = null) {
       // Clear specific user's cache
       const cacheKey = `user:${userId}:permissions`;
       await redis.del(cacheKey);
-      console.log(`[PermissionService] Cache cleared for user: ${userId}`);
     } else {
       // Clear all user permission caches
       const keys = await redis.keys('user:*:permissions');
       if (keys && keys.length > 0) {
         await redis.del(...keys);
-        console.log(`[PermissionService] Cache cleared for ${keys.length} users`);
       }
     }
   } catch (error) {

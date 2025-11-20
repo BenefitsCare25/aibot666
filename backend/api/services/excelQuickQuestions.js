@@ -55,7 +55,6 @@ export async function parseQuickQuestionsExcel(filePath, schemaName) {
                   workbook.getWorksheet('FAQ Questions') ||
                   workbook.worksheets[0];
 
-  console.log(`Processing worksheet: ${worksheet.name}`);
 
   worksheet.eachRow((row, rowNumber) => {
     const cells = row.values;
@@ -76,7 +75,6 @@ export async function parseQuickQuestionsExcel(filePath, schemaName) {
       currentCategoryId = createCategoryId(currentCategory);
       currentCategoryIcon = detectIcon(currentCategory);
       displayOrder = 0; // Reset display order for new category
-      console.log(`Found category: ${currentCategory} (${currentCategoryId})`);
       return;
     }
 
@@ -87,7 +85,6 @@ export async function parseQuickQuestionsExcel(filePath, schemaName) {
 
       // Skip if no category has been set yet
       if (!currentCategory) {
-        console.log(`Warning: Question found before category (row ${rowNumber}): ${questionText}`);
         return;
       }
 
@@ -103,7 +100,6 @@ export async function parseQuickQuestionsExcel(filePath, schemaName) {
     }
   });
 
-  console.log(`Parsed ${questions.length} questions from categorized data`);
   return questions;
 }
 
@@ -154,11 +150,9 @@ export async function importQuickQuestionsFromExcel(filePath, schemaName, replac
 
       inserted++;
       if (inserted % 10 === 0) {
-        console.log(`Inserted ${inserted}/${questions.length} questions`);
       }
     }
 
-    console.log(`Successfully imported ${inserted} questions from Excel`);
 
     return {
       success: true,

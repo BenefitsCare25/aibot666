@@ -230,7 +230,6 @@ router.post('/employees/upload', upload.single('file'), async (req, res) => {
 
     // Log warnings if any
     if (validation.warnings && validation.warnings.length > 0) {
-      console.log('[Excel Upload] Warnings:', validation.warnings);
     }
 
     // Get duplicate handling action from request (skip or update)
@@ -553,7 +552,6 @@ router.post('/employees/bulk-delete', async (req, res) => {
       });
     }
 
-    console.log(`[Bulk Delete] Attempting to delete ${employeeIds.length} employee(s)`);
 
     // Delete in batches to avoid URI too long error
     // Supabase .in() uses URL query params, which has size limits
@@ -563,7 +561,6 @@ router.post('/employees/bulk-delete', async (req, res) => {
     for (let i = 0; i < employeeIds.length; i += batchSize) {
       const batch = employeeIds.slice(i, i + batchSize);
 
-      console.log(`[Bulk Delete] Processing batch ${Math.floor(i / batchSize) + 1}, deleting ${batch.length} records`);
 
       const { error, count } = await req.supabase
         .from('employees')
@@ -576,10 +573,8 @@ router.post('/employees/bulk-delete', async (req, res) => {
       }
 
       totalDeleted += batch.length;
-      console.log(`[Bulk Delete] Batch ${Math.floor(i / batchSize) + 1} completed. Total deleted so far: ${totalDeleted}`);
     }
 
-    console.log(`[Bulk Delete] Successfully deleted ${totalDeleted} employee(s)`);
 
     res.json({
       success: true,
@@ -605,7 +600,6 @@ router.patch('/employees/:id/deactivate', async (req, res) => {
     const { id } = req.params;
     const { reason, deactivatedBy } = req.body;
 
-    console.log(`[Deactivate] Employee ID: ${id}`);
 
     const employee = await deactivateEmployee(
       id,
@@ -639,7 +633,6 @@ router.patch('/employees/:id/reactivate', async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log(`[Reactivate] Employee ID: ${id}`);
 
     const employee = await reactivateEmployee(id, req.supabase);
 
@@ -673,7 +666,6 @@ router.post('/employees/bulk-deactivate', async (req, res) => {
       });
     }
 
-    console.log(`[Bulk Deactivate] Attempting to deactivate ${employeeIds.length} employee(s)`);
 
     const result = await deactivateEmployeesBulk(
       employeeIds,
@@ -1140,7 +1132,6 @@ router.post('/companies', async (req, res) => {
         adminUser: req.user?.email || 'admin' // Add admin user tracking if available
       });
 
-      console.log(`[Admin] Schema created successfully for company ${company.name}: ${schemaResult.schemaName}`);
 
       res.json({
         success: true,
@@ -1158,7 +1149,6 @@ router.post('/companies', async (req, res) => {
 
       try {
         await rollbackCompanyCreation(company.id);
-        console.log('[Admin] Company rollback completed');
       } catch (rollbackError) {
         console.error('[Admin] Rollback failed:', rollbackError);
         // Return error but note that manual cleanup may be needed
@@ -1722,12 +1712,6 @@ router.put('/chat-history/:conversationId/attendance', async (req, res) => {
     const { conversationId } = req.params;
     const { attendedBy, adminNotes } = req.body;
 
-    console.log('📝 [Attendance] Received update request:', {
-      conversationId,
-      attendedBy,
-      adminNotes: adminNotes ? `${adminNotes.substring(0, 50)}...` : null,
-      company: req.companySchema
-    });
 
     // Validate input
     if (!attendedBy || attendedBy.trim() === '') {
@@ -1744,7 +1728,6 @@ router.put('/chat-history/:conversationId/attendance', async (req, res) => {
       attended_at: new Date().toISOString()
     };
 
-    console.log('🔄 [Attendance] Updating database with:', updateData);
 
     // Update all messages in the conversation with admin attendance info
     const { data, error } = await req.supabase
@@ -1766,7 +1749,6 @@ router.put('/chat-history/:conversationId/attendance', async (req, res) => {
       });
     }
 
-    console.log('✅ [Attendance] Successfully updated', data.length, 'messages');
 
     res.json({
       success: true,
@@ -2092,7 +2074,6 @@ router.get('/analytics/query-trends', async (req, res) => {
 router.get('/quick-questions', async (req, res) => {
   try {
     const schemaName = req.companySchema;
-    console.log(`[Supabase] Querying quick_questions in schema: ${schemaName}`);
 
     // Use RPC function to query across schemas without manual exposure
     const { data: questions, error } = await supabase
@@ -2103,7 +2084,6 @@ router.get('/quick-questions', async (req, res) => {
       throw error;
     }
 
-    console.log(`[Supabase] Found ${questions?.length || 0} active quick questions`);
 
     // Group by category
     const categorized = {};
@@ -2145,7 +2125,6 @@ router.get('/quick-questions', async (req, res) => {
 router.get('/quick-questions/all', async (req, res) => {
   try {
     const schemaName = req.companySchema;
-    console.log(`[Supabase] Querying all quick_questions in schema: ${schemaName}`);
 
     // Use RPC function to query all questions (including inactive)
     const { data: questions, error } = await supabase

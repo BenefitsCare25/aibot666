@@ -249,14 +249,11 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
     const similarityThreshold = customSettings?.similarity_threshold ?? 0.7;
     const topKResults = customSettings?.top_k_results ?? 5;
 
-    console.log(`[RAG] Using similarity threshold in prompt: ${similarityThreshold}`);
 
     let systemPrompt;
 
     // If custom prompt is provided, inject variables into it
     if (customPrompt) {
-      console.log('[RAG] Using CUSTOM system prompt from database');
-      console.log(`[RAG] Custom prompt template length: ${customPrompt.length} characters`);
 
       // Inject variables into custom prompt
       systemPrompt = injectVariablesIntoPrompt(customPrompt, {
@@ -268,33 +265,16 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
         contextCount: contexts?.length || 0
       });
 
-      console.log('[RAG] Variables injected into custom prompt:');
-      console.log(`  - {{SIMILARITY_THRESHOLD}}: ${similarityThreshold}`);
-      console.log(`  - {{TOP_K_RESULTS}}: ${topKResults}`);
-      console.log(`  - {{CONTEXT_COUNT}}: ${contexts?.length || 0}`);
-      console.log(`  - {{EMPLOYEE_NAME}}: ${employeeData?.name || 'N/A'}`);
-      console.log(`[RAG] Custom prompt length before context awareness: ${systemPrompt.length} characters`);
     } else {
-      console.log('[RAG] Using DEFAULT system prompt');
-      console.log(`[RAG] Prompt configured with threshold: >${similarityThreshold}`);
-      console.log(`[RAG] Contexts provided: ${contexts?.length || 0}`);
       systemPrompt = createRAGPrompt(query, contexts, employeeData, similarityThreshold);
-      console.log(`[RAG] Default prompt length before context awareness: ${systemPrompt.length} characters`);
     }
 
     // CRITICAL: Always inject conversation context awareness into ANY prompt (custom or default)
     // This ensures the AI understands conversation flow regardless of prompt source
     systemPrompt = injectConversationContextAwareness(systemPrompt);
-    console.log('[RAG] ✅ Conversation context awareness injected');
-    console.log(`[RAG] Final prompt length: ${systemPrompt.length} characters`);
 
     // Log the complete system prompt for debugging (only in development or when needed)
     if (process.env.LOG_FULL_PROMPTS === 'true') {
-      console.log('\n' + '='.repeat(80));
-      console.log('[RAG] COMPLETE SYSTEM PROMPT SENT TO OPENAI:');
-      console.log('='.repeat(80));
-      console.log(systemPrompt);
-      console.log('='.repeat(80) + '\n');
     }
 
     // Build messages array with conversation history
@@ -389,20 +369,15 @@ function calculateKnowledgeMatch(contexts) {
  * @returns {number} - Confidence score between 0 and 1
  */
 function calculateConfidence(answer, contexts, finishReason) {
-  console.log('[Confidence] Calculating confidence score...');
 
   let confidence = 0.5; // Base confidence
-  console.log(`[Confidence] Base confidence: ${confidence.toFixed(4)}`);
 
   // Increase confidence if we have relevant contexts
   if (contexts && contexts.length > 0) {
     const avgSimilarity = contexts.reduce((sum, ctx) => sum + ctx.similarity, 0) / contexts.length;
     const contextBoost = avgSimilarity * 0.3;
     confidence += contextBoost;
-    console.log(`[Confidence] Context boost: +${contextBoost.toFixed(4)} (avg similarity: ${avgSimilarity.toFixed(4)}, ${contexts.length} contexts)`);
-    console.log(`[Confidence] After context boost: ${confidence.toFixed(4)}`);
   } else {
-    console.log(`[Confidence] No contexts - no boost applied`);
   }
 
   // Decrease confidence if answer indicates uncertainty
@@ -432,33 +407,27 @@ function calculateConfidence(answer, contexts, finishReason) {
     answer.toLowerCase().includes(phrase.toLowerCase())
   );
 
-  console.log(`[Confidence] Uncertainty check: ${hasUncertainty ? 'YES' : 'NO'}`);
-  console.log(`[Confidence] Contact acknowledgment: ${isContactAcknowledgment ? 'YES' : 'NO'}`);
 
   // Only reduce confidence if uncertain AND not a contact acknowledgment
   if (hasUncertainty && !isContactAcknowledgment) {
     const beforeCap = confidence;
     confidence = Math.min(confidence, 0.5); // Cap at 0.5 if uncertain
-    console.log(`[Confidence] Uncertainty penalty applied: ${beforeCap.toFixed(4)} → ${confidence.toFixed(4)} (capped at 0.5)`);
   }
 
   // Boost confidence for contact acknowledgments (these are valid responses)
   if (isContactAcknowledgment) {
     const beforeBoost = confidence;
     confidence = Math.max(confidence, 0.75); // Higher confidence for acknowledgments
-    console.log(`[Confidence] Contact acknowledgment boost: ${beforeBoost.toFixed(4)} → ${confidence.toFixed(4)} (min 0.75)`);
   }
 
   // Adjust based on finish reason
   if (finishReason === 'length') {
     const beforeAdjust = confidence;
     confidence *= 0.9; // Slightly reduce if response was cut off
-    console.log(`[Confidence] Length penalty (response cut off): ${beforeAdjust.toFixed(4)} → ${confidence.toFixed(4)} (×0.9)`);
   }
 
   // Ensure confidence is between 0 and 1
   const finalConfidence = Math.max(0, Math.min(1, confidence));
-  console.log(`[Confidence] ✅ Final confidence: ${finalConfidence.toFixed(4)}`);
 
   return finalConfidence;
 }

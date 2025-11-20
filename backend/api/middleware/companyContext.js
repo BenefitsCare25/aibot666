@@ -75,15 +75,7 @@ export async function companyContextMiddleware(req, res, next) {
 
     // Log AI settings for debugging
     if (company.ai_settings) {
-      console.log(`[Company Context] Loaded AI settings for ${company.name}:`);
-      console.log(`  - Model: ${company.ai_settings.model || 'default'}`);
-      console.log(`  - Temperature: ${company.ai_settings.temperature ?? 'default'}`);
-      console.log(`  - Max Tokens: ${company.ai_settings.max_tokens || 'default'}`);
-      console.log(`  - Similarity Threshold: ${company.ai_settings.similarity_threshold || 'default'}`);
-      console.log(`  - Top K Results: ${company.ai_settings.top_k_results || 'default'}`);
-      console.log(`  - Escalation Threshold: ${company.ai_settings.escalation_threshold ?? 'default'}`);
     } else {
-      console.log(`[Company Context] No AI settings found for ${company.name} - using defaults`);
     }
 
     // Add schema name directly for easy access
@@ -124,35 +116,30 @@ function extractDomainFromRequest(req) {
   // 1. Check request body (for POST requests from widget)
   if (req.body && req.body.domain) {
     domain = req.body.domain;
-    console.log(`Domain from body: ${domain}`);
     return domain;
   }
 
   // 2. Check custom header (X-Widget-Domain)
   if (req.headers['x-widget-domain']) {
     domain = req.headers['x-widget-domain'];
-    console.log(`Domain from X-Widget-Domain header: ${domain}`);
     return domain;
   }
 
   // 3. Check Origin header (most reliable for CORS requests)
   if (req.headers.origin) {
     domain = req.headers.origin;
-    console.log(`Domain from Origin header: ${domain}`);
     return domain;
   }
 
   // 4. Check Referer header
   if (req.headers.referer || req.headers.referrer) {
     domain = req.headers.referer || req.headers.referrer;
-    console.log(`Domain from Referer header: ${domain}`);
     return domain;
   }
 
   // 5. Fallback to Host header (for testing)
   if (req.headers.host) {
     domain = req.headers.host;
-    console.log(`Domain from Host header (fallback): ${domain}`);
     return domain;
   }
 
@@ -206,7 +193,6 @@ export async function invalidateCompanyCache(domain) {
     const normalizedDomain = normalizeDomain(domain);
     const cacheKey = `company:domain:${normalizedDomain}`;
     await redis.del(cacheKey);
-    console.log(`Cache invalidated for domain: ${normalizedDomain}`);
   } catch (error) {
     console.error('Error invalidating company cache:', error);
   }

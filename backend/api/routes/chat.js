@@ -380,7 +380,6 @@ router.post('/request-log', async (req, res) => {
             base64: fileData.base64 // Already encoded and stored in session
           });
 
-          console.log(`Successfully retrieved attachment from session: ${fileData.name}`);
         } else {
           console.error(`Attachment ${fileId} not found in session`);
         }
@@ -393,12 +392,6 @@ router.post('/request-log', async (req, res) => {
       log_request_email_cc: req.company?.log_request_email_cc || null
     };
 
-    console.log('[LOG Request] Company:', req.company?.name);
-    console.log('[LOG Request] Email Config:', {
-      to: companyConfig.log_request_email_to,
-      cc: companyConfig.log_request_email_cc,
-      fallback: process.env.LOG_REQUEST_EMAIL_TO
-    });
 
     // Send email to support team
     const emailResult = await sendLogRequestEmail({
@@ -542,12 +535,6 @@ router.post('/anonymous-log-request', async (req, res) => {
         log_request_email_cc: company?.log_request_email_cc || null
       };
 
-      console.log('[Anonymous LOG Request] Company:', company?.name);
-      console.log('[Anonymous LOG Request] Email Config:', {
-        to: companyConfig.log_request_email_to,
-        cc: companyConfig.log_request_email_cc,
-        fallback: process.env.LOG_REQUEST_EMAIL_TO
-      });
 
       // Send email to support team
       await sendLogRequestEmail({
@@ -661,7 +648,6 @@ router.post('/message', async (req, res) => {
     const cachedResult = await getCachedQueryResult(queryHash);
 
     if (cachedResult) {
-      console.log('Returning cached response');
       await touchSession(sessionId);
       return res.json({
         success: true,
@@ -689,11 +675,6 @@ router.post('/message', async (req, res) => {
     // Get company AI settings (will be null/undefined if not configured)
     const companyAISettings = req.company?.ai_settings || null;
 
-    console.log('\n' + '='.repeat(80));
-    console.log(`[Chat] Processing message for employee: ${employee.name} (${employee.employee_id})`);
-    console.log(`[Chat] Company: ${req.company?.name}, Schema: ${req.company?.schemaName}`);
-    console.log(`[Chat] AI Settings: topK=${companyAISettings?.top_k_results || 5}, threshold=${companyAISettings?.similarity_threshold || 0.7}, escalation_threshold=${companyAISettings?.escalation_threshold ?? 0.5}`);
-    console.log('='.repeat(80) + '\n');
 
     // Search knowledge base (use company-specific client and settings)
     const contexts = await searchKnowledgeBase(
@@ -705,15 +686,10 @@ router.post('/message', async (req, res) => {
     );
 
     // Additional context logging after search
-    console.log(`\n[Chat] Knowledge search completed - Found ${contexts?.length || 0} contexts`);
     if (contexts && contexts.length > 0) {
-      console.log('[Chat] Context details:');
       contexts.forEach((ctx, idx) => {
-        console.log(`  ${idx + 1}. [${ctx.similarity.toFixed(4)}] ${ctx.title || '(no title)'}`);
-        console.log(`     Category: ${ctx.category}, Subcategory: ${ctx.subcategory || 'none'}`);
       });
     } else {
-      console.log('[Chat] ⚠️ No knowledge contexts found - AI may generate generic response or escalate');
     }
 
     // Get conversation history (with employee validation for security)
@@ -725,7 +701,6 @@ router.post('/message', async (req, res) => {
       content: h.content
     }));
 
-    console.log(`[Chat] Conversation history: ${formattedHistory.length} messages`);
 
     // Pre-process: Check if user is responding to escalation with contact info
     let messageToProcess = message;
@@ -742,8 +717,6 @@ router.post('/message', async (req, res) => {
     const awaitingContact = conversationState?.awaitingContactInfo === true;
 
     if ((wasEscalation || awaitingContact) && isContactInfo) {
-      console.log('[Chat] 🎯 Context detected: User providing contact info after escalation');
-      console.log(`[Chat] Escalation state: ${awaitingContact ? 'Active' : 'Not tracked'}`);
       // Inject context hint to help AI understand this is a contact info response
       messageToProcess = `[User is providing contact information in response to escalation request] ${message}`;
 
@@ -754,11 +727,9 @@ router.post('/message', async (req, res) => {
           lastBotAction: 'received_contact_info',
           contactReceivedAt: new Date().toISOString()
         });
-        console.log('[Chat] ✅ Conversation state cleared: contact info received');
       }
     }
 
-    console.log(`[Chat] Generating AI response with model: ${companyAISettings?.model || 'default'}...\n`);
 
     // Generate RAG response with company-specific AI settings
     const response = await generateRAGResponse(
@@ -770,17 +741,8 @@ router.post('/message', async (req, res) => {
     );
 
     // Enhanced AI response logging
-    console.log('\n' + '-'.repeat(80));
-    console.log('[AI Response] Generation completed');
-    console.log(`[AI Response] Model: ${response.model || 'unknown'}`);
-    console.log(`[AI Response] Confidence: ${response.confidence.toFixed(4)}`);
-    console.log(`[AI Response] Tokens used: ${response.tokens || 'unknown'}`);
-    console.log(`[AI Response] Sources: ${response.sources?.length || 0} knowledge base entries`);
-    console.log(`[AI Response] Answer preview: ${response.answer?.substring(0, 200)}...`);
 
     const hasEscalationPhrase = response.answer?.toLowerCase().includes('for such query, let us check back with the team');
-    console.log(`[AI Response] Contains escalation phrase: ${hasEscalationPhrase}`);
-    console.log('-'.repeat(80) + '\n');
 
     // Save messages to Redis
     await addMessageToHistory(session.conversationId, {
@@ -805,23 +767,17 @@ router.post('/message', async (req, res) => {
     let escalated = false;
     let escalationReason = null;
 
-    console.log('[Escalation Check] Evaluating escalation criteria...');
 
     // Get escalation threshold from company settings (default 0.5)
     const escalationThreshold = companyAISettings?.escalation_threshold ?? 0.5;
-    console.log(`[Escalation Check] Threshold: ${escalationThreshold}`);
-    console.log(`[Escalation Check] Current confidence: ${response.confidence.toFixed(4)}`);
-    console.log(`[Escalation Check] ESCALATE_ON_NO_KNOWLEDGE env: ${ESCALATE_ON_NO_KNOWLEDGE}`);
 
     // Check if AI explicitly says it cannot answer (uses the exact template phrase)
     // Strip markdown formatting (**, *, _, etc.) before checking
     const cleanAnswer = response.answer ? response.answer.replace(/[*_]/g, '') : '';
     const aiSaysNoKnowledge = cleanAnswer.toLowerCase().includes('for such query, let us check back with the team');
-    console.log(`[Escalation Check] AI used escalation phrase: ${aiSaysNoKnowledge}`);
 
     // Check if confidence is at or below threshold
     const lowConfidence = response.confidence <= escalationThreshold;
-    console.log(`[Escalation Check] Confidence at/below threshold: ${lowConfidence} (${response.confidence.toFixed(4)} <= ${escalationThreshold})`);
 
     // Escalate if:
     // 1. AI explicitly cannot answer (uses escalation phrase), OR
@@ -830,22 +786,11 @@ router.post('/message', async (req, res) => {
       escalated = true;
       escalationReason = aiSaysNoKnowledge ? 'ai_unable_to_answer' : 'low_confidence';
 
-      console.log('\n' + '!'.repeat(80));
-      console.log(`[Escalation] 🚨 ESCALATION TRIGGERED`);
-      console.log(`[Escalation] Reason: ${escalationReason}`);
-      console.log(`[Escalation] Confidence: ${response.confidence.toFixed(4)} (threshold: ${escalationThreshold})`);
-      console.log(`[Escalation] AI escalation phrase present: ${aiSaysNoKnowledge}`);
-      console.log(`[Escalation] Knowledge contexts found: ${contexts?.length || 0}`);
-      console.log('!'.repeat(80) + '\n');
     } else {
-      console.log(`[Escalation Check] ✅ No escalation needed`);
-      console.log(`[Escalation Check] Reason: Confidence ${response.confidence.toFixed(4)} > ${escalationThreshold} AND no escalation phrase\n`);
     }
 
     if (escalated) {
-      console.log('[Escalation] Creating escalation record...');
       await handleEscalation(session, message, response, employee, escalationReason, req.supabase, req.company.schemaName);
-      console.log('[Escalation] ✅ Escalation record created');
 
       // Update conversation state to track escalation
       await updateConversationState(sessionId, {
@@ -854,7 +799,6 @@ router.post('/message', async (req, res) => {
         escalationTimestamp: new Date().toISOString(),
         escalationReason
       });
-      console.log('[Escalation] ✅ Conversation state updated: awaiting contact info\n');
     }
 
     // Cache the result if confidence is high
@@ -867,12 +811,6 @@ router.post('/message', async (req, res) => {
     }
 
     // Final summary log
-    console.log('='.repeat(80));
-    console.log('[Chat] Request completed successfully');
-    console.log(`[Chat] Final confidence: ${response.confidence.toFixed(4)}`);
-    console.log(`[Chat] Escalated: ${escalated ? 'YES (' + escalationReason + ')' : 'NO'}`);
-    console.log(`[Chat] Response sent to client`);
-    console.log('='.repeat(80) + '\n');
 
     res.json({
       success: true,
@@ -1188,7 +1126,6 @@ async function updateEscalationWithContact(escalationId, contactInfo, employee, 
     if (error) {
       console.error('Error updating escalation with contact:', error);
     } else {
-      console.log(`Successfully updated escalation ${escalationId} with contact: ${contactInfo}`);
 
       // Notify Telegram that contact information was provided
       await notifyContactProvided(escalationId, contactInfo, employee);
@@ -1210,7 +1147,6 @@ async function handleEscalation(session, query, response, employee, reason, supa
     // If user is providing contact info and there's already a pending escalation,
     // update the existing escalation instead of creating a new one
     if (isContact && pendingEscalation) {
-      console.log('Contact information detected for existing escalation, updating...');
       await updateEscalationWithContact(pendingEscalation.id, query, employee, supabaseClient);
       return; // Don't create a new escalation
     }
@@ -1508,7 +1444,6 @@ router.get('/quick-questions', async (req, res) => {
       });
     }
 
-    console.log(`[Quick Questions] Fetching for schema: ${schemaName}`);
 
     // Use RPC function to query quick questions without requiring authentication
     const { data: questions, error } = await supabase
@@ -1519,7 +1454,6 @@ router.get('/quick-questions', async (req, res) => {
       throw error;
     }
 
-    console.log(`[Quick Questions] Found ${questions?.length || 0} active questions`);
 
     // Group by category
     const categorized = {};

@@ -19,21 +19,15 @@ const TOP_K_RESULTS = parseInt(process.env.TOP_K_RESULTS) || 5;
  */
 export async function searchKnowledgeBase(query, supabaseClient = null, topK = TOP_K_RESULTS, threshold = SIMILARITY_THRESHOLD, category = null, policyType = null) {
   try {
-    console.log('[Knowledge Search] Starting search...');
-    console.log(`[Knowledge Search] Query: "${query}"`);
-    console.log(`[Knowledge Search] Parameters: topK=${topK}, threshold=${threshold}, policyType=${policyType || 'none'}`);
 
     // Use provided client or fallback to default
     const client = supabaseClient || supabase;
 
     // Generate embedding for the query
-    console.log('[Knowledge Search] Generating query embedding...');
     const queryEmbedding = await generateEmbedding(query);
-    console.log(`[Knowledge Search] ✅ Generated embedding with ${queryEmbedding.length} dimensions`);
 
     // First check if ANY knowledge exists with very low threshold (0.1)
     // This helps us differentiate between "no data" vs "low similarity data"
-    console.log('[Knowledge Search] Checking if ANY knowledge exists (threshold 0.1)...');
     const { data: anyData } = await client.rpc('match_knowledge', {
       query_embedding: queryEmbedding,
       match_threshold: 0.1,
@@ -41,16 +35,13 @@ export async function searchKnowledgeBase(query, supabaseClient = null, topK = T
     });
 
     const hasAnyKnowledge = anyData && anyData.length > 0;
-    console.log(`[Knowledge Search] Any knowledge exists: ${hasAnyKnowledge ? 'YES' : 'NO'}`);
     if (hasAnyKnowledge) {
-      console.log(`[Knowledge Search] Best match at 0.1 threshold: similarity=${anyData[0].similarity.toFixed(4)}, title="${anyData[0].title}"`);
     }
 
     // Use Supabase RPC to call the match_knowledge function with actual threshold
     // Fetch more results initially if we're going to filter by policy type
     const fetchCount = policyType ? topK * 3 : topK;
 
-    console.log(`[Knowledge Search] Searching with threshold ${threshold}, fetching ${fetchCount} results...`);
     let rpcQuery = client.rpc('match_knowledge', {
       query_embedding: queryEmbedding,
       match_threshold: threshold,
@@ -65,28 +56,19 @@ export async function searchKnowledgeBase(query, supabaseClient = null, topK = T
     }
 
     let results = data || [];
-    console.log(`[Knowledge Search] RPC returned ${results.length} results with threshold ${threshold}`);
 
     // Log all results before filtering
     if (results.length > 0) {
-      console.log('[Knowledge Search] Results before policy filtering:');
       results.forEach((item, idx) => {
-        console.log(`  ${idx + 1}. Similarity: ${item.similarity.toFixed(4)}, Category: ${item.category}, Subcategory: ${item.subcategory || 'none'}, Title: "${item.title || '(no title)'}"`);
       });
     } else {
-      console.log('[Knowledge Search] ⚠️ No results found at threshold ' + threshold);
       if (hasAnyKnowledge) {
-        console.log('[Knowledge Search] ⚠️ Knowledge exists but similarity is too low!');
-        console.log(`[Knowledge Search] 💡 Best similarity was ${anyData[0].similarity.toFixed(4)} but threshold is ${threshold}`);
-        console.log('[Knowledge Search] 💡 Consider lowering similarity_threshold in AI settings');
       } else {
-        console.log('[Knowledge Search] ❌ No knowledge exists in database for this query');
       }
     }
 
     // Apply policy type filtering if provided
     if (policyType && results.length > 0) {
-      console.log(`[Knowledge Search] Applying policy type filter: ${policyType}`);
       const beforeFilterCount = results.length;
 
       // Define benefit types that should always be included regardless of policy
@@ -112,20 +94,14 @@ export async function searchKnowledgeBase(query, supabaseClient = null, topK = T
       // Limit to requested topK after filtering
       results = results.slice(0, topK);
 
-      console.log(`[Knowledge Search] Policy filtering: Retrieved ${beforeFilterCount} items → filtered to ${results.length} items`);
 
       if (beforeFilterCount > 0 && results.length === 0) {
-        console.log('[Knowledge Search] ⚠️ Policy filter excluded ALL results!');
-        console.log(`[Knowledge Search] 💡 Employee policy type "${policyType}" filtered out all matches`);
       }
     }
 
     // Log final results
-    console.log(`[Knowledge Search] Final result count: ${results.length}`);
     if (results.length > 0) {
-      console.log('[Knowledge Search] ✅ Returning results:');
       results.forEach((item, idx) => {
-        console.log(`  ${idx + 1}. Similarity: ${item.similarity.toFixed(4)}, Title: "${item.title || '(no title)'}"`);
       });
     }
 
@@ -185,7 +161,6 @@ export async function searchEmployeeData(query, topK = 3, threshold = 0.6, curre
       // CRITICAL: If currentEmployeeId is provided, ONLY return that employee's data
       if (currentEmployeeId) {
         query = query.eq('id', currentEmployeeId);
-        console.log(`Security filter applied: restricting results to employee ${currentEmployeeId}`);
       } else {
         // If no employee filter provided, log a security warning
         console.warn('SECURITY WARNING: searchEmployeeData called without currentEmployeeId filter - potential data leak');
@@ -489,7 +464,6 @@ export async function updateEmployeesBatch(employeesData, supabaseClient = null)
   const client = supabaseClient || supabase;
 
   try {
-    console.log(`[Batch Update] Processing ${employeesData.length} employees...`);
 
     // Update employees in batches to avoid payload size limits
     const BATCH_SIZE = 100;
@@ -497,7 +471,6 @@ export async function updateEmployeesBatch(employeesData, supabaseClient = null)
 
     for (let i = 0; i < employeesData.length; i += BATCH_SIZE) {
       const batch = employeesData.slice(i, i + BATCH_SIZE);
-      console.log(`[Batch Update] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(employeesData.length / BATCH_SIZE)} (${batch.length} employees)`);
 
       // Update each employee in the batch (Supabase doesn't support bulk update with different values easily)
       // But we can do it faster by using Promise.all for parallel updates
@@ -552,10 +525,8 @@ export async function updateEmployeesBatch(employeesData, supabaseClient = null)
         console.error('[Batch Update] Failed to insert employee embeddings:', embError);
       }
 
-      console.log(`[Batch Update] Completed batch ${Math.floor(i / BATCH_SIZE) + 1} - Updated ${batchUpdatedEmployees.length} employees with embeddings`);
     }
 
-    console.log(`[Batch Update] ✅ Total updated: ${allUpdatedEmployees.length} employees`);
     return allUpdatedEmployees;
   } catch (error) {
     console.error('Error updating employees batch:', error.message);
@@ -737,7 +708,6 @@ export async function getEmployeeByIdentifier(identifier, supabaseClient = null,
     throw new Error('Identifier value is required');
   }
 
-  console.log(`[Employee Lookup] Searching for: "${searchValue}"`);
 
   // Try all three columns in order until we find a match
   const lookupMethods = [
@@ -748,12 +718,9 @@ export async function getEmployeeByIdentifier(identifier, supabaseClient = null,
 
   for (const method of lookupMethods) {
     try {
-      console.log(`[Employee Lookup] Trying ${method.name}...`);
       const employee = await method.fn(searchValue, supabaseClient, includeInactive);
-      console.log(`[Employee Lookup] ✅ Found via ${method.name}`);
       return employee;
     } catch (error) {
-      console.log(`[Employee Lookup] ❌ Not found via ${method.name}`);
       // Continue to next lookup method
     }
   }
@@ -868,7 +835,6 @@ export async function deactivateEmployee(employeeId, options = {}, supabaseClien
       throw new Error('Employee not found or already inactive');
     }
 
-    console.log(`[Deactivate] Employee ${employeeId} deactivated by ${deactivatedBy}`);
     return data;
   } catch (error) {
     console.error('Error deactivating employee:', error.message);
@@ -909,7 +875,6 @@ export async function reactivateEmployee(employeeId, supabaseClient = null) {
       throw new Error('Employee not found or already active');
     }
 
-    console.log(`[Reactivate] Employee ${employeeId} reactivated`);
     return data;
   } catch (error) {
     console.error('Error reactivating employee:', error.message);
@@ -949,7 +914,6 @@ export async function deactivateEmployeesBulk(employeeIds, options = {}, supabas
       throw new Error(`Failed to bulk deactivate employees: ${error.message}`);
     }
 
-    console.log(`[Bulk Deactivate] ${data.length} employees deactivated by ${deactivatedBy}`);
 
     return {
       deactivated: data.length,

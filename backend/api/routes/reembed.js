@@ -17,7 +17,6 @@ router.post('/:schema', async (req, res) => {
   const BATCH_SIZE = 50;
 
   try {
-    console.log(`[Re-embed] Starting re-embedding for schema: ${schema}`);
 
     // Get company-specific Supabase client
     const supabaseClient = req.supabase;
@@ -49,7 +48,6 @@ router.post('/:schema', async (req, res) => {
       });
     }
 
-    console.log(`[Re-embed] Found ${entries.length} entries to process`);
 
     let processed = 0;
     let updated = 0;
@@ -61,7 +59,6 @@ router.post('/:schema', async (req, res) => {
       const batchNum = Math.floor(i / BATCH_SIZE) + 1;
       const totalBatches = Math.ceil(entries.length / BATCH_SIZE);
 
-      console.log(`[Re-embed] Processing batch ${batchNum}/${totalBatches} (${batch.length} entries)`);
 
       try {
         // Generate embeddings for title + content
@@ -98,7 +95,6 @@ router.post('/:schema', async (req, res) => {
         }
 
         processed += batch.length;
-        console.log(`[Re-embed] Processed ${processed}/${entries.length} entries`);
 
         // Rate limiting: wait 1 second between batches
         if (i + BATCH_SIZE < entries.length) {
@@ -112,7 +108,6 @@ router.post('/:schema', async (req, res) => {
       }
     }
 
-    console.log(`[Re-embed] Completed: ${updated} updated, ${errors} errors`);
 
     return res.json({
       success: true,

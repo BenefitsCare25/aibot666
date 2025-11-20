@@ -14,7 +14,9 @@
       "Bash(npm install:*)",
       "Bash(cat:*)",
       "Bash(node -c:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(nul)",
+      "Bash(python remove_console_logs.py:*)"
     ],
     "deny": [],
     "ask": []

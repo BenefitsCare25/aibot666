@@ -302,7 +302,6 @@ export async function sendLogRequestEmail(data) {
     const logMessage = emailCc
       ? `✓ LOG request email sent successfully to ${emailTo} (CC: ${emailCc})`
       : `✓ LOG request email sent successfully to ${emailTo}`;
-    console.log(logMessage);
     return { success: true, emailSentAt: new Date().toISOString() };
 
   } catch (error) {
@@ -329,7 +328,6 @@ export async function sendAcknowledgmentEmail(data) {
     } = data;
 
     if (!userEmail) {
-      console.log('No user email provided, skipping acknowledgment');
       return { success: false, reason: 'No email provided' };
     }
 
@@ -420,7 +418,6 @@ export async function sendAcknowledgmentEmail(data) {
         saveToSentItems: true
       });
 
-    console.log(`✓ Acknowledgment email sent successfully to ${userEmail}`);
     return { success: true, emailSentAt: new Date().toISOString() };
 
   } catch (error) {

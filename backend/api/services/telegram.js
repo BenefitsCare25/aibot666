@@ -20,7 +20,6 @@ if (TELEGRAM_BOT_TOKEN) {
     },
     handlerTimeout: 90000 // 90 second timeout instead of default
   });
-  console.log('✓ Telegram bot initialized');
 } else {
   console.warn('⚠ TELEGRAM_BOT_TOKEN not set - HITL features disabled');
 }
@@ -252,16 +251,9 @@ export function initializeTelegramBot() {
   bot.on('message', async (ctx) => {
     try {
       // Debug logging for group chat troubleshooting
-      console.log('📩 Received message:', {
-        hasReply: !!ctx.message.reply_to_message,
-        messageText: ctx.message.text?.substring(0, 50),
-        chatType: ctx.chat.type,
-        fromUser: ctx.from?.username || ctx.from?.first_name
-      });
 
       // Check if this is a reply to an escalation
       if (!ctx.message.reply_to_message) {
-        console.log('⏭️ Not a reply message, ignoring');
         return;
       }
 
@@ -270,23 +262,16 @@ export function initializeTelegramBot() {
                          ctx.message.reply_to_message.caption || '';
       const response = ctx.message.text || ctx.message.caption || '';
 
-      console.log('🔍 Processing reply:', {
-        replyToLength: replyToText.length,
-        responseLength: response.length,
-        replyPreview: replyToText.substring(0, 100)
-      });
 
       // Extract escalation ID and schema from the original message
       const escalationIdMatch = replyToText.match(/\[Escalation: ([a-f0-9-]+)(?:\|Schema: ([a-z0-9_]+))?\]/);
 
       if (!escalationIdMatch) {
-        console.log('❌ No escalation ID found in reply');
         return; // Not an escalation message
       }
 
       const escalationId = escalationIdMatch[1];
       const schemaName = escalationIdMatch[2]; // May be undefined for old messages
-      console.log(`✅ Found escalation ID: ${escalationId}${schemaName ? ` in schema: ${schemaName}` : ''}`);
 
       // Get schema-specific client
       // Import getSchemaClient here to avoid circular dependencies
@@ -300,7 +285,6 @@ export function initializeTelegramBot() {
       if (schemaName) {
         // Schema specified, use it directly
         schemaClient = getSchemaClient(schemaName);
-        console.log(`[Supabase] Using client for schema: ${schemaName}`);
 
         const result = await schemaClient
           .from('escalations')
@@ -323,7 +307,6 @@ export function initializeTelegramBot() {
         for (const company of companies) {
           if (company.status !== 'active') continue;
 
-          console.log(`🔍 Searching in schema: ${company.schema_name}`);
           schemaClient = getSchemaClient(company.schema_name);
 
           const result = await schemaClient
@@ -337,7 +320,6 @@ export function initializeTelegramBot() {
 
           if (!result.error && result.data) {
             escalation = result.data;
-            console.log(`✅ Found escalation in schema: ${company.schema_name}`);
             break;
           }
         }
@@ -354,12 +336,10 @@ export function initializeTelegramBot() {
       }
 
       if (!escalation) {
-        console.log('❌ No escalation found with ID:', escalationId);
         ctx.reply('❌ Escalation not found');
         return;
       }
 
-      console.log(`📋 Escalation status: ${escalation.status}`);
 
       if (escalation.status !== 'pending') {
         ctx.reply('ℹ️ This escalation has already been resolved');
@@ -368,11 +348,9 @@ export function initializeTelegramBot() {
 
       // Normalize response for command detection
       const normalizedResponse = response.trim().toLowerCase();
-      console.log(`💬 User response: "${normalizedResponse}"`);
 
       // Handle "skip" command - mark as reviewed without adding to KB
       if (normalizedResponse === 'skip' || normalizedResponse === '/skip') {
-        console.log('⏭️ Processing SKIP command');
         const { error: updateError } = await schemaClient
           .from('escalations')
           .update({
@@ -389,7 +367,6 @@ export function initializeTelegramBot() {
           return;
         }
 
-        console.log(`✅ Escalation ${escalationId} marked as skipped`);
         ctx.reply(
           '⏭️ Escalation skipped\n\n' +
           '✓ Marked as reviewed\n' +
@@ -410,7 +387,6 @@ export function initializeTelegramBot() {
       let resolvedStatus;
 
       if (isCorrectCommand) {
-        console.log('✅ Processing CORRECT command');
         // Use AI's original response from context
         answerToSave = escalation.context?.aiResponse;
         resolvedStatus = 'AI response confirmed as correct';
@@ -420,17 +396,13 @@ export function initializeTelegramBot() {
           ctx.reply('❌ Original AI response not found in escalation context');
           return;
         }
-        console.log(`📝 Using AI response (${answerToSave.substring(0, 50)}...)`);
       } else {
-        console.log('📝 Processing CUSTOM answer');
         // Use human's custom answer
         answerToSave = response;
         resolvedStatus = 'Custom answer provided';
-        console.log(`📝 Using custom answer (${answerToSave.substring(0, 50)}...)`);
       }
 
       // Update escalation with resolution
-      console.log(`💾 Updating escalation ${escalationId} to resolved status...`);
       const { error: updateError } = await schemaClient
         .from('escalations')
         .update({
@@ -447,11 +419,9 @@ export function initializeTelegramBot() {
         return;
       }
 
-      console.log(`✅ Escalation ${escalationId} marked as resolved`);
 
       // Add to knowledge base (use schema-specific client)
       try {
-        console.log('📚 Adding to knowledge base...');
         await addKnowledgeEntry({
           title: escalation.query.substring(0, 200),
           content: `Question: ${escalation.query}\n\nAnswer: ${answerToSave}`,
@@ -465,7 +435,6 @@ export function initializeTelegramBot() {
           source: 'hitl_learning'
         }, schemaClient);
 
-        console.log('✅ Successfully added to knowledge base');
 
         // Mark as added to knowledge base
         await schemaClient
@@ -473,7 +442,6 @@ export function initializeTelegramBot() {
           .update({ was_added_to_kb: true })
           .eq('id', escalationId);
 
-        console.log('✅ Updated was_added_to_kb flag');
 
         // Update chat history to mark as resolved
         if (escalation.message_id) {
@@ -481,13 +449,11 @@ export function initializeTelegramBot() {
             .from('chat_history')
             .update({ escalation_resolved: true })
             .eq('id', escalation.message_id);
-          console.log('✅ Updated chat history escalation_resolved flag');
         }
 
         const statusIcon = isCorrectCommand ? '✅' : '📝';
         const statusText = isCorrectCommand ? 'AI response confirmed' : 'Custom answer saved';
 
-        console.log(`🎉 Workflow complete! Sending success message to user`);
         ctx.reply(
           `${statusIcon} ${statusText}\n\n` +
           '✓ Escalation marked as resolved\n' +
@@ -513,14 +479,12 @@ export function initializeTelegramBot() {
         await bot.launch({
           dropPendingUpdates: true // Ignore old updates on restart
         });
-        console.log('✓ Telegram bot started successfully');
         return;
       } catch (err) {
         console.error(`Telegram bot launch attempt ${attempt}/${maxRetries} failed:`, err.message);
 
         if (attempt < maxRetries) {
           const delay = delayMs * attempt; // Exponential backoff
-          console.log(`Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         } else {
           console.error('❌ Failed to start Telegram bot after all retries');
@@ -643,7 +607,6 @@ ${truncatedAnswer}
         });
 
         await Promise.race([sendPromise, timeoutPromise]);
-        console.log(`✓ Escalation ${escalation.id} sent to Telegram (attempt ${attempt})`);
         return; // Success - exit function
       } catch (error) {
         lastError = error;
@@ -651,7 +614,6 @@ ${truncatedAnswer}
 
         if (attempt < maxRetries) {
           const delay = 2000 * attempt; // Exponential backoff: 2s, 4s, 6s
-          console.log(`Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
@@ -692,7 +654,6 @@ export async function notifyContactProvided(escalationId, contactInfo, employee)
       parse_mode: 'HTML'
     });
 
-    console.log(`✓ Contact update for escalation ${escalationId} sent to Telegram`);
   } catch (error) {
     console.error('Error sending contact notification:', error);
   }

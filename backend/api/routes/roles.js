@@ -509,7 +509,6 @@ router.put('/:id', [
         for (const user of usersWithRole) {
           await invalidatePermissionCache(user.id);
         }
-        console.log(`[Roles] Permission cache invalidated for ${usersWithRole.length} user(s) with role: ${id}`);
       }
     }
 

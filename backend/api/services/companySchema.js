@@ -30,7 +30,6 @@ export async function createCompanySchema(schemaName) {
     // This would need to be executed directly in Supabase SQL editor or via admin API
     // For now, we'll return the SQL to be executed manually or via admin endpoint
 
-    console.log(`Schema SQL generated for: ${schemaName}`);
 
     return {
       success: true,
@@ -156,7 +155,6 @@ export async function registerCompany(companyData) {
       throw error;
     }
 
-    console.log(`Company registered: ${name} (${domain}) -> ${schemaName}`);
 
     return {
       success: true,
@@ -182,7 +180,6 @@ export async function getCompanyByDomain(domain) {
 
     // Normalize domain (remove protocol, www, trailing slash)
     const normalizedDomain = normalizeDomain(domain);
-    console.log(`[Company Lookup] Searching for normalized domain: ${normalizedDomain}`);
 
     // Fetch all active companies and normalize domains in JavaScript
     // This is more reliable than trying to match with ILIKE when protocols differ
@@ -196,7 +193,6 @@ export async function getCompanyByDomain(domain) {
       return null;
     }
 
-    console.log(`[Company Lookup] Found ${companies?.length || 0} active companies`);
 
     // Find company by normalizing stored domain and comparing
     let company = companies?.find(c => {
@@ -204,7 +200,6 @@ export async function getCompanyByDomain(domain) {
       const matches = normalizedStoredDomain.toLowerCase() === normalizedDomain.toLowerCase();
 
       if (matches) {
-        console.log(`[Company Lookup] MATCH! Domain: ${c.domain} -> Normalized: ${normalizedStoredDomain}`);
       }
 
       return matches;
@@ -220,14 +215,11 @@ export async function getCompanyByDomain(domain) {
       ) || null;
 
       if (company) {
-        console.log(`[Company Lookup] Found via additional_domains: ${company.name}`);
       }
     }
 
     if (!company) {
-      console.log(`[Company Lookup] No match found for: ${normalizedDomain}`);
       companies?.forEach(c => {
-        console.log(`  - Available: ${c.domain} -> ${normalizeDomain(c.domain)}`);
       });
     }
 
