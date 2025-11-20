@@ -112,7 +112,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
   };
 
   return (
-    <div className="ic-bg-white ic-rounded-2xl ic-shadow-2xl ic-w-96 ic-overflow-hidden ic-border ic-border-gray-100">
+    <div className="ic-bg-white ic-rounded-2xl ic-shadow-2xl ic-w-[450px] ic-overflow-hidden ic-border ic-border-gray-100">
       {/* Header with Red Gradient */}
       <div
         className="ic-p-6 ic-text-white ic-relative"
@@ -141,7 +141,6 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
             </div>
             <div>
               <h3 className="ic-text-xl ic-font-bold ic-tracking-tight">Chat with us</h3>
-              <p className="ic-text-sm ic-text-white/90 ic-mt-0.5">We're online!</p>
             </div>
           </div>
           <button
@@ -170,7 +169,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
       {/* Login Form */}
       <div className="ic-p-6 ic-bg-gradient-to-b ic-from-gray-50 ic-to-white">
         <p className="ic-text-gray-700 ic-mb-6 ic-text-base ic-font-medium ic-text-center">
-          Welcome! Let us know if you have any enquires!
+          Verify yourself to start chatting
         </p>
 
         <form onSubmit={handleSubmit} className="ic-space-y-4">

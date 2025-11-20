@@ -115,7 +115,7 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
   };
 
   return (
-    <div className="ic-bg-white ic-rounded-2xl ic-shadow-2xl ic-w-96 ic-h-[600px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-border-gray-100">
+    <div className="ic-bg-white ic-rounded-2xl ic-shadow-2xl ic-w-[450px] ic-h-[650px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-border-gray-100">
       {/* Header with Red Gradient */}
       <div
         className="ic-p-5 ic-text-white ic-relative"
@@ -143,8 +143,7 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
               </svg>
             </div>
             <div>
-              <h3 className="ic-text-base ic-font-bold">{employeeName}</h3>
-              <p className="ic-text-xs ic-text-white/90 ic-mt-0.5">Online</p>
+              <h3 className="ic-text-base ic-font-bold">Welcome, {employeeName}</h3>
             </div>
           </div>
           <div className="ic-flex ic-items-center ic-gap-1">
