@@ -166,11 +166,12 @@ CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_qq_active ON {{SCHEMA_NAME}}.quic
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_qq_order ON {{SCHEMA_NAME}}.quick_questions(category_id, display_order);
 
 -- Log requests table: Store LOG (conversation history + attachments) requests sent to support team
+-- Supports both authenticated and anonymous LOG requests
 CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.log_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID NOT NULL,
+  conversation_id UUID,
   employee_id UUID REFERENCES {{SCHEMA_NAME}}.employees(id) ON DELETE SET NULL,
-  request_type VARCHAR(20) NOT NULL CHECK (request_type IN ('keyword', 'button')),
+  request_type VARCHAR(20) NOT NULL CHECK (request_type IN ('keyword', 'button', 'anonymous')),
   request_message TEXT,
   user_email VARCHAR(255),
   acknowledgment_sent BOOLEAN DEFAULT false,
@@ -179,6 +180,7 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.log_requests (
   email_sent_at TIMESTAMP WITH TIME ZONE,
   email_error TEXT,
   attachments JSONB DEFAULT '[]'::jsonb,
+  metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
