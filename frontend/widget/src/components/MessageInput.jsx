@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Send, FileText } from 'lucide-react';
+import { Send, FileText, Paperclip, X } from 'lucide-react';
 import FileAttachment from './FileAttachment';
 import EmailInput from './EmailInput';
 import { detectLogContext } from '../utils/logDetection';
@@ -103,26 +103,17 @@ export default function MessageInput({
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled || attachments.length >= 5}
-              className="ic-p-2 ic-text-gray-500 hover:ic-text-gray-700 ic-rounded ic-transition-colors disabled:ic-opacity-50 disabled:ic-cursor-not-allowed ic-flex-shrink-0 ic-relative"
+              className="ic-p-1.5 ic-rounded ic-transition-colors disabled:ic-opacity-50 disabled:ic-cursor-not-allowed ic-flex-shrink-0 ic-relative"
+              style={{ color: 'var(--color-text-tertiary)' }}
               title="Attach file"
               aria-label="Attach file"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="ic-w-6 ic-h-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                />
-              </svg>
+              <Paperclip className="ic-w-5 ic-h-5" strokeWidth={2} />
               {attachments.length > 0 && (
-                <span className="ic-absolute ic--top-1 ic--right-1 ic-bg-pink-500 ic-text-white ic-text-xs ic-rounded-full ic-w-4 ic-h-4 ic-flex ic-items-center ic-justify-center">
+                <span
+                  className="ic-absolute ic--top-1 ic--right-1 ic-text-white ic-text-xs ic-rounded-full ic-w-4 ic-h-4 ic-flex ic-items-center ic-justify-center"
+                  style={{ backgroundColor: 'var(--color-primary-600)' }}
+                >
                   {attachments.length}
                 </span>
               )}
@@ -161,18 +152,16 @@ export default function MessageInput({
               <button
                 onClick={onExitLogMode}
                 disabled={disabled}
-                className="ic-px-3 ic-py-2 ic-bg-gray-500 ic-text-white ic-rounded-md ic-transition-colors hover:ic-bg-gray-600 disabled:ic-opacity-50 disabled:ic-cursor-not-allowed ic-flex ic-items-center ic-gap-1 ic-text-sm ic-whitespace-nowrap ic-flex-shrink-0"
+                className="ic-px-3 ic-py-2 ic-bg-gray-500 ic-text-white ic-rounded-lg ic-transition-colors hover:ic-bg-gray-600 disabled:ic-opacity-50 disabled:ic-cursor-not-allowed ic-flex ic-items-center ic-gap-1 ic-text-xs ic-whitespace-nowrap ic-flex-shrink-0"
                 title="Cancel LOG request"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-4 ic-h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="ic-w-4 ic-h-4" strokeWidth={2} />
                 <span>Cancel</span>
               </button>
               <button
                 onClick={handleRequestLog}
                 disabled={disabled || (showEmailInput && !emailValid)}
-                className="ic-px-3 ic-py-2 ic-text-white ic-rounded-md ic-transition-colors disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-opacity-90 ic-flex ic-items-center ic-gap-1 ic-text-sm ic-whitespace-nowrap ic-flex-shrink-0"
+                className="ic-px-3 ic-py-2 ic-text-white ic-rounded-lg ic-transition-colors disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-opacity-90 ic-flex ic-items-center ic-gap-1 ic-text-xs ic-whitespace-nowrap ic-flex-shrink-0"
                 style={{ backgroundColor: '#4CAF50' }}
                 title="Submit LOG request"
               >
