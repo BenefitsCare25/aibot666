@@ -186,19 +186,17 @@ export default function MessageInput({
               </button>
             </div>
           ) : (
-            /* Normal Mode: Show LOG button (compact icon or expanded based on context) */
+            /* Normal Mode: Show LOG button matching send button design */
             !logRequested && (
               <button
                 onClick={onEnterLogMode}
                 disabled={disabled}
-                className={`ic-text-white ic-rounded-md ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-opacity-90 ic-flex ic-items-center ic-gap-1 ic-text-sm ic-whitespace-nowrap ic-flex-shrink-0 ${
-                  expandLogButton ? 'ic-px-3 ic-py-2' : 'ic-p-2'
-                }`}
-                style={{ backgroundColor: primaryColor }}
+                className="ic-w-12 ic-h-12 ic-text-white ic-rounded-full ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-lg ic-transform hover:ic-scale-110 ic-flex ic-items-center ic-justify-center ic-flex-shrink-0"
+                style={{ background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)' }}
                 title="Request Letter of Guarantee"
+                aria-label="Request Letter of Guarantee"
               >
-                <FileText className="ic-w-4 ic-h-4" strokeWidth={2} />
-                {expandLogButton && <span>LOG Request</span>}
+                <FileText className="ic-w-5 ic-h-5" strokeWidth={2.5} />
               </button>
             )
           )}
