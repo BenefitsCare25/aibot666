@@ -687,9 +687,107 @@ The bot has learned from this interaction!
   }
 }
 
+/**
+ * Send notification about LOG request submission
+ * @param {Object} params - LOG request parameters
+ * @param {Object} params.employee - Employee information (or anonymous user data)
+ * @param {string} params.requestType - Type of request (button, keyword, anonymous)
+ * @param {string} params.requestMessage - User's request message
+ * @param {string} params.conversationId - Conversation ID (null for anonymous)
+ * @param {number} params.attachmentCount - Number of attachments
+ * @param {string} params.companyName - Company name
+ * @param {string} params.logRequestId - LOG request database ID
+ */
+export async function notifyLogRequest({
+  employee,
+  requestType,
+  requestMessage,
+  conversationId,
+  attachmentCount = 0,
+  companyName = 'Unknown Company',
+  logRequestId
+}) {
+  if (!bot || !TELEGRAM_CHAT_ID) {
+    return;
+  }
+
+  try {
+    // Determine request type emoji and label
+    let typeEmoji = '📋';
+    let typeLabel = 'LOG Request';
+
+    if (requestType === 'anonymous') {
+      typeEmoji = '🔓';
+      typeLabel = 'Anonymous LOG Request';
+    } else if (requestType === 'button') {
+      typeEmoji = '🔘';
+      typeLabel = 'Button LOG Request';
+    } else if (requestType === 'keyword') {
+      typeEmoji = '💬';
+      typeLabel = 'Keyword LOG Request';
+    }
+
+    // Format employee information
+    const employeeName = employee?.name || 'Anonymous User';
+    const employeeEmail = employee?.email || 'Not provided';
+    const employeeId = employee?.employee_id || 'N/A';
+
+    // Format message
+    let message = `
+${typeEmoji} <b>${typeLabel}</b>
+
+<b>Company:</b> ${companyName}
+<b>Employee:</b> ${employeeName}
+<b>Email:</b> ${employeeEmail}
+<b>Employee ID:</b> ${employeeId}
+    `.trim();
+
+    // Add conversation ID if available
+    if (conversationId) {
+      message += `\n<b>Conversation ID:</b> ${conversationId.substring(0, 13)}...`;
+    }
+
+    // Add request message if provided
+    if (requestMessage && requestMessage.trim() && requestMessage !== 'User requested LOG via button') {
+      const truncatedMessage = requestMessage.length > 150
+        ? requestMessage.substring(0, 150) + '...'
+        : requestMessage;
+      message += `\n\n<b>Message:</b>\n${truncatedMessage}`;
+    }
+
+    // Add attachment count
+    if (attachmentCount > 0) {
+      message += `\n\n📎 <b>Attachments:</b> ${attachmentCount} file${attachmentCount > 1 ? 's' : ''}`;
+    }
+
+    // Add LOG request ID for reference
+    message += `\n\n<b>Request ID:</b> ${logRequestId.substring(0, 13)}...`;
+
+    // Add timestamp
+    const timestamp = new Date().toLocaleString('en-SG', {
+      timeZone: 'Asia/Singapore',
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    message += `\n<b>Time:</b> ${timestamp}`;
+
+    await bot.telegram.sendMessage(TELEGRAM_CHAT_ID, message, {
+      parse_mode: 'HTML'
+    });
+
+  } catch (error) {
+    console.error('Error sending LOG request notification:', error);
+  }
+}
+
 export default {
   initializeTelegramBot,
   notifyTelegramEscalation,
   notifyContactProvided,
-  notifyEscalationResolved
+  notifyEscalationResolved,
+  notifyLogRequest
 };

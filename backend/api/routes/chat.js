@@ -16,7 +16,7 @@ import {
 } from '../utils/session.js';
 import supabase from '../../config/supabase.js';
 import { createHash } from 'crypto';
-import { notifyTelegramEscalation, notifyContactProvided } from '../services/telegram.js';
+import { notifyTelegramEscalation, notifyContactProvided, notifyLogRequest } from '../services/telegram.js';
 import { companyContextMiddleware } from '../middleware/companyContext.js';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
@@ -441,6 +441,19 @@ router.post('/request-log', async (req, res) => {
       console.error('Error saving LOG request:', logError);
     }
 
+    // Send Telegram notification
+    if (logRequest?.id) {
+      await notifyLogRequest({
+        employee,
+        requestType: 'button',
+        requestMessage: message || 'User requested LOG via button',
+        conversationId: session.conversationId,
+        attachmentCount: attachments.length,
+        companyName: req.company?.name || 'Unknown Company',
+        logRequestId: logRequest.id
+      });
+    }
+
     res.json({
       success: true,
       data: {
@@ -573,6 +586,21 @@ router.post('/anonymous-log-request', async (req, res) => {
           acknowledgment_sent_at: new Date().toISOString()
         })
         .eq('id', logRequest.id);
+
+      // Send Telegram notification for anonymous LOG request
+      await notifyLogRequest({
+        employee: employee || {
+          name: 'Anonymous User',
+          email: email.trim(),
+          employee_id: employeeId?.trim() || 'Not provided'
+        },
+        requestType: 'anonymous',
+        requestMessage: description?.trim() || 'Anonymous LOG request submitted via widget',
+        conversationId: null,
+        attachmentCount: attachments.length,
+        companyName: company?.name || 'Unknown Company',
+        logRequestId: logRequest.id
+      });
 
     } catch (emailErr) {
       console.error('Failed to send LOG request email:', emailErr);
