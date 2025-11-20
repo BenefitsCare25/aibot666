@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { employeeApi } from '../api/employees';
 import toast from 'react-hot-toast';
+import { usePermissions } from '../hooks/usePermissions';
 
 export default function Employees() {
+  const { can, loading: permissionsLoading } = usePermissions();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -233,17 +235,20 @@ export default function Employees() {
           <h1 className="text-3xl font-bold text-gray-900">Employees</h1>
           <p className="text-gray-600 mt-1">Manage employee data and policies</p>
         </div>
-        <button
-          onClick={handleDownloadTemplate}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-        >
-          <span>📥</span>
-          Download Template
-        </button>
+        {can('employees.upload') && (
+          <button
+            onClick={handleDownloadTemplate}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+          >
+            <span>📥</span>
+            Download Template
+          </button>
+        )}
       </div>
 
       {/* Upload Section */}
-      <div className="bg-white rounded-lg shadow p-6">
+      {can('employees.upload') && (
+        <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Upload Employee Data</h2>
 
         {/* Upload Options */}
@@ -401,6 +406,7 @@ export default function Employees() {
           </div>
         )}
       </div>
+      )}
 
       {/* Search and Filter */}
       <div className="bg-white rounded-lg shadow p-4">
@@ -427,7 +433,7 @@ export default function Employees() {
             }}
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
-          {selectedEmployees.length > 0 && (
+          {selectedEmployees.length > 0 && can('employees.delete') && (
             <button
               onClick={handleBulkDeleteClick}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
@@ -472,70 +478,72 @@ export default function Employees() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedEmployees.length > 0}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              handleSelectAllCurrentPage();
-                            } else {
-                              handleDeselectAll();
-                            }
-                          }}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
-                        />
-                        <div className="relative">
-                          <button
-                            onClick={() => setShowSelectMenu(!showSelectMenu)}
-                            className="text-gray-500 hover:text-gray-700"
-                            title="Selection options"
-                          >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                          {showSelectMenu && (
-                            <>
-                              <div
-                                className="fixed inset-0 z-10"
-                                onClick={() => setShowSelectMenu(false)}
-                              ></div>
-                              <div className="absolute left-0 top-6 bg-white border border-gray-200 rounded-lg shadow-lg z-20 w-56">
-                                <button
-                                  onClick={() => {
-                                    handleSelectAllCurrentPage();
-                                    setShowSelectMenu(false);
-                                  }}
-                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg"
-                                >
-                                  Select page ({employees.length})
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    handleSelectAllRecords();
-                                    setShowSelectMenu(false);
-                                  }}
-                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-t"
-                                >
-                                  Select all records
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    handleDeselectAll();
-                                    setShowSelectMenu(false);
-                                  }}
-                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-t rounded-b-lg"
-                                >
-                                  Deselect all
-                                </button>
-                              </div>
-                            </>
-                          )}
+                    {can('employees.delete') && (
+                      <th className="px-6 py-3 text-left">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedEmployees.length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                handleSelectAllCurrentPage();
+                              } else {
+                                handleDeselectAll();
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                          />
+                          <div className="relative">
+                            <button
+                              onClick={() => setShowSelectMenu(!showSelectMenu)}
+                              className="text-gray-500 hover:text-gray-700"
+                              title="Selection options"
+                            >
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                            {showSelectMenu && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-10"
+                                  onClick={() => setShowSelectMenu(false)}
+                                ></div>
+                                <div className="absolute left-0 top-6 bg-white border border-gray-200 rounded-lg shadow-lg z-20 w-56">
+                                  <button
+                                    onClick={() => {
+                                      handleSelectAllCurrentPage();
+                                      setShowSelectMenu(false);
+                                    }}
+                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg"
+                                  >
+                                    Select page ({employees.length})
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleSelectAllRecords();
+                                      setShowSelectMenu(false);
+                                    }}
+                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-t"
+                                  >
+                                    Select all records
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleDeselectAll();
+                                      setShowSelectMenu(false);
+                                    }}
+                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-t rounded-b-lg"
+                                  >
+                                    Deselect all
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </th>
+                      </th>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Employee ID
                     </th>
@@ -559,14 +567,16 @@ export default function Employees() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {employees.map((employee) => (
                     <tr key={employee.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          checked={selectedEmployees.includes(employee.id)}
-                          onChange={() => handleSelectEmployee(employee.id)}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                        />
-                      </td>
+                      {can('employees.delete') && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={selectedEmployees.includes(employee.id)}
+                            onChange={() => handleSelectEmployee(employee.id)}
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                          />
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {employee.employee_id}
                       </td>
@@ -592,37 +602,46 @@ export default function Employees() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleEditClick(employee)}
-                            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                            title="Edit employee"
-                          >
-                            Edit
-                          </button>
-                          {employee.is_active ? (
+                          {can('employees.edit') && (
                             <button
-                              onClick={() => handleDeactivateClick(employee)}
-                              className="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
-                              title="Deactivate employee"
+                              onClick={() => handleEditClick(employee)}
+                              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                              title="Edit employee"
                             >
-                              Deactivate
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleActivateClick(employee)}
-                              className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                              title="Reactivate employee"
-                            >
-                              Activate
+                              Edit
                             </button>
                           )}
-                          <button
-                            onClick={() => handleDeleteClick(employee)}
-                            className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                            title="Delete employee"
-                          >
-                            Delete
-                          </button>
+                          {can('employees.edit') && (
+                            employee.is_active ? (
+                              <button
+                                onClick={() => handleDeactivateClick(employee)}
+                                className="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
+                                title="Deactivate employee"
+                              >
+                                Deactivate
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleActivateClick(employee)}
+                                className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                                title="Reactivate employee"
+                              >
+                                Activate
+                              </button>
+                            )
+                          )}
+                          {can('employees.delete') && (
+                            <button
+                              onClick={() => handleDeleteClick(employee)}
+                              className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                              title="Delete employee"
+                            >
+                              Delete
+                            </button>
+                          )}
+                          {!can('employees.edit') && !can('employees.delete') && (
+                            <span className="text-gray-400 text-sm">No actions available</span>
+                          )}
                         </div>
                       </td>
                     </tr>
