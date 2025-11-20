@@ -9,6 +9,7 @@ import { getAllAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser } f
 import { resetPassword } from '../api/auth';
 import CreateAdminModal from '../components/CreateAdminModal';
 import ResetPasswordModal from '../components/ResetPasswordModal';
+import ChangeRoleModal from '../components/ChangeRoleModal';
 
 export default function AdminUsers() {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ export default function AdminUsers() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showChangeRoleModal, setShowChangeRoleModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -39,6 +41,11 @@ export default function AdminUsers() {
   const handleResetPassword = (targetUser) => {
     setSelectedUser(targetUser);
     setShowResetModal(true);
+  };
+
+  const handleChangeRole = (targetUser) => {
+    setSelectedUser(targetUser);
+    setShowChangeRoleModal(true);
   };
 
   const handleToggleActive = async (userId, currentStatus) => {
@@ -65,6 +72,14 @@ export default function AdminUsers() {
     setTimeout(() => setSuccess(''), 3000);
     setShowResetModal(false);
     setSelectedUser(null);
+  };
+
+  const handleRoleChangeSuccess = () => {
+    setSuccess('User role updated successfully');
+    setTimeout(() => setSuccess(''), 3000);
+    setShowChangeRoleModal(false);
+    setSelectedUser(null);
+    loadUsers();
   };
 
   if (isLoading) {
@@ -196,6 +211,13 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                     <button
+                      onClick={() => handleChangeRole(adminUser)}
+                      className="text-purple-600 hover:text-purple-800"
+                    >
+                      Change Role
+                    </button>
+                    <span className="text-gray-300">|</span>
+                    <button
                       onClick={() => handleResetPassword(adminUser)}
                       disabled={adminUser.id === user.id}
                       className={`text-blue-600 hover:text-blue-800 ${
@@ -238,6 +260,18 @@ export default function AdminUsers() {
             setSelectedUser(null);
           }}
           onSuccess={() => handleResetSuccess(selectedUser.username)}
+        />
+      )}
+
+      {showChangeRoleModal && selectedUser && (
+        <ChangeRoleModal
+          user={selectedUser}
+          currentUserRole={user.role}
+          onClose={() => {
+            setShowChangeRoleModal(false);
+            setSelectedUser(null);
+          }}
+          onSuccess={handleRoleChangeSuccess}
         />
       )}
     </div>
