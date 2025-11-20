@@ -3,6 +3,8 @@ import { useChatStore } from './store/chatStore';
 import ChatButton from './components/ChatButton';
 import ChatWindow from './components/ChatWindow';
 import LoginForm from './components/LoginForm';
+import { ThemeProvider } from './ThemeProvider';
+import { Toaster } from 'react-hot-toast';
 
 export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryColor = '#3b82f6', domain = null }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -60,32 +62,61 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
   };
 
   return (
-    <div className={`ic-fixed ${positionClasses[position]} ic-z-[999999]`}>
-      {/* Chat Window */}
-      {isOpen && (
-        <div className="ic-mb-4 ic-animate-slide-up">
-          {isAuthenticated ? (
-            <ChatWindow
-              onClose={handleToggle}
-              onLogout={handleLogout}
-              primaryColor={primaryColor}
-            />
-          ) : (
-            <LoginForm
-              onLogin={handleLogin}
-              onClose={handleToggle}
-              primaryColor={primaryColor}
-            />
-          )}
-        </div>
-      )}
+    <ThemeProvider>
+      <div className={`ic-fixed ${positionClasses[position]} ic-z-[999999]`}>
+        {/* Chat Window */}
+        {isOpen && (
+          <div className="ic-mb-4 ic-animate-slide-up">
+            {isAuthenticated ? (
+              <ChatWindow
+                onClose={handleToggle}
+                onLogout={handleLogout}
+                primaryColor={primaryColor}
+              />
+            ) : (
+              <LoginForm
+                onLogin={handleLogin}
+                onClose={handleToggle}
+                primaryColor={primaryColor}
+              />
+            )}
+          </div>
+        )}
 
-      {/* Toggle Button */}
-      <ChatButton
-        isOpen={isOpen}
-        onClick={handleToggle}
-        primaryColor={primaryColor}
-      />
-    </div>
+        {/* Toggle Button */}
+        <ChatButton
+          isOpen={isOpen}
+          onClick={handleToggle}
+          primaryColor={primaryColor}
+        />
+
+        {/* Toast Notifications */}
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: 'var(--color-bg-primary)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+              borderRadius: '0.75rem',
+              padding: '12px 16px',
+            },
+            success: {
+              iconTheme: {
+                primary: '#e74c5e',
+                secondary: '#fff',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: '#e74c5e',
+                secondary: '#fff',
+              },
+            },
+          }}
+        />
+      </div>
+    </ThemeProvider>
   );
 }

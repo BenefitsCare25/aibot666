@@ -2,6 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme CSS Custom Properties */
+#insurance-chat-widget-root {
+  /* Light theme (default) */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #fafafa;
+  --color-bg-tertiary: #f5f5f5;
+  --color-text-primary: #171717;
+  --color-text-secondary: #525252;
+  --color-text-tertiary: #737373;
+  --color-border: #e5e5e5;
+  --color-border-hover: #d4d4d4;
+  --color-shadow: rgba(0, 0, 0, 0.1);
+  --color-overlay: rgba(0, 0, 0, 0.5);
+
+  /* Brand colors (same for both themes) */
+  --color-primary-500: #e74c5e;
+  --color-primary-600: #d6304a;
+  --color-primary-700: #b5233d;
+  --color-rose-400: #fb7185;
+  --color-rose-500: #f43f5e;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #e74c5e 0%, #f43f5e 50%, #fb7185 100%);
+  --gradient-subtle: linear-gradient(135deg, #f27a87 0%, #fb7185 50%, #fda4af 100%);
+}
+
+/* Dark theme */
+#insurance-chat-widget-root[data-theme="dark"] {
+  --color-bg-primary: #171717;
+  --color-bg-secondary: #262626;
+  --color-bg-tertiary: #404040;
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #d4d4d4;
+  --color-text-tertiary: #a3a3a3;
+  --color-border: #404040;
+  --color-border-hover: #525252;
+  --color-shadow: rgba(0, 0, 0, 0.3);
+  --color-overlay: rgba(0, 0, 0, 0.7);
+}
+
 /* Reset styles for widget isolation */
 #insurance-chat-widget-root {
   all: initial;

@@ -1,54 +1,80 @@
+import { motion, AnimatePresence } from 'framer-motion';
+import { MessageCircle, X } from 'lucide-react';
+
 export default function ChatButton({ isOpen, onClick, primaryColor }) {
   return (
-    <button
+    <motion.button
       onClick={onClick}
-      className="ic-px-6 ic-py-4 ic-rounded-full ic-shadow-2xl ic-flex ic-items-center ic-gap-3 ic-transition-all ic-duration-300 hover:ic-scale-105 hover:ic-shadow-[0_20px_50px_rgba(220,38,38,0.4)] ic-focus:outline-none ic-focus:ring-2 ic-focus:ring-red-500 ic-focus:ring-offset-2 ic-border-2 ic-border-white/20"
+      className="ic-group ic-px-6 ic-py-4 ic-rounded-full ic-flex ic-items-center ic-gap-3 ic-transition-all ic-duration-300 ic-shadow-soft-lg hover:ic-shadow-glow ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-primary-500 ic-focus-visible:ring-offset-2 ic-border ic-border-white/10"
       style={{
-        background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
+        background: 'var(--gradient-primary)',
         color: 'white'
       }}
       aria-label={isOpen ? 'Close chat' : 'Open chat'}
+      aria-expanded={isOpen}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.98 }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        type: "spring",
+        stiffness: 260,
+        damping: 20
+      }}
     >
-      {isOpen ? (
-        <>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="ic-w-6 ic-h-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2.5}
+      <AnimatePresence mode="wait">
+        {isOpen ? (
+          <motion.div
+            key="close"
+            className="ic-flex ic-items-center ic-gap-3"
+            initial={{ opacity: 0, rotate: -90 }}
+            animate={{ opacity: 1, rotate: 0 }}
+            exit={{ opacity: 0, rotate: 90 }}
+            transition={{ duration: 0.2 }}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-          <span className="ic-font-bold ic-text-base ic-tracking-wide">Close</span>
-        </>
-      ) : (
-        <>
-          <div className="ic-relative">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="ic-w-7 ic-h-7"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+            <X
+              className="ic-w-5 ic-h-5"
               strokeWidth={2.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+              aria-hidden="true"
+            />
+            <span className="ic-font-semibold ic-text-sm ic-tracking-wide">
+              Close
+            </span>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="open"
+            className="ic-flex ic-items-center ic-gap-3"
+            initial={{ opacity: 0, rotate: 90 }}
+            animate={{ opacity: 1, rotate: 0 }}
+            exit={{ opacity: 0, rotate: -90 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="ic-relative">
+              <MessageCircle
+                className="ic-w-6 ic-h-6 ic-transition-transform group-hover:ic-scale-110"
+                strokeWidth={2.5}
+                aria-hidden="true"
               />
-            </svg>
-            <span className="ic-absolute ic--top-1 ic--right-1 ic-w-3 ic-h-3 ic-bg-green-400 ic-rounded-full ic-border-2 ic-border-white ic-animate-pulse"></span>
-          </div>
-          <span className="ic-font-bold ic-text-base ic-tracking-wide">Chat with us</span>
-        </>
-      )}
-    </button>
+              <motion.span
+                className="ic-absolute ic--top-1 ic--right-1 ic-w-2.5 ic-h-2.5 ic-bg-green-400 ic-rounded-full ic-border-2 ic-border-white"
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [1, 0.8, 1]
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              />
+            </div>
+            <span className="ic-font-semibold ic-text-sm ic-tracking-wide">
+              Chat with us
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.button>
   );
 }

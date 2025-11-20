@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { User, HelpCircle, LogOut, X, Moon, Sun } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
+import { useTheme } from '../ThemeProvider';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import QuickQuestions from './QuickQuestions';
 import { isLogCategory } from '../utils/logDetection';
 
 export default function ChatWindow({ onClose, onLogout, primaryColor }) {
+  const { theme, toggleTheme } = useTheme();
   const {
     employeeName,
     messages,
@@ -115,101 +119,99 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
   };
 
   return (
-    <div className="ic-bg-white ic-rounded-2xl ic-shadow-2xl ic-w-[450px] ic-h-[650px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-border-gray-100">
-      {/* Header with Red Gradient */}
-      <div
-        className="ic-p-5 ic-text-white ic-relative"
+    <motion.div
+      className="ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-h-[90vh] sm:ic-h-[650px] ic-max-h-[650px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-transition-colors"
+      style={{
+        backgroundColor: 'var(--color-bg-primary)',
+        borderColor: 'var(--color-border)'
+      }}
+      initial={{ opacity: 0, scale: 0.95, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95, y: 20 }}
+      transition={{
+        type: "spring",
+        stiffness: 300,
+        damping: 30
+      }}
+    >
+      {/* Header with Glass Morphism */}
+      <motion.div
+        className="ic-p-4 ic-text-white ic-relative ic-backdrop-blur-md"
         style={{
-          background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
+          background: 'var(--gradient-primary)',
           borderRadius: '1rem 1rem 0 0'
         }}
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.1 }}
       >
         <div className="ic-flex ic-items-center ic-justify-between">
           <div className="ic-flex ic-items-center ic-gap-3">
-            <div className="ic-w-12 ic-h-12 ic-bg-white/20 ic-rounded-full ic-flex ic-items-center ic-justify-center ic-backdrop-blur-sm ic-border-2 ic-border-white/30">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="ic-w-6 ic-h-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
-            </div>
+            <motion.div
+              className="ic-w-10 ic-h-10 ic-bg-white/20 ic-rounded-full ic-flex ic-items-center ic-justify-center ic-backdrop-blur-sm ic-border ic-border-white/30"
+              whileHover={{ scale: 1.1 }}
+              transition={{ type: "spring", stiffness: 400 }}
+            >
+              <User className="ic-w-5 ic-h-5" strokeWidth={2} />
+            </motion.div>
             <div>
-              <h3 className="ic-text-base ic-font-bold">Welcome, {employeeName}</h3>
+              <h3 className="ic-text-sm ic-font-semibold ic-tracking-wide">
+                Welcome, {employeeName}
+              </h3>
             </div>
           </div>
+
+          {/* Action Buttons */}
           <div className="ic-flex ic-items-center ic-gap-1">
-            <button
+            <motion.button
+              onClick={toggleTheme}
+              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
+              title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+              aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              {theme === 'light' ? (
+                <Moon className="ic-w-4 ic-h-4" strokeWidth={2} />
+              ) : (
+                <Sun className="ic-w-4 ic-h-4" strokeWidth={2} />
+              )}
+            </motion.button>
+
+            <motion.button
               onClick={toggleQuickQuestions}
-              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200 hover:ic-scale-110"
+              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
               title={showQuickQuestions ? "Hide Quick Questions" : "Show Quick Questions"}
+              aria-label={showQuickQuestions ? "Hide Quick Questions" : "Show Quick Questions"}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="ic-w-5 ic-h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </button>
-            <button
+              <HelpCircle className="ic-w-4 ic-h-4" strokeWidth={2} />
+            </motion.button>
+
+            <motion.button
               onClick={onLogout}
-              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200 hover:ic-scale-110"
+              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
               title="Logout"
+              aria-label="Logout"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="ic-w-5 ic-h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
-              </svg>
-            </button>
-            <button
+              <LogOut className="ic-w-4 ic-h-4" strokeWidth={2} />
+            </motion.button>
+
+            <motion.button
               onClick={onClose}
-              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200 hover:ic-scale-110"
-              aria-label="Close"
+              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
+              aria-label="Close chat window"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="ic-w-5 ic-h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+              <X className="ic-w-4 ic-h-4" strokeWidth={2} />
+            </motion.button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Content Area - Toggle between Messages and Quick Questions */}
       {showQuickQuestions ? (
@@ -246,6 +248,6 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
         onEnterLogMode={enterLogMode}
         onExitLogMode={exitLogMode}
       />
-    </div>
+    </motion.div>
   );
 }
