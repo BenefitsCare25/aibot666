@@ -180,7 +180,7 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
                 <button
                   key={questionData.id || index}
                   onClick={() => handleQuestionClick(questionData, category.title)}
-                  className="ic-w-full ic-text-left ic-px-4 ic-py-3 ic-text-sm ic-text-white ic-font-medium ic-rounded-full hover:ic-shadow-soft-md ic-transition-all ic-duration-200 ic-transform hover:ic-scale-[1.01]"
+                  className="ic-w-full ic-text-left ic-px-4 ic-py-3 ic-text-sm ic-text-white ic-font-medium ic-rounded-xl hover:ic-shadow-soft-md ic-transition-all ic-duration-200 ic-transform hover:ic-scale-[1.01]"
                   style={{
                     background: 'var(--gradient-primary)',
                     animationDelay: `${index * 50}ms`
