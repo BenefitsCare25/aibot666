@@ -24,8 +24,8 @@
   --color-rose-500: #f43f5e;
 
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #e74c5e 0%, #f43f5e 50%, #fb7185 100%);
-  --gradient-subtle: linear-gradient(135deg, #f27a87 0%, #fb7185 50%, #fda4af 100%);
+  --gradient-primary: linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%);
+  --gradient-subtle: linear-gradient(135deg, #ef4444 0%, #f87171 50%, #fca5a5 100%);
 }
 
 /* Dark theme */

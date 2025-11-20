@@ -1,15 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, HelpCircle, LogOut, X, Moon, Sun } from 'lucide-react';
+import { User, HelpCircle, LogOut, X } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
-import { useTheme } from '../ThemeProvider';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import QuickQuestions from './QuickQuestions';
 import { isLogCategory } from '../utils/logDetection';
 
 export default function ChatWindow({ onClose, onLogout, primaryColor }) {
-  const { theme, toggleTheme } = useTheme();
   const {
     employeeName,
     messages,
@@ -163,21 +161,6 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
 
           {/* Action Buttons */}
           <div className="ic-flex ic-items-center ic-gap-1">
-            <motion.button
-              onClick={toggleTheme}
-              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
-              title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-              aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              {theme === 'light' ? (
-                <Moon className="ic-w-4 ic-h-4" strokeWidth={2} />
-              ) : (
-                <Sun className="ic-w-4 ic-h-4" strokeWidth={2} />
-              )}
-            </motion.button>
-
             <motion.button
               onClick={toggleQuickQuestions}
               className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"

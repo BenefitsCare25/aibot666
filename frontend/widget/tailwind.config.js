@@ -48,10 +48,10 @@ export default {
         }
       },
       backgroundImage: {
-        // Refined gradients for minimal clean aesthetic
-        'gradient-primary': 'linear-gradient(135deg, #e74c5e 0%, #f43f5e 50%, #fb7185 100%)',
-        'gradient-primary-subtle': 'linear-gradient(135deg, #f27a87 0%, #fb7185 50%, #fda4af 100%)',
-        'gradient-rose': 'linear-gradient(135deg, #f43f5e 0%, #fb7185 100%)',
+        // Red gradients matching design requirements
+        'gradient-primary': 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
+        'gradient-primary-subtle': 'linear-gradient(135deg, #ef4444 0%, #f87171 50%, #fca5a5 100%)',
+        'gradient-rose': 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
         'gradient-neutral': 'linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%)',
       },
       boxShadow: {

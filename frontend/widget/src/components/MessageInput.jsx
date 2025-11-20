@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
+import { Send, FileText } from 'lucide-react';
 import FileAttachment from './FileAttachment';
 import EmailInput from './EmailInput';
 import { detectLogContext } from '../utils/logDetection';
@@ -145,7 +146,8 @@ export default function MessageInput({
             onKeyPress={onKeyPress}
             placeholder="Write your message..."
             disabled={disabled}
-            className="ic-flex-1 ic-px-4 ic-py-3 ic-border ic-border-gray-300 ic-rounded-2xl ic-resize-none ic-text-sm focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 focus:ic-border-transparent ic-text-gray-900 ic-shadow-sm ic-bg-white"
+            className="ic-flex-1 ic-px-4 ic-py-3 ic-border ic-border-gray-200 ic-rounded-2xl ic-resize-none ic-text-sm focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 focus:ic-border-transparent ic-text-gray-900"
+            style={{ backgroundColor: '#ffffff' }}
             rows={1}
             onInput={(e) => {
               e.target.style.height = 'auto';
@@ -174,9 +176,7 @@ export default function MessageInput({
                 style={{ backgroundColor: '#4CAF50' }}
                 title="Submit LOG request"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-4 ic-h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <FileText className="ic-w-4 ic-h-4" strokeWidth={2} />
                 <span>Submit LOG</span>
                 {attachments.length > 0 && (
                   <span className="ic-bg-white ic-text-green-600 ic-rounded-full ic-px-1.5 ic-text-xs ic-font-semibold">
@@ -197,9 +197,7 @@ export default function MessageInput({
                 style={{ backgroundColor: primaryColor }}
                 title="Request Letter of Guarantee"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-4 ic-h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <FileText className="ic-w-4 ic-h-4" strokeWidth={2} />
                 {expandLogButton && <span>LOG Request</span>}
               </button>
             )
@@ -211,7 +209,7 @@ export default function MessageInput({
               onClick={onSend}
               disabled={disabled || !value.trim()}
               className="ic-w-12 ic-h-12 ic-text-white ic-rounded-full ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-lg ic-transform hover:ic-scale-110 ic-flex ic-items-center ic-justify-center ic-flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #ec4899 0%, #ef4444 50%, #f87171 100%)' }}
+              style={{ background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)' }}
               aria-label="Send message"
             >
             {disabled ? (
@@ -236,20 +234,7 @@ export default function MessageInput({
                 ></path>
               </svg>
             ) : (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="ic-h-6 ic-w-6 ic-transform ic-rotate-45"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                />
-              </svg>
+              <Send className="ic-w-5 ic-h-5" strokeWidth={2.5} />
             )}
             </button>
           )}
