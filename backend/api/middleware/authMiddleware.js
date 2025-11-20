@@ -64,7 +64,20 @@ export async function authenticateToken(req, res, next) {
     // Fetch user from database to ensure they still exist and are active
     const { data: user, error } = await supabase
       .from('admin_users')
-      .select('id, username, role, full_name, email, is_active')
+      .select(`
+        id,
+        username,
+        role,
+        role_id,
+        full_name,
+        email,
+        is_active,
+        roles!admin_users_role_id_fkey (
+          id,
+          name,
+          description
+        )
+      `)
       .eq('id', decoded.userId)
       .single();
 
@@ -87,6 +100,8 @@ export async function authenticateToken(req, res, next) {
       id: user.id,
       username: user.username,
       role: user.role,
+      roleId: user.role_id,
+      roleName: user.roles?.name || (user.role === 'super_admin' ? 'Super Admin' : 'Admin'),
       fullName: user.full_name,
       email: user.email
     };
@@ -214,7 +229,20 @@ export async function optionalAuth(req, res, next) {
       if (isSessionActive) {
         const { data: user } = await supabase
           .from('admin_users')
-          .select('id, username, role, full_name, email, is_active')
+          .select(`
+            id,
+            username,
+            role,
+            role_id,
+            full_name,
+            email,
+            is_active,
+            roles!admin_users_role_id_fkey (
+              id,
+              name,
+              description
+            )
+          `)
           .eq('id', decoded.userId)
           .single();
 
@@ -223,6 +251,8 @@ export async function optionalAuth(req, res, next) {
             id: user.id,
             username: user.username,
             role: user.role,
+            roleId: user.role_id,
+            roleName: user.roles?.name || (user.role === 'super_admin' ? 'Super Admin' : 'Admin'),
             fullName: user.full_name,
             email: user.email
           };

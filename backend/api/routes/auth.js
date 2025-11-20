@@ -41,7 +41,14 @@ router.post('/login', [
     // Find user by username
     const { data: user, error } = await supabase
       .from('admin_users')
-      .select('*')
+      .select(`
+        *,
+        roles!admin_users_role_id_fkey (
+          id,
+          name,
+          description
+        )
+      `)
       .eq('username', username)
       .single();
 
@@ -138,6 +145,8 @@ router.post('/login', [
         id: user.id,
         username: user.username,
         role: user.role,
+        roleId: user.role_id,
+        roleName: user.roles?.name || (user.role === 'super_admin' ? 'Super Admin' : 'Admin'),
         fullName: user.full_name,
         email: user.email
       }

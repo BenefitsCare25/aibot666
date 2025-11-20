@@ -1,17 +1,18 @@
 import { Outlet, NavLink } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
 import CompanySelector from './CompanySelector';
 import ChangePassword from './ChangePassword';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: '📊' },
-  { name: 'Employees', href: '/employees', icon: '👥' },
-  { name: 'Knowledge Base', href: '/knowledge', icon: '📚' },
-  { name: 'Quick Questions', href: '/quick-questions', icon: '❓' },
-  { name: 'Chat History', href: '/chat-history', icon: '💬' },
-  { name: 'Escalations', href: '/escalations', icon: '🚨' },
-  { name: 'Companies', href: '/companies', icon: '🏢' }
+  { name: 'Dashboard', href: '/dashboard', icon: '📊', permission: 'dashboard.view' },
+  { name: 'Employees', href: '/employees', icon: '👥', permission: 'employees.view' },
+  { name: 'Knowledge Base', href: '/knowledge', icon: '📚', permission: 'knowledge.view' },
+  { name: 'Quick Questions', href: '/quick-questions', icon: '❓', permission: 'quick_questions.view' },
+  { name: 'Chat History', href: '/chat-history', icon: '💬', permission: 'chat.view' },
+  { name: 'Escalations', href: '/escalations', icon: '🚨', permission: 'escalations.view' },
+  { name: 'Companies', href: '/companies', icon: '🏢', permission: 'companies.view' }
 ];
 
 export default function Layout() {
@@ -19,6 +20,7 @@ export default function Layout() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const { user, logout } = useAuth();
+  const { can } = usePermissions();
 
   const handleLogout = async () => {
     await logout();
@@ -36,10 +38,34 @@ export default function Layout() {
         </div>
 
         <nav className="mt-8">
-          {navigation.map((item) => (
+          {navigation.map((item) => {
+            // Hide menu item if user doesn't have permission
+            if (item.permission && !can(item.permission)) {
+              return null;
+            }
+
+            return (
+              <NavLink
+                key={item.name}
+                to={item.href}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary-600 text-white border-l-4 border-primary-400'
+                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  }`
+                }
+              >
+                <span className="text-xl">{item.icon}</span>
+                {item.name}
+              </NavLink>
+            );
+          })}
+
+          {/* Admin Management Pages */}
+          {can('ai_settings.view') && (
             <NavLink
-              key={item.name}
-              to={item.href}
+              to="/ai-settings"
               className={({ isActive }) =>
                 `flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors ${
                   isActive
@@ -48,54 +74,41 @@ export default function Layout() {
                 }`
               }
             >
-              <span className="text-xl">{item.icon}</span>
-              {item.name}
+              <span className="text-xl">🤖</span>
+              AI Settings
             </NavLink>
-          ))}
+          )}
 
-          {/* Super Admin Only Pages */}
-          {user?.role === 'super_admin' && (
-            <>
-              <NavLink
-                to="/ai-settings"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary-600 text-white border-l-4 border-primary-400'
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                  }`
-                }
-              >
-                <span className="text-xl">🤖</span>
-                AI Settings
-              </NavLink>
-              <NavLink
-                to="/admin-users"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary-600 text-white border-l-4 border-primary-400'
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                  }`
-                }
-              >
-                <span className="text-xl">👤</span>
-                Admin Users
-              </NavLink>
-              <NavLink
-                to="/roles"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary-600 text-white border-l-4 border-primary-400'
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                  }`
-                }
-              >
-                <span className="text-xl">🔐</span>
-                Roles
-              </NavLink>
-            </>
+          {can('admin_users.view') && (
+            <NavLink
+              to="/admin-users"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-primary-600 text-white border-l-4 border-primary-400'
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                }`
+              }
+            >
+              <span className="text-xl">👤</span>
+              Admin Users
+            </NavLink>
+          )}
+
+          {can('roles.view') && (
+            <NavLink
+              to="/roles"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-primary-600 text-white border-l-4 border-primary-400'
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                }`
+              }
+            >
+              <span className="text-xl">🔐</span>
+              Roles
+            </NavLink>
           )}
         </nav>
 
@@ -132,7 +145,7 @@ export default function Layout() {
                 <div className="text-left">
                   <div className="font-medium text-gray-900">{user?.fullName || user?.username}</div>
                   <div className="text-xs text-gray-500">
-                    {user?.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                    {user?.roleName || (user?.role === 'super_admin' ? 'Super Admin' : 'Admin')}
                   </div>
                 </div>
                 <svg className={`w-4 h-4 text-gray-600 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
