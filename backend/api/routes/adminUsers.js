@@ -33,7 +33,7 @@ router.get('/', async (req, res) => {
         last_login,
         created_at,
         updated_at,
-        roles (
+        roles!admin_users_role_id_fkey (
           id,
           name,
           description,
