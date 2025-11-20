@@ -453,7 +453,7 @@ export default function Companies() {
                         &lt;/&gt;
                       </button>
                     )}
-                    {can('companies.manage_schema') && (
+                    {can('companies.edit') && (
                       <button
                         onClick={() => setShowEmailConfig(company)}
                         className="text-purple-600 hover:text-purple-900 mr-3"
