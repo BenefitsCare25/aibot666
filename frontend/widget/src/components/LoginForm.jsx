@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { MessageCircle, X, Mail, Phone, Loader2 } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 
 export default function LoginForm({ onLogin, onClose, primaryColor }) {
@@ -112,68 +114,60 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
   };
 
   return (
-    <div className="ic-bg-white ic-rounded-2xl ic-shadow-2xl ic-w-[450px] ic-overflow-hidden ic-border ic-border-gray-100">
+    <motion.div
+      className="ic-rounded-2xl ic-shadow-soft-lg ic-w-[450px] ic-overflow-hidden"
+      style={{
+        backgroundColor: 'var(--color-bg-primary)',
+        borderColor: 'var(--color-border)'
+      }}
+      initial={{ opacity: 0, scale: 0.95, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95, y: 20 }}
+      transition={{ type: "spring", duration: 0.5 }}
+    >
       {/* Header with Red Gradient */}
-      <div
+      <motion.div
         className="ic-p-4 ic-text-white ic-relative"
-        style={{
-          background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
-          borderRadius: '1rem 1rem 0 0'
-        }}
+        style={{ background: 'var(--gradient-primary)' }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}
       >
         <div className="ic-flex ic-items-center ic-justify-between">
           <div className="ic-flex ic-items-center ic-gap-3">
             <div className="ic-w-10 ic-h-10 ic-bg-white/20 ic-rounded-full ic-flex ic-items-center ic-justify-center ic-backdrop-blur-sm ic-border-2 ic-border-white/30">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="ic-w-6 ic-h-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                />
-              </svg>
+              <MessageCircle className="ic-w-6 ic-h-6" strokeWidth={2} />
             </div>
             <div>
               <h3 className="ic-text-lg ic-font-bold ic-tracking-tight">Welcome, chat with us</h3>
             </div>
           </div>
-          <button
+          <motion.button
             onClick={onClose}
-            className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200 hover:ic-scale-110"
+            className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
             aria-label="Close"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="ic-w-5 ic-h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+            <X className="ic-w-5 ic-h-5" strokeWidth={2} />
+          </motion.button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Login Form */}
-      <div className="ic-p-6 ic-bg-gradient-to-b ic-from-gray-50 ic-to-white">
-
+      <motion.div
+        className="ic-p-6"
+        style={{ backgroundColor: 'var(--color-bg-primary)' }}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
         <form onSubmit={handleSubmit} className="ic-space-y-4">
           <div>
             <label
               htmlFor="identifier"
-              className="ic-block ic-text-sm ic-font-semibold ic-text-gray-700 ic-mb-2"
+              className="ic-block ic-text-sm ic-font-semibold ic-mb-2"
+              style={{ color: 'var(--color-text-secondary)' }}
             >
               Employee ID / User ID / Email
             </label>
@@ -183,142 +177,167 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               placeholder="e.g., EMP001 or user@example.com"
-              className="ic-w-full ic-px-4 ic-py-3 ic-border ic-border-gray-300 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-500 focus:ic-border-transparent ic-text-gray-900 ic-shadow-sm ic-transition-all"
+              className="ic-w-full ic-px-4 ic-py-3 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 ic-shadow-soft ic-transition-all"
+              style={{
+                backgroundColor: '#ffffff',
+                border: 'none',
+                color: 'var(--color-text-primary)'
+              }}
               disabled={isLoading}
               autoFocus
             />
           </div>
 
-          <button
+          <motion.button
             type="submit"
             disabled={isLoading}
-            className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-lg ic-transform hover:ic-scale-[1.02] ic-duration-200"
-            style={{ background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)' }}
+            className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-soft-lg"
+            style={{ background: 'var(--gradient-primary)' }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
             {isLoading ? (
               <span className="ic-flex ic-items-center ic-justify-center ic-gap-2">
-                <svg
-                  className="ic-animate-spin ic-h-4 ic-w-4"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="ic-opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="ic-opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
+                <Loader2 className="ic-animate-spin ic-h-4 ic-w-4" />
                 Starting...
               </span>
             ) : (
               'Start Chat'
             )}
-          </button>
+          </motion.button>
         </form>
 
         {/* Show callback form only when employee ID validation fails */}
-        {showCallbackForm && (
-          <>
-            {/* Divider */}
-            <div className="ic-my-4 ic-flex ic-items-center">
-              <div className="ic-flex-1 ic-border-t ic-border-gray-200"></div>
-              <span className="ic-px-3 ic-text-xs ic-text-gray-500">OR</span>
-              <div className="ic-flex-1 ic-border-t ic-border-gray-200"></div>
-            </div>
-
-            {/* Contact Number Form */}
-            <form onSubmit={handleContactSubmit} className="ic-space-y-4">
-          <div>
-            <label
-              htmlFor="contactNumber"
-              className="ic-block ic-text-sm ic-font-semibold ic-text-gray-700 ic-mb-2"
+        <AnimatePresence>
+          {showCallbackForm && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
             >
-              Request Callback
-            </label>
-            <input
-              type="tel"
-              id="contactNumber"
-              value={contactNumber}
-              onChange={(e) => setContactNumber(e.target.value)}
-              placeholder="e.g., +65 9123 4567"
-              className="ic-w-full ic-px-4 ic-py-3 ic-border ic-border-gray-300 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-500 focus:ic-border-transparent ic-text-gray-900 ic-shadow-sm ic-transition-all"
-              disabled={isLoading}
-            />
-            <p className="ic-text-xs ic-text-gray-500 ic-mt-2 ic-italic">
-              We'll call you back during office hours
-            </p>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-lg ic-transform hover:ic-scale-[1.02] ic-duration-200"
-            style={{ background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)' }}
-          >
-            {isLoading ? (
-              <span className="ic-flex ic-items-center ic-justify-center ic-gap-2">
-                <svg
-                  className="ic-animate-spin ic-h-4 ic-w-4"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
+              {/* Divider */}
+              <div className="ic-my-4 ic-flex ic-items-center">
+                <div
+                  className="ic-flex-1 ic-border-t"
+                  style={{ borderColor: 'var(--color-border)' }}
+                ></div>
+                <span
+                  className="ic-px-3 ic-text-xs"
+                  style={{ color: 'var(--color-text-tertiary)' }}
                 >
-                  <circle
-                    className="ic-opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="ic-opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Submitting...
-              </span>
-            ) : (
-              'Submit Contact Number'
-            )}
-          </button>
-        </form>
-
-            {/* Success Message (inside callback form) */}
-            {successMessage && (
-              <div className="ic-mt-4 ic-p-4 ic-bg-green-50 ic-border-l-4 ic-border-green-500 ic-rounded-lg ic-shadow-sm">
-                <p className="ic-text-sm ic-text-green-700 ic-font-medium">{successMessage}</p>
+                  OR
+                </span>
+                <div
+                  className="ic-flex-1 ic-border-t"
+                  style={{ borderColor: 'var(--color-border)' }}
+                ></div>
               </div>
-            )}
-          </>
-        )}
+
+              {/* Contact Number Form */}
+              <form onSubmit={handleContactSubmit} className="ic-space-y-4">
+                <div>
+                  <label
+                    htmlFor="contactNumber"
+                    className="ic-block ic-text-sm ic-font-semibold ic-mb-2"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Request Callback
+                  </label>
+                  <div className="ic-relative">
+                    <div className="ic-absolute ic-left-3 ic-top-1/2 ic-transform ic--translate-y-1/2">
+                      <Phone
+                        className="ic-w-4 ic-h-4"
+                        style={{ color: 'var(--color-text-tertiary)' }}
+                        strokeWidth={2}
+                      />
+                    </div>
+                    <input
+                      type="tel"
+                      id="contactNumber"
+                      value={contactNumber}
+                      onChange={(e) => setContactNumber(e.target.value)}
+                      placeholder="e.g., +65 9123 4567"
+                      className="ic-w-full ic-pl-10 ic-pr-4 ic-py-3 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 ic-shadow-soft ic-transition-all"
+                      style={{
+                        backgroundColor: '#ffffff',
+                        border: 'none',
+                        color: 'var(--color-text-primary)'
+                      }}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <p
+                    className="ic-text-xs ic-mt-2 ic-italic"
+                    style={{ color: 'var(--color-text-tertiary)' }}
+                  >
+                    We'll call you back during office hours
+                  </p>
+                </div>
+
+                <motion.button
+                  type="submit"
+                  disabled={isLoading}
+                  className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-soft-lg"
+                  style={{ background: 'var(--gradient-primary)' }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {isLoading ? (
+                    <span className="ic-flex ic-items-center ic-justify-center ic-gap-2">
+                      <Loader2 className="ic-animate-spin ic-h-4 ic-w-4" />
+                      Submitting...
+                    </span>
+                  ) : (
+                    'Submit Contact Number'
+                  )}
+                </motion.button>
+              </form>
+
+              {/* Success Message (inside callback form) */}
+              <AnimatePresence>
+                {successMessage && (
+                  <motion.div
+                    className="ic-mt-4 ic-p-4 ic-bg-green-50 ic-border-l-4 ic-border-green-500 ic-rounded-lg ic-shadow-soft"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    <p className="ic-text-sm ic-text-green-700 ic-font-medium">{successMessage}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Error Message (outside callback form, always visible) */}
-        {error && (
-          <div className="ic-mt-4 ic-p-4 ic-bg-red-50 ic-border-l-4 ic-border-red-500 ic-rounded-lg ic-shadow-sm">
-            <p className="ic-text-sm ic-text-red-700 ic-font-medium">{error}</p>
-          </div>
-        )}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              className="ic-mt-4 ic-p-4 ic-bg-red-50 ic-border-l-4 ic-border-red-500 ic-rounded-lg ic-shadow-soft"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <p className="ic-text-sm ic-text-red-700 ic-font-medium">{error}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <div className="ic-mt-6 ic-pt-4 ic-border-t ic-border-gray-200">
-          <p className="ic-text-xs ic-text-gray-500 ic-text-center ic-flex ic-items-center ic-justify-center ic-gap-1">
-            <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-4 ic-h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
+        <div
+          className="ic-mt-6 ic-pt-4 ic-border-t"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
+          <p
+            className="ic-text-xs ic-text-center ic-flex ic-items-center ic-justify-center ic-gap-1"
+            style={{ color: 'var(--color-text-tertiary)' }}
+          >
+            <Mail className="ic-w-4 ic-h-4" strokeWidth={2} />
             helpdesk@inspro.com.sg
           </p>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
