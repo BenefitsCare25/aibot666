@@ -197,8 +197,12 @@ export async function sendLogRequestEmail(data) {
             <div class="section">
               <h3 style="color: #1976D2; border-bottom: 2px solid #1976D2; padding-bottom: 5px;">📋 Request Details</h3>
               <div class="info-box">
-                <p><span class="label">Trigger Type:</span> ${requestType === 'keyword' ? '🔤 Keyword Detected' : '🖱️ Manual Button Press'}</p>
-                <p><span class="label">Conversation ID:</span> ${conversationId}</p>
+                <p><span class="label">Trigger Type:</span> ${
+                  requestType === 'keyword' ? '🔤 Keyword Detected' :
+                  requestType === 'button' ? '🖱️ Manual Button Press' :
+                  '🌐 Web Form Request (Anonymous)'
+                }</p>
+                <p><span class="label">${requestType === 'anonymous' ? 'Request ID' : 'Conversation ID'}:</span> ${conversationId || 'N/A'}</p>
                 <p><span class="label">Request Time:</span> ${toSingaporeTime()}</p>
                 <p><span class="label">User Message:</span></p>
                 <p style="background: white; padding: 10px; border-left: 3px solid #1976D2; margin-top: 5px;">
@@ -222,10 +226,18 @@ export async function sendLogRequestEmail(data) {
             ` : ''}
 
             <!-- Conversation History -->
+            ${conversationHistory && conversationHistory.length > 0 ? `
             <div class="section">
               <h3 style="color: #1976D2; border-bottom: 2px solid #1976D2; padding-bottom: 5px;">💬 Conversation History</h3>
               ${conversationHTML}
             </div>
+            ` : `
+            <div class="section">
+              <div class="info-box" style="background: #FFF3E0; border-left-color: #FF9800;">
+                <p style="margin: 0;"><strong>ℹ️ Note:</strong> This is a direct LOG request without prior conversation history.</p>
+              </div>
+            </div>
+            `}
           </div>
 
           <div class="footer">

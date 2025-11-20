@@ -474,7 +474,7 @@ router.post('/request-log', async (req, res) => {
  */
 router.post('/anonymous-log-request', async (req, res) => {
   try {
-    const { email, description, employeeId } = req.body;
+    const { email, description, employeeId, attachments = [] } = req.body;
     const supabaseClient = req.supabase;
     const company = req.company;
 
@@ -512,6 +512,11 @@ router.post('/anonymous-log-request', async (req, res) => {
         user_email: email.trim(),
         acknowledgment_sent: false,
         email_sent: false,
+        attachments: attachments.map(att => ({
+          name: att.name,
+          size: att.size,
+          mimetype: att.mimetype
+        })),
         metadata: {
           user_agent: req.headers['user-agent'],
           ip_address: req.ip,
@@ -552,10 +557,10 @@ router.post('/anonymous-log-request', async (req, res) => {
           employee_id: employeeId?.trim() || 'Not provided'
         },
         conversationHistory: [],
-        conversationId: null,
+        conversationId: logRequest.id, // Use LOG request ID as reference
         requestType: 'anonymous',
         requestMessage: description?.trim() || 'Anonymous LOG request submitted via widget',
-        attachments: [],
+        attachments: attachments, // Pass base64-encoded attachments from frontend
         companyConfig
       });
 
@@ -566,7 +571,7 @@ router.post('/anonymous-log-request', async (req, res) => {
         userEmail: email.trim(),
         userName: employee?.name || 'User',
         conversationId: logRequest.id,
-        attachmentCount: 0
+        attachmentCount: attachments.length
       });
 
       ackSent = true;

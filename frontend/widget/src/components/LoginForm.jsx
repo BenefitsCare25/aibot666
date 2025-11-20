@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, Mail, Phone, Loader2, FileText, ArrowRight } from 'lucide-react';
+import { MessageCircle, X, Mail, Phone, Loader2, FileText, ArrowRight, Paperclip, Upload } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 
 export default function LoginForm({ onLogin, onClose, primaryColor }) {
@@ -13,6 +13,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
   const [selectedOption, setSelectedOption] = useState(null); // null | 'chat' | 'log'
   const [logEmail, setLogEmail] = useState('');
   const [logDescription, setLogDescription] = useState('');
+  const [logAttachments, setLogAttachments] = useState([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const { createSession, apiUrl, domain: companyDomain } = useChatStore();
 
   const handleSubmit = async (e) => {
@@ -116,6 +118,57 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
     }
   };
 
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files);
+
+    if (logAttachments.length + files.length > 5) {
+      setError('Maximum 5 files allowed');
+      return;
+    }
+
+    setUploadingFile(true);
+    setError('');
+
+    try {
+      for (const file of files) {
+        // Check file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          setError(`File ${file.name} is too large. Maximum size is 10MB.`);
+          continue;
+        }
+
+        // Convert file to base64
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result.split(',')[1]); // Remove data:mime;base64, prefix
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const base64 = await base64Promise;
+
+        setLogAttachments(prev => [...prev, {
+          id: `${Date.now()}-${file.name}`,
+          name: file.name,
+          size: file.size,
+          mimetype: file.type,
+          base64: base64
+        }]);
+      }
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      setError('Failed to process file. Please try again.');
+    } finally {
+      setUploadingFile(false);
+      // Reset file input
+      e.target.value = null;
+    }
+  };
+
+  const removeAttachment = (id) => {
+    setLogAttachments(prev => prev.filter(att => att.id !== id));
+  };
+
   const handleLogRequestSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -147,7 +200,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
         body: JSON.stringify({
           email: logEmail.trim(),
           description: logDescription.trim(),
-          employeeId: identifier || null
+          employeeId: identifier || null,
+          attachments: logAttachments
         })
       });
 
@@ -169,6 +223,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
       setSuccessMessage('Your LOG request has been submitted successfully. You will receive a confirmation email shortly.');
       setLogEmail('');
       setLogDescription('');
+      setLogAttachments([]);
     } catch (err) {
       console.error('Error submitting LOG request:', err);
       setError(err.message || 'Failed to submit LOG request. Please try again.');
@@ -377,9 +432,100 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
               </p>
             </div>
 
+            {/* File Upload Section */}
+            <div>
+              <label
+                className="ic-block ic-text-sm ic-font-semibold ic-mb-2"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Attachments (Optional)
+              </label>
+
+              {/* File Upload Button */}
+              <label
+                htmlFor="logFileUpload"
+                className={`ic-flex ic-items-center ic-justify-center ic-gap-2 ic-w-full ic-px-4 ic-py-3 ic-rounded-xl ic-border-2 ic-border-dashed ic-transition-all ic-cursor-pointer ${
+                  uploadingFile || isLoading ? 'ic-opacity-50 ic-cursor-not-allowed' : 'hover:ic-border-red-400 hover:ic-bg-red-50'
+                }`}
+                style={{
+                  borderColor: 'var(--color-border)',
+                  backgroundColor: 'var(--color-bg-secondary)'
+                }}
+              >
+                {uploadingFile ? (
+                  <>
+                    <Loader2 className="ic-w-5 ic-h-5 ic-animate-spin" style={{ color: 'var(--color-text-secondary)' }} />
+                    <span className="ic-text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                      Processing...
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="ic-w-5 ic-h-5" style={{ color: 'var(--color-text-secondary)' }} />
+                    <span className="ic-text-sm ic-font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                      Click to upload files
+                    </span>
+                  </>
+                )}
+              </label>
+              <input
+                id="logFileUpload"
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif"
+                onChange={handleFileUpload}
+                disabled={uploadingFile || isLoading || logAttachments.length >= 5}
+                className="ic-hidden"
+              />
+              <p
+                className="ic-text-xs ic-mt-2 ic-italic"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                Max 5 files, 10MB each. Supported: PDF, DOC, XLS, Images
+              </p>
+
+              {/* Display uploaded files */}
+              {logAttachments.length > 0 && (
+                <div className="ic-mt-3 ic-space-y-2">
+                  {logAttachments.map((attachment) => (
+                    <div
+                      key={attachment.id}
+                      className="ic-flex ic-items-center ic-justify-between ic-p-2 ic-rounded-lg ic-bg-white ic-shadow-soft"
+                    >
+                      <div className="ic-flex ic-items-center ic-gap-2 ic-flex-1 ic-min-w-0">
+                        <Paperclip className="ic-w-4 ic-h-4 ic-flex-shrink-0" style={{ color: 'var(--color-text-secondary)' }} />
+                        <span
+                          className="ic-text-sm ic-truncate"
+                          style={{ color: 'var(--color-text-primary)' }}
+                          title={attachment.name}
+                        >
+                          {attachment.name}
+                        </span>
+                        <span
+                          className="ic-text-xs ic-flex-shrink-0"
+                          style={{ color: 'var(--color-text-tertiary)' }}
+                        >
+                          ({(attachment.size / 1024 / 1024).toFixed(2)} MB)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(attachment.id)}
+                        disabled={isLoading}
+                        className="ic-ml-2 ic-p-1 ic-rounded-full hover:ic-bg-red-50 ic-transition-colors disabled:ic-opacity-50"
+                        aria-label="Remove attachment"
+                      >
+                        <X className="ic-w-4 ic-h-4 ic-text-red-600" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <motion.button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || uploadingFile}
               className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-soft-lg"
               style={{ background: 'var(--gradient-primary)' }}
               whileHover={{ scale: 1.02 }}
