@@ -22,16 +22,40 @@ router.get('/', async (req, res) => {
   try {
     const { data: users, error } = await supabase
       .from('admin_users')
-      .select('id, username, role, full_name, email, is_active, last_login, created_at, updated_at')
+      .select(`
+        id,
+        username,
+        role,
+        role_id,
+        full_name,
+        email,
+        is_active,
+        last_login,
+        created_at,
+        updated_at,
+        roles (
+          id,
+          name,
+          description,
+          is_system
+        )
+      `)
       .order('created_at', { ascending: false });
 
     if (error) {
       throw error;
     }
 
+    // Flatten the role information for easier frontend consumption
+    const usersWithRoles = users.map(user => ({
+      ...user,
+      role_name: user.roles?.name || (user.role === 'super_admin' ? 'Super Admin' : 'Admin'),
+      role_description: user.roles?.description
+    }));
+
     return res.status(200).json({
       success: true,
-      users
+      users: usersWithRoles
     });
   } catch (error) {
     console.error('List admin users error:', error);
@@ -198,6 +222,9 @@ router.put('/:id', [
   body('role')
     .optional()
     .isIn(['super_admin', 'admin']).withMessage('Role must be either super_admin or admin'),
+  body('roleId')
+    .optional()
+    .isUUID().withMessage('Role ID must be a valid UUID'),
   body('fullName')
     .optional()
     .trim()
@@ -223,7 +250,7 @@ router.put('/:id', [
     }
 
     const { id } = req.params;
-    const { role, fullName, email, isActive } = req.body;
+    const { role, roleId, fullName, email, isActive } = req.body;
 
     // Check if user exists
     const { data: existingUser, error: fetchError } = await supabase
@@ -239,6 +266,55 @@ router.put('/:id', [
       });
     }
 
+    // Validate roleId if provided
+    if (roleId !== undefined) {
+      const { data: roleExists, error: roleError } = await supabase
+        .from('roles')
+        .select('id, name, is_system')
+        .eq('id', roleId)
+        .single();
+
+      if (roleError || !roleExists) {
+        return res.status(400).json({
+          error: 'Invalid role',
+          message: 'The specified role does not exist'
+        });
+      }
+
+      // Prevent demoting self from Super Admin if you're the last super admin
+      if (id === req.user.id && existingUser.role_id) {
+        const { data: currentRole } = await supabase
+          .from('roles')
+          .select('name')
+          .eq('id', existingUser.role_id)
+          .single();
+
+        if (currentRole && currentRole.name === 'Super Admin' && roleExists.name !== 'Super Admin') {
+          // Check if this is the last active Super Admin
+          const { data: superAdminRole } = await supabase
+            .from('roles')
+            .select('id')
+            .eq('name', 'Super Admin')
+            .single();
+
+          if (superAdminRole) {
+            const { data: superAdmins } = await supabase
+              .from('admin_users')
+              .select('id')
+              .eq('role_id', superAdminRole.id)
+              .eq('is_active', true);
+
+            if (superAdmins && superAdmins.length === 1) {
+              return res.status(400).json({
+                error: 'Invalid operation',
+                message: 'Cannot demote the last active Super Admin'
+              });
+            }
+          }
+        }
+      }
+    }
+
     // Prevent updating own status to inactive
     if (id === req.user.id && isActive === false) {
       return res.status(400).json({
@@ -247,7 +323,7 @@ router.put('/:id', [
       });
     }
 
-    // Prevent demoting self from super_admin if you're the last super_admin
+    // Prevent demoting self from super_admin if you're the last super_admin (legacy role column)
     if (id === req.user.id && role && role !== 'super_admin') {
       const { data: superAdmins } = await supabase
         .from('admin_users')
@@ -286,6 +362,7 @@ router.put('/:id', [
     };
 
     if (role !== undefined) updateData.role = role;
+    if (roleId !== undefined) updateData.role_id = roleId;
     if (fullName !== undefined) updateData.full_name = fullName;
     if (email !== undefined) updateData.email = email;
     if (isActive !== undefined) updateData.is_active = isActive;

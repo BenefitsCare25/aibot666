@@ -188,11 +188,11 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      adminUser.role === 'super_admin'
+                      adminUser.role_name === 'Super Admin' || adminUser.role === 'super_admin'
                         ? 'bg-purple-100 text-purple-800'
                         : 'bg-blue-100 text-blue-800'
                     }`}>
-                      {adminUser.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                      {adminUser.role_name || (adminUser.role === 'super_admin' ? 'Super Admin' : 'Admin')}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
