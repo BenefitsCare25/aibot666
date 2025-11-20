@@ -59,7 +59,7 @@ export default function MessageInput({
   };
 
   return (
-    <div className="ic-bg-white ic-border-t ic-border-gray-200">
+    <div className="ic-bg-white/95 ic-border-t ic-border-pink-200 ic-backdrop-blur-sm">
       {/* LOG Suggestion Banner (shown when LOG keywords detected) */}
       {showLogSuggestion && !isLogMode && (
         <div className="ic-bg-blue-50 ic-border-b ic-border-blue-200 ic-px-4 ic-py-2 ic-flex ic-items-center ic-gap-2 ic-text-sm">
@@ -143,10 +143,9 @@ export default function MessageInput({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyPress={onKeyPress}
-            placeholder="Type your question..."
+            placeholder="Write your message..."
             disabled={disabled}
-            className="ic-flex-1 ic-px-3 ic-py-2 ic-border ic-border-gray-300 ic-rounded-md ic-resize-none ic-text-sm focus:ic-outline-none focus:ic-ring-2 ic-text-gray-900"
-            style={{ '--tw-ring-color': primaryColor }}
+            className="ic-flex-1 ic-px-4 ic-py-3 ic-border ic-border-gray-300 ic-rounded-2xl ic-resize-none ic-text-sm focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 focus:ic-border-transparent ic-text-gray-900 ic-shadow-sm ic-bg-white"
             rows={1}
             onInput={(e) => {
               e.target.style.height = 'auto';
@@ -211,8 +210,8 @@ export default function MessageInput({
             <button
               onClick={onSend}
               disabled={disabled || !value.trim()}
-              className="ic-px-4 ic-py-2 ic-text-white ic-rounded-md ic-transition-colors disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-opacity-90 ic-flex-shrink-0"
-              style={{ backgroundColor: primaryColor }}
+              className="ic-w-12 ic-h-12 ic-text-white ic-rounded-full ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-lg ic-transform hover:ic-scale-110 ic-flex ic-items-center ic-justify-center ic-flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #ec4899 0%, #ef4444 50%, #f87171 100%)' }}
               aria-label="Send message"
             >
             {disabled ? (
@@ -239,15 +238,15 @@ export default function MessageInput({
             ) : (
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="ic-h-5 ic-w-5"
+                className="ic-h-6 ic-w-6 ic-transform ic-rotate-45"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
+                strokeWidth={2.5}
               >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={2}
                   d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
                 />
               </svg>

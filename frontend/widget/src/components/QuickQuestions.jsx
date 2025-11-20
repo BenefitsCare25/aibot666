@@ -90,8 +90,8 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
 
   if (loading) {
     return (
-      <div className="ic-flex-1 ic-overflow-y-auto ic-p-4 ic-bg-gray-50">
-        <div className="ic-text-center ic-py-8 ic-text-gray-500">
+      <div className="ic-flex-1 ic-overflow-y-auto ic-p-4" style={{ background: 'linear-gradient(180deg, #fce7f3 0%, #fecaca 100%)' }}>
+        <div className="ic-text-center ic-py-8 ic-text-gray-700 ic-font-medium">
           Loading questions...
         </div>
       </div>
@@ -100,8 +100,8 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
 
   if (quickQuestions.length === 0) {
     return (
-      <div className="ic-flex-1 ic-overflow-y-auto ic-p-4 ic-bg-gray-50">
-        <div className="ic-text-center ic-py-8 ic-text-gray-500">
+      <div className="ic-flex-1 ic-overflow-y-auto ic-p-4" style={{ background: 'linear-gradient(180deg, #fce7f3 0%, #fecaca 100%)' }}>
+        <div className="ic-text-center ic-py-8 ic-text-gray-700 ic-font-medium">
           No quick questions available
         </div>
       </div>
@@ -109,17 +109,17 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
   }
 
   return (
-    <div className="ic-flex-1 ic-overflow-y-auto ic-p-4 ic-space-y-3 ic-bg-gray-50">
+    <div className="ic-flex-1 ic-overflow-y-auto ic-p-4 ic-space-y-3" style={{ background: 'linear-gradient(180deg, #fce7f3 0%, #fecaca 100%)' }}>
       <div className="ic-text-center ic-mb-4">
-        <div className="ic-w-12 ic-h-12 ic-bg-blue-100 ic-rounded-full ic-flex ic-items-center ic-justify-center ic-mx-auto ic-mb-3">
-          <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-6 ic-h-6 ic-text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="ic-w-14 ic-h-14 ic-bg-white/90 ic-rounded-full ic-flex ic-items-center ic-justify-center ic-mx-auto ic-mb-3 ic-backdrop-blur-sm ic-shadow-md">
+          <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-7 ic-h-7 ic-text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <h4 className="ic-text-gray-800 ic-font-semibold ic-mb-1">
+        <h4 className="ic-text-gray-800 ic-font-bold ic-mb-1 ic-text-lg">
           Quick Questions
         </h4>
-        <p className="ic-text-sm ic-text-gray-500">
+        <p className="ic-text-sm ic-text-gray-600">
           Select a category to view common questions
         </p>
       </div>
@@ -162,37 +162,18 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
 
           {/* Questions List */}
           {expandedCategory === category.id && (
-            <div className="ic-border-t ic-border-gray-200 ic-bg-gray-50 ic-animate-fade-in">
+            <div className="ic-border-t ic-border-gray-200 ic-bg-pink-50/50 ic-animate-fade-in ic-p-3 ic-space-y-2">
               {category.questions.map((questionData, index) => (
                 <button
                   key={questionData.id || index}
                   onClick={() => handleQuestionClick(questionData, category.title)}
-                  className="ic-w-full ic-text-left ic-px-4 ic-py-3 ic-text-sm ic-text-gray-700 hover:ic-bg-white hover:ic-shadow-sm ic-transition-all ic-duration-200 ic-border-b ic-border-gray-100 last:ic-border-b-0 ic-flex ic-items-start ic-gap-2 ic-group"
+                  className="ic-w-full ic-text-left ic-px-4 ic-py-3 ic-text-sm ic-text-white ic-font-medium ic-rounded-full hover:ic-shadow-lg ic-transition-all ic-duration-200 ic-transform hover:ic-scale-[1.02]"
                   style={{
+                    background: 'linear-gradient(135deg, #ec4899 0%, #ef4444 50%, #f87171 100%)',
                     animationDelay: `${index * 50}ms`
                   }}
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="ic-w-4 ic-h-4 ic-flex-shrink-0 ic-mt-0.5 group-hover:ic-scale-110 ic-transition-transform"
-                    style={{ color: primaryColor }}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
                   <span className="ic-flex-1">{questionData.q}</span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="ic-w-4 ic-h-4 ic-flex-shrink-0 ic-mt-0.5 ic-opacity-0 group-hover:ic-opacity-100 ic-transition-opacity"
-                    style={{ color: primaryColor }}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
                 </button>
               ))}
             </div>

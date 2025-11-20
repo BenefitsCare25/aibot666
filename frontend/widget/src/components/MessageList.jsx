@@ -3,13 +3,13 @@ import TypingIndicator from './TypingIndicator';
 
 export default function MessageList({ messages, isLoading, messagesEndRef }) {
   return (
-    <div className="ic-flex-1 ic-overflow-y-auto ic-p-4 ic-space-y-4 ic-bg-gray-50 ic-scrollbar">
+    <div className="ic-flex-1 ic-overflow-y-auto ic-p-4 ic-space-y-2 ic-scrollbar" style={{ background: 'linear-gradient(180deg, #fce7f3 0%, #fecaca 100%)' }}>
       {messages.length === 0 && !isLoading && (
         <div className="ic-text-center ic-py-8">
-          <div className="ic-w-16 ic-h-16 ic-bg-blue-100 ic-rounded-full ic-flex ic-items-center ic-justify-center ic-mx-auto ic-mb-4">
+          <div className="ic-w-16 ic-h-16 ic-bg-white/80 ic-rounded-full ic-flex ic-items-center ic-justify-center ic-mx-auto ic-mb-4 ic-backdrop-blur-sm ic-shadow-md">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="ic-w-8 ic-h-8 ic-text-blue-600"
+              className="ic-w-8 ic-h-8 ic-text-red-500"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -22,13 +22,13 @@ export default function MessageList({ messages, isLoading, messagesEndRef }) {
               />
             </svg>
           </div>
-          <h4 className="ic-text-gray-700 ic-font-medium ic-mb-2">
-            Welcome!
+          <h4 className="ic-text-gray-800 ic-font-semibold ic-mb-2">
+            Hi there 👋
           </h4>
-          <p className="ic-text-sm ic-text-gray-500 ic-max-w-xs ic-mx-auto ic-mb-3">
-            Login to your employee portal to check your own coverage and limit
-          </p>
-          <p className="ic-text-xs ic-text-gray-400 ic-max-w-xs ic-mx-auto ic-flex ic-items-center ic-justify-center ic-gap-1">
+          <h5 className="ic-text-gray-700 ic-font-medium ic-mb-3">
+            How can I help you today?
+          </h5>
+          <p className="ic-text-xs ic-text-gray-600 ic-max-w-xs ic-mx-auto ic-flex ic-items-center ic-justify-center ic-gap-1 ic-bg-white/60 ic-rounded-full ic-px-3 ic-py-2 ic-backdrop-blur-sm">
             <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-4 ic-h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
