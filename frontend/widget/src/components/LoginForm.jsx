@@ -112,62 +112,72 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
   };
 
   return (
-    <div className="ic-bg-white ic-rounded-lg ic-shadow-xl ic-w-80 ic-overflow-hidden">
-      {/* Header */}
+    <div className="ic-bg-white ic-rounded-2xl ic-shadow-2xl ic-w-96 ic-overflow-hidden ic-border ic-border-gray-100">
+      {/* Header with Red Gradient */}
       <div
-        className="ic-p-4 ic-text-white ic-flex ic-items-center ic-justify-between"
-        style={{ backgroundColor: primaryColor }}
+        className="ic-p-6 ic-text-white ic-relative"
+        style={{
+          background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
+          borderRadius: '1rem 1rem 0 0'
+        }}
       >
-        <div className="ic-flex ic-items-center ic-gap-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="ic-w-6 ic-h-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+        <div className="ic-flex ic-items-center ic-justify-between ic-mb-2">
+          <div className="ic-flex ic-items-center ic-gap-3">
+            <div className="ic-w-12 ic-h-12 ic-bg-white/20 ic-rounded-full ic-flex ic-items-center ic-justify-center ic-backdrop-blur-sm ic-border-2 ic-border-white/30">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="ic-w-7 ic-h-7"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="ic-text-xl ic-font-bold ic-tracking-tight">Chat with us</h3>
+              <p className="ic-text-sm ic-text-white/90 ic-mt-0.5">We're online!</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200 hover:ic-scale-110"
+            aria-label="Close"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-            />
-          </svg>
-          <h3 className="ic-text-lg ic-font-semibold">Support (Beta)</h3>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="ic-w-5 ic-h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          className="ic-text-white hover:ic-bg-white/20 ic-rounded ic-p-1 ic-transition-colors"
-          aria-label="Close"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="ic-w-5 ic-h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
       </div>
 
       {/* Login Form */}
-      <div className="ic-p-6">
-        <p className="ic-text-gray-600 ic-mb-4 ic-text-sm">
+      <div className="ic-p-6 ic-bg-gradient-to-b ic-from-gray-50 ic-to-white">
+        <p className="ic-text-gray-700 ic-mb-6 ic-text-base ic-font-medium ic-text-center">
           Welcome! Let us know if you have any enquires!
         </p>
 
-        <form onSubmit={handleSubmit}>
-          <div className="ic-mb-4">
+        <form onSubmit={handleSubmit} className="ic-space-y-4">
+          <div>
             <label
               htmlFor="identifier"
-              className="ic-block ic-text-sm ic-font-medium ic-text-gray-700 ic-mb-2"
+              className="ic-block ic-text-sm ic-font-semibold ic-text-gray-700 ic-mb-2"
             >
               Employee ID / User ID / Email
             </label>
@@ -177,8 +187,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               placeholder="e.g., EMP001 or user@example.com"
-              className="ic-w-full ic-px-3 ic-py-2 ic-border ic-border-gray-300 ic-rounded-md focus:ic-outline-none focus:ic-ring-2 ic-text-gray-900"
-              style={{ '--tw-ring-color': primaryColor }}
+              className="ic-w-full ic-px-4 ic-py-3 ic-border ic-border-gray-300 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-500 focus:ic-border-transparent ic-text-gray-900 ic-shadow-sm ic-transition-all"
               disabled={isLoading}
               autoFocus
             />
@@ -187,8 +196,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
           <button
             type="submit"
             disabled={isLoading}
-            className="ic-w-full ic-text-white ic-py-2 ic-px-4 ic-rounded-md ic-font-medium ic-transition-colors disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-opacity-90"
-            style={{ backgroundColor: primaryColor }}
+            className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-lg ic-transform hover:ic-scale-[1.02] ic-duration-200"
+            style={{ background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)' }}
           >
             {isLoading ? (
               <span className="ic-flex ic-items-center ic-justify-center ic-gap-2">
@@ -231,11 +240,11 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
             </div>
 
             {/* Contact Number Form */}
-            <form onSubmit={handleContactSubmit}>
-          <div className="ic-mb-4">
+            <form onSubmit={handleContactSubmit} className="ic-space-y-4">
+          <div>
             <label
               htmlFor="contactNumber"
-              className="ic-block ic-text-sm ic-font-medium ic-text-gray-700 ic-mb-2"
+              className="ic-block ic-text-sm ic-font-semibold ic-text-gray-700 ic-mb-2"
             >
               Request Callback
             </label>
@@ -245,11 +254,10 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
               value={contactNumber}
               onChange={(e) => setContactNumber(e.target.value)}
               placeholder="e.g., +65 9123 4567"
-              className="ic-w-full ic-px-3 ic-py-2 ic-border ic-border-gray-300 ic-rounded-md focus:ic-outline-none focus:ic-ring-2 ic-text-gray-900"
-              style={{ '--tw-ring-color': primaryColor }}
+              className="ic-w-full ic-px-4 ic-py-3 ic-border ic-border-gray-300 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-500 focus:ic-border-transparent ic-text-gray-900 ic-shadow-sm ic-transition-all"
               disabled={isLoading}
             />
-            <p className="ic-text-xs ic-text-gray-500 ic-mt-1">
+            <p className="ic-text-xs ic-text-gray-500 ic-mt-2 ic-italic">
               We'll call you back during office hours
             </p>
           </div>
@@ -257,8 +265,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
           <button
             type="submit"
             disabled={isLoading}
-            className="ic-w-full ic-text-white ic-py-2 ic-px-4 ic-rounded-md ic-font-medium ic-transition-colors disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-opacity-90"
-            style={{ backgroundColor: primaryColor }}
+            className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-lg ic-transform hover:ic-scale-[1.02] ic-duration-200"
+            style={{ background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)' }}
           >
             {isLoading ? (
               <span className="ic-flex ic-items-center ic-justify-center ic-gap-2">
@@ -292,8 +300,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
 
             {/* Success Message (inside callback form) */}
             {successMessage && (
-              <div className="ic-mt-4 ic-p-3 ic-bg-green-50 ic-border ic-border-green-200 ic-rounded-md">
-                <p className="ic-text-sm ic-text-green-600">{successMessage}</p>
+              <div className="ic-mt-4 ic-p-4 ic-bg-green-50 ic-border-l-4 ic-border-green-500 ic-rounded-lg ic-shadow-sm">
+                <p className="ic-text-sm ic-text-green-700 ic-font-medium">{successMessage}</p>
               </div>
             )}
           </>
@@ -301,13 +309,16 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
 
         {/* Error Message (outside callback form, always visible) */}
         {error && (
-          <div className="ic-mt-4 ic-p-3 ic-bg-red-50 ic-border ic-border-red-200 ic-rounded-md">
-            <p className="ic-text-sm ic-text-red-600">{error}</p>
+          <div className="ic-mt-4 ic-p-4 ic-bg-red-50 ic-border-l-4 ic-border-red-500 ic-rounded-lg ic-shadow-sm">
+            <p className="ic-text-sm ic-text-red-700 ic-font-medium">{error}</p>
           </div>
         )}
 
-        <div className="ic-mt-4 ic-pt-4 ic-border-t ic-border-gray-200">
-          <p className="ic-text-xs ic-text-gray-500 ic-text-center">
+        <div className="ic-mt-6 ic-pt-4 ic-border-t ic-border-gray-200">
+          <p className="ic-text-xs ic-text-gray-500 ic-text-center ic-flex ic-items-center ic-justify-center ic-gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-4 ic-h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
             helpdesk@inspro.com.sg
           </p>
         </div>
