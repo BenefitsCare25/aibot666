@@ -592,55 +592,11 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
               </h3>
 
               <p
-                className="ic-text-base ic-mb-6"
+                className="ic-text-base"
                 style={{ color: 'var(--color-text-secondary)' }}
               >
                 Your LOG request has been successfully submitted. You will receive a confirmation email at <strong>{logEmail}</strong> shortly.
               </p>
-
-              {/* Request Summary */}
-              <div
-                className="ic-bg-green-50 ic-p-4 ic-rounded-xl ic-border-l-4 ic-border-green-500 ic-text-left"
-              >
-                <h4
-                  className="ic-text-sm ic-font-semibold ic-mb-2"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  📋 What's Next?
-                </h4>
-                <ul className="ic-text-sm ic-space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
-                  <li className="ic-flex ic-items-start ic-gap-2">
-                    <span className="ic-text-green-600 ic-font-bold">1.</span>
-                    <span>Check your email for a confirmation message</span>
-                  </li>
-                  <li className="ic-flex ic-items-start ic-gap-2">
-                    <span className="ic-text-green-600 ic-font-bold">2.</span>
-                    <span>Our support team will review your request</span>
-                  </li>
-                  <li className="ic-flex ic-items-start ic-gap-2">
-                    <span className="ic-text-green-600 ic-font-bold">3.</span>
-                    <span>You'll receive a response within 1-2 business days</span>
-                  </li>
-                </ul>
-              </div>
-
-              {logAttachments.length > 0 && (
-                <div
-                  className="ic-mt-4 ic-p-3 ic-bg-blue-50 ic-rounded-lg ic-text-sm"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  <p className="ic-font-medium ic-mb-1">
-                    📎 {logAttachments.length} file{logAttachments.length !== 1 ? 's' : ''} attached
-                  </p>
-                  <div className="ic-space-y-1">
-                    {logAttachments.map((att) => (
-                      <p key={att.id} className="ic-text-xs ic-truncate">
-                        • {att.name}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Action Buttons */}
