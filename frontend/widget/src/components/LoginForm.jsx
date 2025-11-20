@@ -115,18 +115,18 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
     <div className="ic-bg-white ic-rounded-2xl ic-shadow-2xl ic-w-[450px] ic-overflow-hidden ic-border ic-border-gray-100">
       {/* Header with Red Gradient */}
       <div
-        className="ic-p-6 ic-text-white ic-relative"
+        className="ic-p-4 ic-text-white ic-relative"
         style={{
           background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
           borderRadius: '1rem 1rem 0 0'
         }}
       >
-        <div className="ic-flex ic-items-center ic-justify-between ic-mb-2">
+        <div className="ic-flex ic-items-center ic-justify-between">
           <div className="ic-flex ic-items-center ic-gap-3">
-            <div className="ic-w-12 ic-h-12 ic-bg-white/20 ic-rounded-full ic-flex ic-items-center ic-justify-center ic-backdrop-blur-sm ic-border-2 ic-border-white/30">
+            <div className="ic-w-10 ic-h-10 ic-bg-white/20 ic-rounded-full ic-flex ic-items-center ic-justify-center ic-backdrop-blur-sm ic-border-2 ic-border-white/30">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="ic-w-7 ic-h-7"
+                className="ic-w-6 ic-h-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -140,7 +140,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
               </svg>
             </div>
             <div>
-              <h3 className="ic-text-xl ic-font-bold ic-tracking-tight">Chat with us</h3>
+              <h3 className="ic-text-lg ic-font-bold ic-tracking-tight">Welcome, chat with us</h3>
             </div>
           </div>
           <button
@@ -168,9 +168,6 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
 
       {/* Login Form */}
       <div className="ic-p-6 ic-bg-gradient-to-b ic-from-gray-50 ic-to-white">
-        <p className="ic-text-gray-700 ic-mb-6 ic-text-base ic-font-medium ic-text-center">
-          Verify yourself to start chatting
-        </p>
 
         <form onSubmit={handleSubmit} className="ic-space-y-4">
           <div>
