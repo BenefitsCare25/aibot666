@@ -117,7 +117,11 @@ router.post('/', [
     .matches(/[0-9]/).withMessage('Password must contain at least one number')
     .matches(/[!@#$%^&*]/).withMessage('Password must contain at least one special character (!@#$%^&*)'),
   body('role')
+    .optional()
     .isIn(['super_admin', 'admin']).withMessage('Role must be either super_admin or admin'),
+  body('roleId')
+    .optional()
+    .isUUID().withMessage('Role ID must be a valid UUID'),
   body('fullName')
     .trim()
     .notEmpty().withMessage('Full name is required')
@@ -137,7 +141,31 @@ router.post('/', [
       });
     }
 
-    const { username, password, role, fullName, email } = req.body;
+    const { username, password, role, roleId, fullName, email } = req.body;
+
+    // Require either role or roleId
+    if (!role && !roleId) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        message: 'Either role or roleId must be provided'
+      });
+    }
+
+    // Validate roleId if provided
+    if (roleId) {
+      const { data: roleExists, error: roleError } = await supabase
+        .from('roles')
+        .select('id, name')
+        .eq('id', roleId)
+        .single();
+
+      if (roleError || !roleExists) {
+        return res.status(400).json({
+          error: 'Invalid role',
+          message: 'The specified role does not exist'
+        });
+      }
+    }
 
     // Check if username already exists
     const { data: existingUser } = await supabase
@@ -170,18 +198,27 @@ router.post('/', [
     // Hash password
     const passwordHash = await hashPassword(password);
 
+    // Build insert data
+    const insertData = {
+      username,
+      password_hash: passwordHash,
+      full_name: fullName,
+      email,
+      is_active: true
+    };
+
+    // Add role or roleId based on what was provided
+    if (roleId) {
+      insertData.role_id = roleId;
+    } else if (role) {
+      insertData.role = role;
+    }
+
     // Create new admin user
     const { data: newUser, error } = await supabase
       .from('admin_users')
-      .insert({
-        username,
-        password_hash: passwordHash,
-        role,
-        full_name: fullName,
-        email,
-        is_active: true
-      })
-      .select('id, username, role, full_name, email, is_active, created_at')
+      .insert(insertData)
+      .select('id, username, role, role_id, full_name, email, is_active, created_at')
       .single();
 
     if (error) {
