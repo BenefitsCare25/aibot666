@@ -8,6 +8,7 @@ import { body, validationResult } from 'express-validator';
 import { supabase } from '../../config/supabase.js';
 import { authenticateToken, requireSuperAdmin } from '../middleware/authMiddleware.js';
 import { logAuditAction } from '../utils/auth.js';
+import { invalidatePermissionCache } from '../services/permissionService.js';
 
 const router = express.Router();
 
@@ -496,6 +497,21 @@ router.put('/:id', [
       ip_address: req.ip,
       user_agent: req.get('user-agent')
     });
+
+    // Invalidate permission cache for all users with this role
+    if (permissions !== undefined) {
+      const { data: usersWithRole } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('role_id', id);
+
+      if (usersWithRole && usersWithRole.length > 0) {
+        for (const user of usersWithRole) {
+          await invalidatePermissionCache(user.id);
+        }
+        console.log(`[Roles] Permission cache invalidated for ${usersWithRole.length} user(s) with role: ${id}`);
+      }
+    }
 
     return res.status(200).json({
       success: true,

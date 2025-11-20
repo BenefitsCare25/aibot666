@@ -24,7 +24,7 @@ async function getUserRoleFromDB(userId) {
         username,
         role,
         role_id,
-        roles (
+        roles!admin_users_role_id_fkey (
           id,
           name,
           is_system

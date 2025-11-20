@@ -8,6 +8,7 @@ import { body, validationResult } from 'express-validator';
 import { hashPassword, logAuditAction } from '../utils/auth.js';
 import { supabase } from '../../config/supabase.js';
 import { authenticateToken, requireSuperAdmin } from '../middleware/authMiddleware.js';
+import { invalidatePermissionCache } from '../services/permissionService.js';
 
 const router = express.Router();
 
@@ -377,6 +378,12 @@ router.put('/:id', [
 
     if (updateError) {
       throw updateError;
+    }
+
+    // Invalidate permission cache if role was changed
+    if (role !== undefined || roleId !== undefined) {
+      await invalidatePermissionCache(id);
+      console.log(`[AdminUsers] Permission cache invalidated for user: ${id}`);
     }
 
     // Log admin update
