@@ -382,25 +382,6 @@ export async function sendAcknowledgmentEmail(data) {
 
             <p>Thank you for submitting your LOG request through our chatbot. This email confirms that we have successfully received your request and our support team will review it shortly.</p>
 
-            <div class="info-box">
-              <h3 style="margin: 0 0 10px 0; color: #4CAF50;">📋 Request Summary</h3>
-              <p style="margin: 5px 0;"><strong>Reference ID:</strong> <span class="reference">${conversationId.substring(0, 8).toUpperCase()}</span></p>
-              <p style="margin: 5px 0;"><strong>Submitted:</strong> ${toSingaporeTime()}</p>
-              <p style="margin: 5px 0;"><strong>Attachments:</strong> ${attachmentCount} file${attachmentCount !== 1 ? 's' : ''}</p>
-              <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #4CAF50; font-weight: bold;">Pending Review</span></p>
-            </div>
-
-            <h3 style="color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 5px;">📅 What Happens Next?</h3>
-            <ol style="line-height: 1.8; padding-left: 20px;">
-              <li><strong>Review:</strong> Our support team will review your conversation history and any attached documents</li>
-              <li><strong>Analysis:</strong> We'll analyze your inquiry and prepare a detailed response</li>
-              <li><strong>Response:</strong> You'll receive a follow-up email within 1-2 business days</li>
-            </ol>
-
-            <div class="info-box" style="background: #E3F2FD; border-left-color: #2196F3;">
-              <p style="margin: 0;"><strong>💡 Tip:</strong> Save this email for your records. You can reference the Request ID when following up with our support team.</p>
-            </div>
-
             <p style="margin-top: 25px;">If you have any urgent concerns or questions, please don't hesitate to contact us directly.</p>
 
             <p style="margin-top: 25px;">Best regards,<br>
