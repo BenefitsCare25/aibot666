@@ -160,7 +160,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
       {/* Login Form */}
       <div className="ic-p-6">
         <p className="ic-text-gray-600 ic-mb-4 ic-text-sm">
-          Welcome! Please enter your employee ID, user ID, or email to start chatting with our AI support assistant.
+          Welcome! Let us know if you have any enquires!
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -182,9 +182,6 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
               disabled={isLoading}
               autoFocus
             />
-            <p className="ic-text-xs ic-text-gray-500 ic-mt-1">
-              You can use your employee ID, user ID, or email address
-            </p>
           </div>
 
           <button

@@ -388,6 +388,21 @@ router.get('/employees', async (req, res) => {
 
     if (error) throw error;
 
+    // Get counts for active and inactive employees (without search filter)
+    const { count: activeCount, error: activeError } = await req.supabase
+      .from('employees')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true);
+
+    const { count: inactiveCount, error: inactiveError } = await req.supabase
+      .from('employees')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', false);
+
+    if (activeError || inactiveError) {
+      console.error('Error fetching employee counts:', activeError || inactiveError);
+    }
+
     res.json({
       success: true,
       data: {
@@ -397,6 +412,11 @@ router.get('/employees', async (req, res) => {
           limit: parseInt(limit),
           total: count,
           totalPages: Math.ceil(count / limit)
+        },
+        counts: {
+          active: activeCount || 0,
+          inactive: inactiveCount || 0,
+          all: (activeCount || 0) + (inactiveCount || 0)
         }
       }
     });

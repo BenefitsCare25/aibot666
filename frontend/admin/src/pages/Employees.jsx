@@ -24,6 +24,7 @@ export default function Employees() {
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [selectAllMode, setSelectAllMode] = useState(false); // true = all records, false = current page
   const [showSelectMenu, setShowSelectMenu] = useState(false);
+  const [employeeCounts, setEmployeeCounts] = useState({ active: 0, inactive: 0, all: 0 });
 
   useEffect(() => {
     loadEmployees();
@@ -41,6 +42,11 @@ export default function Employees() {
 
       setEmployees(response.data.employees);
       setTotalPages(response.data.pagination.totalPages);
+
+      // Update employee counts if available
+      if (response.data.counts) {
+        setEmployeeCounts(response.data.counts);
+      }
     } catch (error) {
       toast.error('Failed to load employees');
       console.error(error);
@@ -419,9 +425,9 @@ export default function Employees() {
             }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
-            <option value="active">Active Employees</option>
-            <option value="inactive">Inactive Employees</option>
-            <option value="all">All Employees</option>
+            <option value="active">Active Employees ({employeeCounts.active})</option>
+            <option value="inactive">Inactive Employees ({employeeCounts.inactive})</option>
+            <option value="all">All Employees ({employeeCounts.all})</option>
           </select>
           <input
             type="text"
