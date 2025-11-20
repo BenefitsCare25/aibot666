@@ -146,8 +146,8 @@ export default function MessageInput({
             onKeyPress={onKeyPress}
             placeholder="Write your message..."
             disabled={disabled}
-            className="ic-flex-1 ic-px-4 ic-py-3 ic-border ic-border-gray-200 ic-rounded-2xl ic-resize-none ic-text-sm focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 focus:ic-border-transparent ic-text-gray-900"
-            style={{ backgroundColor: '#ffffff' }}
+            className="ic-flex-1 ic-px-4 ic-py-3 ic-rounded-2xl ic-resize-none ic-text-sm focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 ic-text-gray-900"
+            style={{ backgroundColor: '#ffffff', border: 'none' }}
             rows={1}
             onInput={(e) => {
               e.target.style.height = 'auto';
