@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, Mail, Phone, Loader2 } from 'lucide-react';
+import { MessageCircle, X, Mail, Phone, Loader2, FileText, ArrowRight } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 
 export default function LoginForm({ onLogin, onClose, primaryColor }) {
@@ -10,6 +10,9 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showCallbackForm, setShowCallbackForm] = useState(false);
+  const [selectedOption, setSelectedOption] = useState(null); // null | 'chat' | 'log'
+  const [logEmail, setLogEmail] = useState('');
+  const [logDescription, setLogDescription] = useState('');
   const { createSession, apiUrl, domain: companyDomain } = useChatStore();
 
   const handleSubmit = async (e) => {
@@ -113,6 +116,67 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
     }
   };
 
+  const handleLogRequestSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMessage('');
+
+    if (!logEmail.trim()) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(logEmail.trim())) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const domain = companyDomain || window.location.hostname;
+
+      const response = await fetch(`${apiUrl}/api/chat/anonymous-log-request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Widget-Domain': domain
+        },
+        body: JSON.stringify({
+          email: logEmail.trim(),
+          description: logDescription.trim(),
+          employeeId: identifier || null
+        })
+      });
+
+      const responseText = await response.text();
+
+      let data;
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (e) {
+        console.error('Failed to parse response as JSON:', e);
+        throw new Error(`Server returned invalid response: ${responseText || 'Empty response'}`);
+      }
+
+      if (!response.ok) {
+        const errorMessage = data.error || `Server error: ${response.status} ${response.statusText}`;
+        throw new Error(errorMessage);
+      }
+
+      setSuccessMessage('Your LOG request has been submitted successfully. You will receive a confirmation email shortly.');
+      setLogEmail('');
+      setLogDescription('');
+    } catch (err) {
+      console.error('Error submitting LOG request:', err);
+      setError(err.message || 'Failed to submit LOG request. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <motion.div
       className="ic-rounded-2xl ic-shadow-soft-lg ic-w-[450px] ic-overflow-hidden"
@@ -154,7 +218,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
         </div>
       </motion.div>
 
-      {/* Login Form */}
+      {/* Main Content */}
       <motion.div
         className="ic-p-6"
         style={{ backgroundColor: 'var(--color-bg-primary)' }}
@@ -162,7 +226,43 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <form onSubmit={handleSubmit} className="ic-space-y-4">
+        {/* Show option cards when no option is selected */}
+        {selectedOption === null && (
+          <div className="ic-space-y-3">
+            {/* Chat Option Card */}
+            <motion.button
+              onClick={() => setSelectedOption('chat')}
+              className="ic-w-full ic-p-4 ic-rounded-xl ic-bg-white ic-shadow-soft hover:ic-shadow-soft-lg ic-transition-all ic-flex ic-items-center ic-justify-between ic-group"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <span className="ic-text-base ic-font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                Send us a message
+              </span>
+              <ArrowRight className="ic-w-5 ic-h-5 group-hover:ic-translate-x-1 ic-transition-transform" style={{ color: 'var(--color-text-secondary)' }} strokeWidth={2} />
+            </motion.button>
+
+            {/* LOG Request Option Card */}
+            <motion.button
+              onClick={() => setSelectedOption('log')}
+              className="ic-w-full ic-p-4 ic-rounded-xl ic-bg-white ic-shadow-soft hover:ic-shadow-soft-lg ic-transition-all ic-flex ic-items-center ic-justify-between ic-group"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div className="ic-flex ic-items-center ic-gap-3">
+                <FileText className="ic-w-5 ic-h-5" style={{ color: 'var(--color-text-secondary)' }} strokeWidth={2} />
+                <span className="ic-text-base ic-font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                  Request Letter of Guarantee
+                </span>
+              </div>
+              <ArrowRight className="ic-w-5 ic-h-5 group-hover:ic-translate-x-1 ic-transition-transform" style={{ color: 'var(--color-text-secondary)' }} strokeWidth={2} />
+            </motion.button>
+          </div>
+        )}
+
+        {/* Chat Form */}
+        {selectedOption === 'chat' && (
+          <form onSubmit={handleSubmit} className="ic-space-y-4">
           <div>
             <label
               htmlFor="identifier"
@@ -205,7 +305,107 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
               'Start Chat'
             )}
           </motion.button>
+
+          {/* Back button */}
+          <button
+            type="button"
+            onClick={() => setSelectedOption(null)}
+            className="ic-w-full ic-text-sm ic-py-2 ic-text-center ic-transition-colors"
+            style={{ color: 'var(--color-text-tertiary)' }}
+          >
+            ← Back to options
+          </button>
         </form>
+        )}
+
+        {/* LOG Request Form */}
+        {selectedOption === 'log' && (
+          <form onSubmit={handleLogRequestSubmit} className="ic-space-y-4">
+            <div>
+              <label
+                htmlFor="logEmail"
+                className="ic-block ic-text-sm ic-font-semibold ic-mb-2"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Email Address *
+              </label>
+              <input
+                type="email"
+                id="logEmail"
+                value={logEmail}
+                onChange={(e) => setLogEmail(e.target.value)}
+                placeholder="your.email@example.com"
+                className="ic-w-full ic-px-4 ic-py-3 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 ic-shadow-soft ic-transition-all"
+                style={{
+                  backgroundColor: '#ffffff',
+                  border: 'none',
+                  color: 'var(--color-text-primary)'
+                }}
+                disabled={isLoading}
+                autoFocus
+                required
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="logDescription"
+                className="ic-block ic-text-sm ic-font-semibold ic-mb-2"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Description / Additional Details
+              </label>
+              <textarea
+                id="logDescription"
+                value={logDescription}
+                onChange={(e) => setLogDescription(e.target.value)}
+                placeholder="Please provide details about your LOG request..."
+                rows={4}
+                className="ic-w-full ic-px-4 ic-py-3 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 ic-shadow-soft ic-transition-all ic-resize-none"
+                style={{
+                  backgroundColor: '#ffffff',
+                  border: 'none',
+                  color: 'var(--color-text-primary)'
+                }}
+                disabled={isLoading}
+              />
+              <p
+                className="ic-text-xs ic-mt-2 ic-italic"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                Optional: Provide any relevant information that may help us process your request
+              </p>
+            </div>
+
+            <motion.button
+              type="submit"
+              disabled={isLoading}
+              className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-soft-lg"
+              style={{ background: 'var(--gradient-primary)' }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {isLoading ? (
+                <span className="ic-flex ic-items-center ic-justify-center ic-gap-2">
+                  <Loader2 className="ic-animate-spin ic-h-4 ic-w-4" />
+                  Submitting...
+                </span>
+              ) : (
+                'Submit LOG Request'
+              )}
+            </motion.button>
+
+            {/* Back button */}
+            <button
+              type="button"
+              onClick={() => setSelectedOption(null)}
+              className="ic-w-full ic-text-sm ic-py-2 ic-text-center ic-transition-colors"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              ← Back to options
+            </button>
+          </form>
+        )}
 
         {/* Show callback form only when employee ID validation fails */}
         <AnimatePresence>

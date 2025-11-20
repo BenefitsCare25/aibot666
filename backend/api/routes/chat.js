@@ -468,6 +468,154 @@ router.post('/request-log', async (req, res) => {
 });
 
 /**
+ * POST /api/chat/anonymous-log-request
+ * Submit a LOG request without requiring an active session
+ * Accepts email (required), description (optional), and employeeId (optional)
+ */
+router.post('/anonymous-log-request', async (req, res) => {
+  try {
+    const { email, description, employeeId } = req.body;
+    const supabaseClient = req.supabase;
+    const company = req.company;
+
+    // Validate required fields
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Email address is required' });
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Try to find employee if employeeId is provided
+    let employee = null;
+    if (employeeId && employeeId.trim()) {
+      const { data: empData } = await supabaseClient
+        .from('employees')
+        .select('*')
+        .eq('employee_id', employeeId.trim())
+        .single();
+
+      employee = empData;
+    }
+
+    // Store anonymous LOG request in database
+    const { data: logRequest, error: insertError } = await supabaseClient
+      .from('log_requests')
+      .insert({
+        conversation_id: null, // No conversation for anonymous requests
+        employee_id: employee?.id || null,
+        request_type: 'anonymous',
+        request_message: description?.trim() || 'Anonymous LOG request submitted via widget',
+        user_email: email.trim(),
+        acknowledgment_sent: false,
+        email_sent: false,
+        metadata: {
+          user_agent: req.headers['user-agent'],
+          ip_address: req.ip,
+          company_id: company?.id,
+          employee_identifier: employeeId?.trim() || null
+        }
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Failed to insert anonymous LOG request:', insertError);
+      return res.status(500).json({ error: 'Failed to create LOG request' });
+    }
+
+    // Send email notification to support team
+    let emailSent = false;
+    let ackSent = false;
+
+    try {
+      const companyConfig = {
+        log_request_email_to: company?.log_request_email_to || null,
+        log_request_email_cc: company?.log_request_email_cc || null
+      };
+
+      console.log('[Anonymous LOG Request] Company:', company?.name);
+      console.log('[Anonymous LOG Request] Email Config:', {
+        to: companyConfig.log_request_email_to,
+        cc: companyConfig.log_request_email_cc,
+        fallback: process.env.LOG_REQUEST_EMAIL_TO
+      });
+
+      // Send email to support team
+      await sendLogRequestEmail({
+        employee: employee || {
+          name: 'Anonymous User',
+          email: email.trim(),
+          employee_id: employeeId?.trim() || 'Not provided'
+        },
+        conversationHistory: [],
+        conversationId: null,
+        requestType: 'anonymous',
+        requestMessage: description?.trim() || 'Anonymous LOG request submitted via widget',
+        attachments: [],
+        companyConfig
+      });
+
+      emailSent = true;
+
+      // Send acknowledgment email to user
+      await sendAcknowledgmentEmail({
+        userEmail: email.trim(),
+        userName: employee?.name || 'User',
+        conversationId: logRequest.id,
+        attachmentCount: 0
+      });
+
+      ackSent = true;
+
+      // Update log request with email status
+      await supabaseClient
+        .from('log_requests')
+        .update({
+          email_sent: true,
+          email_sent_at: new Date().toISOString(),
+          acknowledgment_sent: true,
+          acknowledgment_sent_at: new Date().toISOString()
+        })
+        .eq('id', logRequest.id);
+
+    } catch (emailErr) {
+      console.error('Failed to send LOG request email:', emailErr);
+
+      // Update with error
+      await supabaseClient
+        .from('log_requests')
+        .update({
+          metadata: {
+            ...logRequest.metadata,
+            email_error: emailErr.message
+          }
+        })
+        .eq('id', logRequest.id);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        logRequestId: logRequest.id,
+        emailSent,
+        acknowledgmentSent: ackSent
+      }
+    });
+
+  } catch (error) {
+    console.error('Error processing anonymous LOG request:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to process LOG request'
+    });
+  }
+});
+
+/**
  * POST /api/chat/message
  * Send a message and get AI response
  */
