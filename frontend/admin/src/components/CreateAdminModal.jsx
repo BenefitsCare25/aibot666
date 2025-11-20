@@ -149,7 +149,7 @@ export default function CreateAdminModal({ onClose, onSuccess }) {
                   required
                   minLength={3}
                   maxLength={50}
-                  pattern="[a-zA-Z0-9_-]+"
+                  pattern="[a-zA-Z0-9_\-]+"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="admin_user"
                 />
