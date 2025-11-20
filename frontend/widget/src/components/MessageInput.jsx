@@ -62,16 +62,16 @@ export default function MessageInput({
     <div className="ic-bg-white/95 ic-border-t ic-border-pink-200 ic-backdrop-blur-sm">
       {/* LOG Suggestion Banner (shown when LOG keywords detected) */}
       {showLogSuggestion && !isLogMode && (
-        <div className="ic-bg-blue-50 ic-border-b ic-border-blue-200 ic-px-4 ic-py-2 ic-flex ic-items-center ic-gap-2 ic-text-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-4 ic-h-4 ic-text-blue-600 ic-flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="ic-bg-pink-50 ic-border-b ic-border-pink-200 ic-px-4 ic-py-2 ic-flex ic-items-center ic-gap-2 ic-text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" className="ic-w-4 ic-h-4 ic-text-pink-600 ic-flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span className="ic-text-blue-800 ic-flex-1">
+          <span className="ic-text-pink-800 ic-flex-1">
             Need a Letter of Guarantee?
           </span>
           <button
             onClick={onEnterLogMode}
-            className="ic-text-blue-600 hover:ic-text-blue-800 ic-font-medium ic-underline ic-flex-shrink-0"
+            className="ic-text-pink-600 hover:ic-text-pink-800 ic-font-medium ic-underline ic-flex-shrink-0"
           >
             Request LOG
           </button>
@@ -121,7 +121,7 @@ export default function MessageInput({
                 />
               </svg>
               {attachments.length > 0 && (
-                <span className="ic-absolute ic--top-1 ic--right-1 ic-bg-blue-500 ic-text-white ic-text-xs ic-rounded-full ic-w-4 ic-h-4 ic-flex ic-items-center ic-justify-center">
+                <span className="ic-absolute ic--top-1 ic--right-1 ic-bg-pink-500 ic-text-white ic-text-xs ic-rounded-full ic-w-4 ic-h-4 ic-flex ic-items-center ic-justify-center">
                   {attachments.length}
                 </span>
               )}

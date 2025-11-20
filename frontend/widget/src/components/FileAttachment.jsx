@@ -85,8 +85,8 @@ export default function FileAttachment({ files, onAddFile, onRemoveFile, maxFile
       onDrop={handleDrop}
     >
       {dragActive && (
-        <div className="ic-absolute ic-inset-0 ic-bg-blue-100 ic-bg-opacity-90 ic-flex ic-items-center ic-justify-center ic-z-10 ic-rounded-lg ic-border-2 ic-border-dashed ic-border-blue-400">
-          <p className="ic-text-blue-600 ic-font-semibold">Drop files here</p>
+        <div className="ic-absolute ic-inset-0 ic-bg-pink-100 ic-bg-opacity-90 ic-flex ic-items-center ic-justify-center ic-z-10 ic-rounded-lg ic-border-2 ic-border-dashed ic-border-pink-400">
+          <p className="ic-text-pink-600 ic-font-semibold">Drop files here</p>
         </div>
       )}
 

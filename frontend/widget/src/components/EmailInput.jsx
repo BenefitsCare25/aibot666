@@ -24,12 +24,12 @@ export default function EmailInput({ value, onChange, onBlur, showError }) {
   };
 
   return (
-    <div className="ic-p-3 ic-bg-blue-50 ic-border-b ic-border-blue-200">
+    <div className="ic-p-3 ic-bg-pink-50 ic-border-b ic-border-pink-200">
       <div className="ic-flex ic-items-start ic-gap-2">
         <div className="ic-flex-shrink-0 ic-mt-2">
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="ic-w-5 ic-h-5 ic-text-blue-600"
+            className="ic-w-5 ic-h-5 ic-text-pink-600"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -56,7 +56,7 @@ export default function EmailInput({ value, onChange, onBlur, showError }) {
             className={`ic-w-full ic-px-3 ic-py-2 ic-border ic-rounded-md ic-text-sm focus:ic-outline-none focus:ic-ring-2 ic-text-gray-900 ic-transition-colors ${
               !isValid
                 ? 'ic-border-red-500 focus:ic-ring-red-500'
-                : 'ic-border-gray-300 focus:ic-ring-blue-500'
+                : 'ic-border-gray-300 focus:ic-ring-pink-400'
             }`}
           />
           {!isValid && value && (
