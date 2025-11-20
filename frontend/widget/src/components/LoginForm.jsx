@@ -246,24 +246,24 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
     >
       {/* Header with Red Gradient */}
       <motion.div
-        className="ic-p-4 ic-text-white ic-relative"
+        className="ic-p-6 ic-text-white ic-relative"
         style={{ background: 'var(--gradient-primary)' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.1 }}
       >
-        <div className="ic-flex ic-items-center ic-justify-between">
-          <div className="ic-flex ic-items-center ic-gap-3">
-            <div className="ic-w-10 ic-h-10 ic-bg-white/20 ic-rounded-full ic-flex ic-items-center ic-justify-center ic-backdrop-blur-sm ic-border-2 ic-border-white/30">
-              <MessageCircle className="ic-w-6 ic-h-6" strokeWidth={2} />
-            </div>
-            <div>
-              <h3 className="ic-text-lg ic-font-bold ic-tracking-tight">Welcome, chat with us</h3>
-            </div>
+        <div className="ic-flex ic-items-start ic-justify-between">
+          <div className="ic-flex-1">
+            <h3 className="ic-text-2xl ic-font-medium ic-mb-1">
+              Hi there <span className="ic-inline-block ic-animate-wave">👋</span>
+            </h3>
+            <h2 className="ic-text-4xl ic-font-bold ic-leading-tight">
+              How can we help?
+            </h2>
           </div>
           <motion.button
             onClick={onClose}
-            className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200"
+            className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200 ic-ml-4"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             aria-label="Close"
