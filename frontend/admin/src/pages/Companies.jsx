@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { companyApi } from '../api/companies';
 import EmbedCodeModal from '../components/EmbedCodeModal';
 import EmailConfigModal from '../components/EmailConfigModal';
+import { usePermissions } from '../hooks/usePermissions';
 
 export default function Companies() {
+  const { can } = usePermissions();
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -207,12 +209,14 @@ export default function Companies() {
           <h1 className="text-2xl font-bold text-gray-900">Company Management</h1>
           <p className="text-gray-600 mt-1">Manage multi-tenant company configurations</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          + Add Company
-        </button>
+        {can('companies.create') && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            + Add Company
+          </button>
+        )}
       </div>
 
       {error && (
@@ -440,45 +444,58 @@ export default function Companies() {
                     {new Date(company.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => setShowEmbedCode(company)}
-                      className="text-blue-600 hover:text-blue-900 mr-3"
-                      title="View embed code"
-                    >
-                      &lt;/&gt;
-                    </button>
-                    <button
-                      onClick={() => setShowEmailConfig(company)}
-                      className="text-purple-600 hover:text-purple-900 mr-3"
-                      title="Configure email settings"
-                    >
-                      📧
-                    </button>
-                    <button
-                      onClick={() => handleStatusToggle(company.id, company.status)}
-                      className={`mr-3 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                        company.status === 'active'
-                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                          : company.status === 'suspended'
-                          ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                      }`}
-                      title="Click to toggle status"
-                    >
-                      Status
-                    </button>
-                    <button
-                      onClick={() => handleEdit(company)}
-                      className="text-primary-600 hover:text-primary-900 mr-3"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(company.id, company.name)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
+                    {can('companies.manage_schema') && (
+                      <button
+                        onClick={() => setShowEmbedCode(company)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                        title="View embed code"
+                      >
+                        &lt;/&gt;
+                      </button>
+                    )}
+                    {can('companies.manage_schema') && (
+                      <button
+                        onClick={() => setShowEmailConfig(company)}
+                        className="text-purple-600 hover:text-purple-900 mr-3"
+                        title="Configure email settings"
+                      >
+                        📧
+                      </button>
+                    )}
+                    {can('companies.edit') && (
+                      <button
+                        onClick={() => handleStatusToggle(company.id, company.status)}
+                        className={`mr-3 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                          company.status === 'active'
+                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                            : company.status === 'suspended'
+                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                            : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                        }`}
+                        title="Click to toggle status"
+                      >
+                        Status
+                      </button>
+                    )}
+                    {can('companies.edit') && (
+                      <button
+                        onClick={() => handleEdit(company)}
+                        className="text-primary-600 hover:text-primary-900 mr-3"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {can('companies.delete') && (
+                      <button
+                        onClick={() => handleDelete(company.id, company.name)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    )}
+                    {!can('companies.edit') && !can('companies.delete') && !can('companies.manage_schema') && (
+                      <span className="text-gray-400 text-sm">No actions available</span>
+                    )}
                   </td>
                 </tr>
               ))

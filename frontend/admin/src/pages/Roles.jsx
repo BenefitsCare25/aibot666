@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { usePermissions } from '../hooks/usePermissions';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export default function Roles() {
+  const { can } = usePermissions();
   const [roles, setRoles] = useState([]);
   const [allPermissions, setAllPermissions] = useState({});
   const [loading, setLoading] = useState(true);
@@ -251,13 +253,15 @@ export default function Roles() {
             <h1 className="text-2xl font-bold text-gray-800">Role Management</h1>
             <p className="text-gray-600 mt-1">Create and manage user roles with custom permissions</p>
           </div>
-          <button
-            onClick={openCreateModal}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <span>+</span>
-            Create Role
-          </button>
+          {can('roles.create') && (
+            <button
+              onClick={openCreateModal}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <span>+</span>
+              Create Role
+            </button>
+          )}
         </div>
       </div>
 
@@ -324,20 +328,27 @@ export default function Roles() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   {!role.is_system ? (
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => openEditModal(role)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteRole(role.id, role.name)}
-                        className="text-red-600 hover:text-red-900"
-                        disabled={role.user_count > 0}
-                        title={role.user_count > 0 ? 'Cannot delete role with assigned users' : ''}
-                      >
-                        Delete
-                      </button>
+                      {can('roles.edit') && (
+                        <button
+                          onClick={() => openEditModal(role)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {can('roles.delete') && (
+                        <button
+                          onClick={() => handleDeleteRole(role.id, role.name)}
+                          className="text-red-600 hover:text-red-900"
+                          disabled={role.user_count > 0}
+                          title={role.user_count > 0 ? 'Cannot delete role with assigned users' : ''}
+                        >
+                          Delete
+                        </button>
+                      )}
+                      {!can('roles.edit') && !can('roles.delete') && (
+                        <span className="text-gray-400 text-sm">No actions available</span>
+                      )}
                     </div>
                   ) : (
                     <span className="text-gray-400">Protected</span>

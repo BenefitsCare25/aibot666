@@ -5,8 +5,10 @@ import FilterBar from '../components/ChatHistory/FilterBar';
 import ConversationList from '../components/ChatHistory/ConversationList';
 import ChatView from '../components/ChatHistory/ChatView';
 import AdminAttendanceForm from '../components/ChatHistory/AdminAttendanceForm';
+import { usePermissions } from '../hooks/usePermissions';
 
 export default function ChatHistory() {
+  const { can } = usePermissions();
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -186,7 +188,7 @@ export default function ChatHistory() {
             conversation={selectedConversation}
             messages={messages}
             loading={messagesLoading}
-            onExport={handleExport}
+            onExport={can('chat.export') ? handleExport : null}
             exporting={exporting}
           />
         </div>

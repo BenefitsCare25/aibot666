@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { quickQuestionsApi } from '../api/quickQuestions';
+import { usePermissions } from '../hooks/usePermissions';
 
 const ICON_OPTIONS = [
   { value: 'shield', label: 'Shield (Coverage)', icon: '🛡️' },
@@ -11,6 +12,7 @@ const ICON_OPTIONS = [
 ];
 
 export default function QuickQuestions() {
+  const { can } = usePermissions();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -241,30 +243,36 @@ export default function QuickQuestions() {
           <p className="text-gray-600 mt-1">Manage chatbot quick questions for your company</p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={handleDownloadTemplate}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Download Template
-          </button>
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            Upload Excel
-          </button>
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            + Add Question
-          </button>
+          {can('quick_questions.export') && (
+            <button
+              onClick={handleDownloadTemplate}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download Template
+            </button>
+          )}
+          {can('quick_questions.export') && (
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              Upload Excel
+            </button>
+          )}
+          {can('quick_questions.create') && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              + Add Question
+            </button>
+          )}
         </div>
       </div>
 
@@ -599,18 +607,25 @@ export default function QuickQuestions() {
                         </div>
                       </div>
                       <div className="flex gap-2 flex-shrink-0">
-                        <button
-                          onClick={() => handleEdit(question)}
-                          className="px-3 py-1 text-sm text-primary-600 hover:bg-primary-50 rounded transition-colors"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(question.id)}
-                          className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
-                        >
-                          Delete
-                        </button>
+                        {can('quick_questions.edit') && (
+                          <button
+                            onClick={() => handleEdit(question)}
+                            className="px-3 py-1 text-sm text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {can('quick_questions.delete') && (
+                          <button
+                            onClick={() => handleDelete(question.id)}
+                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
+                          >
+                            Delete
+                          </button>
+                        )}
+                        {!can('quick_questions.edit') && !can('quick_questions.delete') && (
+                          <span className="text-gray-400 text-sm">No actions available</span>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { analyticsApi } from '../api/analytics';
 import toast from 'react-hot-toast';
+import { usePermissions } from '../hooks/usePermissions';
 
 export default function Escalations() {
+  const { can } = usePermissions();
   const [escalations, setEscalations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('pending');
@@ -172,30 +174,43 @@ export default function Escalations() {
                 </div>
 
                 {/* Inline Status Dropdown */}
-                <div className="relative">
-                  <select
-                    value={escalation.status}
-                    onChange={(e) => handleStatusChange(escalation.id, e.target.value)}
-                    disabled={updatingStatus === escalation.id}
-                    className={`px-3 py-1 rounded-full text-sm font-semibold border-2 cursor-pointer
-                      ${escalation.status === 'pending'
-                        ? 'bg-yellow-100 text-yellow-800 border-yellow-300 hover:border-yellow-400'
-                        : escalation.status === 'resolved'
-                        ? 'bg-green-100 text-green-800 border-green-300 hover:border-green-400'
-                        : 'bg-gray-100 text-gray-800 border-gray-300 hover:border-gray-400'
-                      } ${updatingStatus === escalation.id ? 'opacity-50' : ''}
-                    `}
-                  >
-                    <option value="pending">pending</option>
-                    <option value="resolved">resolved</option>
-                    <option value="dismissed">dismissed</option>
-                  </select>
-                  {updatingStatus === escalation.id && (
-                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                    </div>
-                  )}
-                </div>
+                {can('escalations.resolve') ? (
+                  <div className="relative">
+                    <select
+                      value={escalation.status}
+                      onChange={(e) => handleStatusChange(escalation.id, e.target.value)}
+                      disabled={updatingStatus === escalation.id}
+                      className={`px-3 py-1 rounded-full text-sm font-semibold border-2 cursor-pointer
+                        ${escalation.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800 border-yellow-300 hover:border-yellow-400'
+                          : escalation.status === 'resolved'
+                          ? 'bg-green-100 text-green-800 border-green-300 hover:border-green-400'
+                          : 'bg-gray-100 text-gray-800 border-gray-300 hover:border-gray-400'
+                        } ${updatingStatus === escalation.id ? 'opacity-50' : ''}
+                      `}
+                    >
+                      <option value="pending">pending</option>
+                      <option value="resolved">resolved</option>
+                      <option value="dismissed">dismissed</option>
+                    </select>
+                    {updatingStatus === escalation.id && (
+                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold
+                    ${escalation.status === 'pending'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : escalation.status === 'resolved'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-800'
+                    }
+                  `}>
+                    {escalation.status}
+                  </span>
+                )}
               </div>
 
               <div className="bg-gray-50 rounded-lg p-4 mb-4">
@@ -219,7 +234,7 @@ export default function Escalations() {
               <div className="bg-green-50 rounded-lg p-4 mb-4">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm font-medium text-green-900">Team Response:</p>
-                  {escalation.resolution && editingResolution !== escalation.id && (
+                  {can('escalations.resolve') && escalation.resolution && editingResolution !== escalation.id && (
                     <button
                       onClick={() => startEditingResolution(escalation.id, escalation.resolution)}
                       className="text-xs text-green-700 hover:text-green-900 font-medium"
@@ -229,7 +244,7 @@ export default function Escalations() {
                   )}
                 </div>
 
-                {editingResolution === escalation.id ? (
+                {can('escalations.resolve') && editingResolution === escalation.id ? (
                   <div className="space-y-3">
                     <textarea
                       value={resolutionText}
@@ -271,12 +286,16 @@ export default function Escalations() {
                 ) : (
                   <p className="text-sm text-green-800">
                     {escalation.resolution || (
-                      <button
-                        onClick={() => startEditingResolution(escalation.id, '')}
-                        className="text-green-700 hover:text-green-900 font-medium"
-                      >
-                        + Add response
-                      </button>
+                      can('escalations.resolve') ? (
+                        <button
+                          onClick={() => startEditingResolution(escalation.id, '')}
+                          className="text-green-700 hover:text-green-900 font-medium"
+                        >
+                          + Add response
+                        </button>
+                      ) : (
+                        <span className="text-gray-400">No response available</span>
+                      )
                     )}
                   </p>
                 )}

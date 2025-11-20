@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { knowledgeApi } from '../api/knowledge';
 import toast from 'react-hot-toast';
+import { usePermissions } from '../hooks/usePermissions';
 
 export default function KnowledgeBase() {
+  const { can } = usePermissions();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -157,31 +159,37 @@ export default function KnowledgeBase() {
           <p className="text-gray-600 mt-1">Manage AI training content and policies</p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={handleDownloadTemplate}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Download Template
-          </button>
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            Upload Excel
-          </button>
-          <button
-            onClick={() => setShowModal(true)}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
-          >
-            <span>➕</span>
-            Add Entry
-          </button>
+          {can('knowledge.upload') && (
+            <button
+              onClick={handleDownloadTemplate}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download Template
+            </button>
+          )}
+          {can('knowledge.upload') && (
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              Upload Excel
+            </button>
+          )}
+          {can('knowledge.create') && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
+            >
+              <span>➕</span>
+              Add Entry
+            </button>
+          )}
         </div>
       </div>
 
@@ -288,18 +296,25 @@ export default function KnowledgeBase() {
                     </p>
                   </div>
                   <div className="flex gap-2 ml-4">
-                    <button
-                      onClick={() => startEditing(entry)}
-                      className="px-3 py-1 text-sm text-primary-600 hover:bg-primary-50 rounded font-medium"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(entry.id)}
-                      className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded font-medium"
-                    >
-                      Delete
-                    </button>
+                    {can('knowledge.edit') && (
+                      <button
+                        onClick={() => startEditing(entry)}
+                        className="px-3 py-1 text-sm text-primary-600 hover:bg-primary-50 rounded font-medium"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {can('knowledge.delete') && (
+                      <button
+                        onClick={() => handleDelete(entry.id)}
+                        className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded font-medium"
+                      >
+                        Delete
+                      </button>
+                    )}
+                    {!can('knowledge.edit') && !can('knowledge.delete') && (
+                      <span className="text-gray-400 text-sm">No actions available</span>
+                    )}
                   </div>
                 </div>
               )}

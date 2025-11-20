@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { companyApi } from '../api/companies';
 import { aiSettingsApi } from '../api/aiSettings';
+import { usePermissions } from '../hooks/usePermissions';
 
 const DEFAULT_SYSTEM_PROMPT = `You are an AI assistant for an employee insurance benefits portal. Your role is to help employees understand their insurance coverage, benefits, and claims procedures.
 
@@ -36,6 +37,7 @@ USER QUESTION:
 {{QUERY}}`;
 
 export default function AISettings() {
+  const { can } = usePermissions();
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -578,22 +580,24 @@ Employee details: Baharuddin, Ady Guntor Bin (Standard)`}
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-3 justify-start">
-        <button
-          onClick={handleReset}
-          disabled={saving}
-          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
-        >
-          Reset to Defaults
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
-        >
-          {saving ? 'Saving...' : 'Save Configuration'}
-        </button>
-      </div>
+      {can('ai_settings.edit') && (
+        <div className="flex gap-3 justify-start">
+          <button
+            onClick={handleReset}
+            disabled={saving}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+          >
+            Reset to Defaults
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save Configuration'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
