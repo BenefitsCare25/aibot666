@@ -1444,19 +1444,22 @@ router.get('/companies/:id/embed-code', async (req, res) => {
     // Get API URL from environment or construct from request
     const apiUrl = process.env.API_URL || process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
 
+    // Cache-busting version parameter (use build timestamp for cache invalidation)
+    const version = process.env.BUILD_TIME || Date.now();
+
     // Generate embed code snippets
     const embedCodeAutoInit = `<!-- ${company.name} AI Chatbot Widget -->
 <script
-  src="${apiUrl}/widget.iife.js"
+  src="${apiUrl}/widget.iife.js?v=${version}"
   data-api-url="${apiUrl}"
   data-position="bottom-right"
   data-color="#3b82f6">
 </script>
-<link rel="stylesheet" href="${apiUrl}/widget.css">`;
+<link rel="stylesheet" href="${apiUrl}/widget.css?v=${version}">`;
 
     const embedCodeManualInit = `<!-- ${company.name} AI Chatbot Widget -->
-<script src="${apiUrl}/widget.iife.js"></script>
-<link rel="stylesheet" href="${apiUrl}/widget.css">
+<script src="${apiUrl}/widget.iife.js?v=${version}"></script>
+<link rel="stylesheet" href="${apiUrl}/widget.css?v=${version}">
 <script>
   InsuranceChatWidget.init({
     apiUrl: '${apiUrl}',
