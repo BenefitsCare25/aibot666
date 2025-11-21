@@ -61,7 +61,11 @@ export default function KnowledgeBase() {
   const loadDocuments = async () => {
     try {
       const response = await knowledgeApi.getDocuments({ limit: 100 });
-      setDocuments(response.data.data || []);
+      console.log('Load documents response:', response); // Debug log
+
+      // Handle different response structures (axios interceptor strips first .data)
+      const documentsData = response.data?.data || response.data || [];
+      setDocuments(Array.isArray(documentsData) ? documentsData : []);
     } catch (error) {
       console.error('Failed to load documents:', error);
       toast.error('Failed to load documents');
@@ -239,11 +243,21 @@ export default function KnowledgeBase() {
   const pollDocumentStatus = async (documentId, delay = 2000) => {
     try {
       const response = await knowledgeApi.getDocumentStatus(documentId);
-      const { status } = response.data.data;
+      console.log('Poll response:', response); // Debug log
+
+      // Handle different response structures (axios interceptor strips first .data)
+      const documentData = response.data?.data || response.data;
+
+      if (!documentData || !documentData.status) {
+        console.error('Invalid poll response:', response);
+        throw new Error('Invalid status response');
+      }
+
+      const { status } = documentData;
 
       // Update documents list
       setDocuments(prev =>
-        prev.map(doc => doc.id === documentId ? response.data.data : doc)
+        prev.map(doc => doc.id === documentId ? documentData : doc)
       );
 
       if (status === 'completed') {
@@ -273,6 +287,7 @@ export default function KnowledgeBase() {
       setTimeout(() => pollDocumentStatus(documentId, nextDelay), nextDelay);
     } catch (error) {
       console.error('Polling error:', error);
+      console.error('Error details:', error.response || error);
       // Stop polling on error
       setProcessingDocs(prev => {
         const next = new Set(prev);
@@ -301,7 +316,11 @@ export default function KnowledgeBase() {
     setChunksLoading(true);
     try {
       const response = await knowledgeApi.getDocumentChunks(documentId, { limit: 50 });
-      setChunks(response.data.data || []);
+      console.log('Chunks response:', response); // Debug log
+
+      // Handle different response structures (axios interceptor strips first .data)
+      const chunksData = response.data?.data || response.data || [];
+      setChunks(Array.isArray(chunksData) ? chunksData : []);
     } catch (error) {
       console.error('Failed to load chunks:', error);
       toast.error('Failed to load chunks');
