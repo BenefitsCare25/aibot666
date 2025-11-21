@@ -5,13 +5,58 @@ import fs from 'fs';
 import { addDocumentProcessingJob, getJobStatus } from '../services/jobQueue.js';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticateToken } from '../middleware/authMiddleware.js';
-import { adminContextMiddleware } from '../middleware/companyContext.js';
+import { getSchemaClient, supabase } from '../../config/supabase.js';
+import { getCompanyByDomain, normalizeDomain } from '../services/companySchema.js';
 
 const router = express.Router();
 
-// Apply authentication and company context middleware to all routes
+// Apply authentication to all routes
 router.use(authenticateToken);
-router.use(adminContextMiddleware);
+
+// Middleware to get company schema from selected company
+router.use(async (req, res, next) => {
+  try {
+    // Get selected company from header (set by admin frontend)
+    const selectedCompanyDomain = req.headers['x-widget-domain'];
+
+    if (!selectedCompanyDomain) {
+      return res.status(400).json({
+        success: false,
+        error: 'No company selected. Please select a company first.'
+      });
+    }
+
+    // Look up company from database
+    const normalizedDomain = normalizeDomain(selectedCompanyDomain);
+    const company = await getCompanyByDomain(normalizedDomain);
+
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        error: `Company not found for domain: ${selectedCompanyDomain}`
+      });
+    }
+
+    if (company.status !== 'active') {
+      return res.status(403).json({
+        success: false,
+        error: 'Company account is not active'
+      });
+    }
+
+    // Get schema-specific client
+    req.supabase = getSchemaClient(company.schema_name);
+    req.companySchema = company.schema_name;
+
+    next();
+  } catch (error) {
+    console.error('Error in document route middleware:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to identify company context'
+    });
+  }
+});
 
 // Configure multer for PDF uploads
 const storage = multer.diskStorage({
