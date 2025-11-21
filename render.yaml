@@ -134,6 +134,51 @@ services:
       mountPath: /opt/render/project/src/backend/uploads
       sizeGB: 1
 
+  # Document Processing Worker (BullMQ)
+  - type: worker
+    name: insurance-chatbot-document-worker
+    runtime: node
+    region: singapore
+    plan: starter
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && node api/workers/documentWorker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Redis Configuration (same as API)
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: insurance-chatbot-redis
+          property: connectionString
+
+      # OpenAI API (for embeddings and category detection)
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o
+      - key: OPENAI_EMBEDDING_MODEL
+        value: text-embedding-3-large
+      - key: OPENAI_TEMPERATURE
+        value: 0
+
+      # Supabase Configuration
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_CONNECTION_STRING
+        sync: false
+
+      # Logging
+      - key: LOG_LEVEL
+        value: info
+
+    autoDeploy: true
+
   # Frontend Admin Dashboard
   - type: web
     name: insurance-chatbot-admin

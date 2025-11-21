@@ -66,5 +66,42 @@ export const knowledgeApi = {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+  },
+
+  // Document upload methods
+  uploadDocument: async (file, category = null) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (category) {
+      formData.append('category', category);
+    }
+
+    return apiClient.post('/api/admin/documents/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
+
+  // Get all uploaded documents
+  getDocuments: async (params = {}) => {
+    const { page = 1, limit = 50, status = '' } = params;
+    return apiClient.get('/api/admin/documents', { params: { page, limit, status } });
+  },
+
+  // Get document status (for polling)
+  getDocumentStatus: async (documentId) => {
+    return apiClient.get(`/api/admin/documents/${documentId}/status`);
+  },
+
+  // Delete document and all chunks
+  deleteDocument: async (documentId) => {
+    return apiClient.delete(`/api/admin/documents/${documentId}`);
+  },
+
+  // Get chunks from a document
+  getDocumentChunks: async (documentId, params = {}) => {
+    const { page = 1, limit = 20 } = params;
+    return apiClient.get(`/api/admin/documents/${documentId}/chunks`, { params: { page, limit } });
   }
 };

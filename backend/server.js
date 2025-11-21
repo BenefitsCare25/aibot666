@@ -15,6 +15,7 @@ import reembedRoutes from './api/routes/reembed.js';
 import authRoutes from './api/routes/auth.js';
 import adminUsersRoutes from './api/routes/adminUsers.js';
 import rolesRoutes from './api/routes/roles.js';
+import documentsRoutes from './api/routes/documents.js';
 
 // Import services
 import { initializeTelegramBot } from './api/services/telegram.js';
@@ -152,6 +153,7 @@ app.use('/api/admin-users', adminUsersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/documents', documentsRoutes);
 app.use('/api/ai-settings', aiSettingsRoutes);
 app.use('/api/reembed', reembedRoutes);
 

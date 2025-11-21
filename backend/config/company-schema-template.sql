@@ -42,6 +42,31 @@ CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_employees_email ON {{SCHEMA_NAME}
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_employees_user_id ON {{SCHEMA_NAME}}.employees(user_id);
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_employees_is_active ON {{SCHEMA_NAME}}.employees(is_active);
 
+-- Document uploads table: Track PDF documents uploaded for knowledge base extraction
+CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.document_uploads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filename VARCHAR(500) NOT NULL,
+  original_name VARCHAR(500) NOT NULL,
+  file_size BIGINT NOT NULL,
+  page_count INTEGER,
+  category VARCHAR(100),
+  chunk_count INTEGER DEFAULT 0,
+  status VARCHAR(20) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
+  error_message TEXT,
+  processing_started_at TIMESTAMP WITH TIME ZONE,
+  processing_completed_at TIMESTAMP WITH TIME ZONE,
+  uploaded_by UUID REFERENCES public.admin_users(id) ON DELETE SET NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes for document_uploads
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_doc_uploads_status ON {{SCHEMA_NAME}}.document_uploads(status);
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_doc_uploads_uploaded_by ON {{SCHEMA_NAME}}.document_uploads(uploaded_by);
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_doc_uploads_created_at ON {{SCHEMA_NAME}}.document_uploads(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_doc_uploads_category ON {{SCHEMA_NAME}}.document_uploads(category);
+
 -- Knowledge base table: Store insurance policies, FAQs, and procedures
 CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.knowledge_base (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -56,6 +81,7 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.knowledge_base (
   usage_count INTEGER DEFAULT 0,
   last_used_at TIMESTAMP WITH TIME ZONE,
   is_active BOOLEAN DEFAULT true,
+  document_id UUID REFERENCES {{SCHEMA_NAME}}.document_uploads(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -65,6 +91,7 @@ CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_kb_embedding ON {{SCHEMA_NAME}}.k
   USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_kb_category ON {{SCHEMA_NAME}}.knowledge_base(category);
 CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_kb_active ON {{SCHEMA_NAME}}.knowledge_base(is_active);
+CREATE INDEX IF NOT EXISTS idx_{{SCHEMA_NAME}}_kb_document_id ON {{SCHEMA_NAME}}.knowledge_base(document_id);
 
 -- Chat history table: Store conversation logs
 CREATE TABLE IF NOT EXISTS {{SCHEMA_NAME}}.chat_history (
@@ -247,6 +274,9 @@ CREATE TRIGGER update_analytics_updated_at BEFORE UPDATE ON {{SCHEMA_NAME}}.anal
 CREATE TRIGGER update_log_requests_updated_at BEFORE UPDATE ON {{SCHEMA_NAME}}.log_requests
   FOR EACH ROW EXECUTE FUNCTION {{SCHEMA_NAME}}.update_updated_at_column();
 
+CREATE TRIGGER update_document_uploads_updated_at BEFORE UPDATE ON {{SCHEMA_NAME}}.document_uploads
+  FOR EACH ROW EXECUTE FUNCTION {{SCHEMA_NAME}}.update_updated_at_column();
+
 -- ==========================================
 -- RPC FUNCTIONS FOR VECTOR SEARCH
 -- ==========================================
@@ -420,8 +450,9 @@ RESET search_path;
 -- SCHEMA CREATION COMPLETE
 -- ==========================================
 -- Schema {{SCHEMA_NAME}} has been created with:
--- - 8 tables (employees, knowledge_base, chat_history, escalations, employee_embeddings, analytics, quick_questions, log_requests)
+-- - 9 tables (document_uploads, employees, knowledge_base, chat_history, escalations, employee_embeddings, analytics, quick_questions, log_requests, callback_requests)
 -- - Vector similarity search with HNSW indexes
 -- - Row-level security policies
 -- - Automatic updated_at triggers
 -- - Full permissions for Supabase roles
+-- - PDF document upload system integrated

@@ -12,7 +12,7 @@
 -- 5. Cross-schema access functions
 -- 6. Permissions and grants
 --
--- Last Updated: 2025-11-17
+-- Last Updated: 2025-01-20
 -- ============================================================================
 
 -- ============================================================================
@@ -278,7 +278,8 @@ CREATE TABLE IF NOT EXISTS public.admin_users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('super_admin', 'admin')),
+    role VARCHAR(20) CHECK (role IN ('super_admin', 'admin')),
+    role_id UUID,
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     is_active BOOLEAN DEFAULT true,
@@ -290,6 +291,7 @@ CREATE TABLE IF NOT EXISTS public.admin_users (
 CREATE INDEX IF NOT EXISTS idx_admin_users_username ON public.admin_users(username);
 CREATE INDEX IF NOT EXISTS idx_admin_users_email ON public.admin_users(email);
 CREATE INDEX IF NOT EXISTS idx_admin_users_role ON public.admin_users(role);
+CREATE INDEX IF NOT EXISTS idx_admin_users_role_id ON public.admin_users(role_id);
 
 -- =====================================================
 -- TABLE: public.admin_sessions
@@ -346,21 +348,272 @@ CREATE TRIGGER trigger_update_admin_users_updated_at
 COMMENT ON TABLE public.admin_users IS 'Stores admin user accounts with authentication credentials';
 COMMENT ON TABLE public.admin_sessions IS 'Tracks active admin sessions with JWT tokens';
 COMMENT ON TABLE public.admin_audit_logs IS 'Audit trail for admin actions';
-COMMENT ON COLUMN public.admin_users.role IS 'Admin role: super_admin (full access) or admin (limited access)';
+COMMENT ON COLUMN public.admin_users.role IS 'DEPRECATED: Legacy role column (super_admin/admin). Use role_id instead for RBAC system';
+COMMENT ON COLUMN public.admin_users.role_id IS 'Foreign key to roles table for RBAC system (recommended over legacy role column)';
 COMMENT ON COLUMN public.admin_users.password_hash IS 'Bcrypt hash of admin password (salt rounds: 10)';
+
+-- =====================================================
+-- TABLE: public.roles (RBAC System)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS public.roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) UNIQUE NOT NULL,
+    description TEXT,
+    is_system BOOLEAN DEFAULT false,
+    created_by UUID REFERENCES public.admin_users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_roles_is_system ON public.roles(is_system);
+CREATE INDEX IF NOT EXISTS idx_roles_created_by ON public.roles(created_by);
+
+COMMENT ON TABLE public.roles IS 'RBAC role definitions';
+COMMENT ON COLUMN public.roles.is_system IS 'System roles (like Super Admin) cannot be deleted';
+
+-- =====================================================
+-- TABLE: public.permissions (RBAC System)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS public.permissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(100) UNIQUE NOT NULL,
+    resource VARCHAR(50) NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_permissions_code ON public.permissions(code);
+CREATE INDEX IF NOT EXISTS idx_permissions_resource ON public.permissions(resource);
+CREATE INDEX IF NOT EXISTS idx_permissions_resource_action ON public.permissions(resource, action);
+
+COMMENT ON TABLE public.permissions IS 'RBAC permission definitions (47 permissions across 10 modules)';
+COMMENT ON COLUMN public.permissions.code IS 'Unique permission code (e.g., employees.view)';
+
+-- =====================================================
+-- TABLE: public.role_permissions (RBAC System)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS public.role_permissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    role_id UUID NOT NULL REFERENCES public.roles(id) ON DELETE CASCADE,
+    permission_id UUID NOT NULL REFERENCES public.permissions(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(role_id, permission_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id ON public.role_permissions(role_id);
+CREATE INDEX IF NOT EXISTS idx_role_permissions_permission_id ON public.role_permissions(permission_id);
+
+COMMENT ON TABLE public.role_permissions IS 'RBAC role-permission mapping';
+
+-- =====================================================
+-- TABLE: public.role_audit_logs (RBAC System)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS public.role_audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    role_id UUID REFERENCES public.roles(id) ON DELETE SET NULL,
+    role_name VARCHAR(100) NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    changed_by UUID REFERENCES public.admin_users(id) ON DELETE SET NULL,
+    changes JSONB,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_role_audit_logs_role_id ON public.role_audit_logs(role_id);
+CREATE INDEX IF NOT EXISTS idx_role_audit_logs_changed_by ON public.role_audit_logs(changed_by);
+CREATE INDEX IF NOT EXISTS idx_role_audit_logs_created_at ON public.role_audit_logs(created_at DESC);
+
+COMMENT ON TABLE public.role_audit_logs IS 'Audit trail for RBAC role changes';
+COMMENT ON COLUMN public.role_audit_logs.action IS 'Action type: created, updated, deleted, permissions_changed';
+
+-- =====================================================
+-- FUNCTIONS: RBAC helpers
+-- =====================================================
+CREATE OR REPLACE FUNCTION update_role_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_update_role_timestamp ON public.roles;
+CREATE TRIGGER trigger_update_role_timestamp
+    BEFORE UPDATE ON public.roles
+    FOR EACH ROW
+    EXECUTE FUNCTION update_role_updated_at();
+
+-- =====================================================
+-- Add role_id foreign key constraint to admin_users
+-- =====================================================
+ALTER TABLE public.admin_users
+ADD CONSTRAINT fk_admin_users_role_id
+FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE SET NULL;
+
+-- =====================================================
+-- SEED: Default Permissions (47 permissions)
+-- =====================================================
+
+-- Dashboard Permissions
+INSERT INTO public.permissions (code, resource, action, description) VALUES
+('dashboard.view', 'dashboard', 'view', 'View dashboard and analytics'),
+('dashboard.export', 'dashboard', 'export', 'Export dashboard data')
+ON CONFLICT (code) DO NOTHING;
+
+-- Employee Permissions
+INSERT INTO public.permissions (code, resource, action, description) VALUES
+('employees.view', 'employees', 'view', 'View employee list'),
+('employees.create', 'employees', 'create', 'Add new employees'),
+('employees.edit', 'employees', 'edit', 'Edit employee details'),
+('employees.delete', 'employees', 'delete', 'Delete/deactivate employees'),
+('employees.upload', 'employees', 'upload', 'Bulk upload employees (Excel)'),
+('employees.export', 'employees', 'export', 'Export employee data')
+ON CONFLICT (code) DO NOTHING;
+
+-- Knowledge Base Permissions
+INSERT INTO public.permissions (code, resource, action, description) VALUES
+('knowledge.view', 'knowledge', 'view', 'View knowledge base entries'),
+('knowledge.create', 'knowledge', 'create', 'Add new knowledge entries'),
+('knowledge.edit', 'knowledge', 'edit', 'Edit knowledge entries'),
+('knowledge.delete', 'knowledge', 'delete', 'Delete knowledge entries'),
+('knowledge.upload', 'knowledge', 'upload', 'Bulk upload knowledge (Excel)'),
+('knowledge.export', 'knowledge', 'export', 'Export knowledge data')
+ON CONFLICT (code) DO NOTHING;
+
+-- Quick Questions Permissions
+INSERT INTO public.permissions (code, resource, action, description) VALUES
+('quick_questions.view', 'quick_questions', 'view', 'View FAQ list'),
+('quick_questions.create', 'quick_questions', 'create', 'Add new FAQs'),
+('quick_questions.edit', 'quick_questions', 'edit', 'Edit FAQ entries'),
+('quick_questions.delete', 'quick_questions', 'delete', 'Delete FAQs'),
+('quick_questions.export', 'quick_questions', 'export', 'Export FAQ data')
+ON CONFLICT (code) DO NOTHING;
+
+-- Chat History Permissions
+INSERT INTO public.permissions (code, resource, action, description) VALUES
+('chat.view', 'chat', 'view', 'View chat conversation logs'),
+('chat.export', 'chat', 'export', 'Export chat history'),
+('chat.delete', 'chat', 'delete', 'Delete chat records'),
+('chat.mark_attendance', 'chat', 'mark_attendance', 'Mark admin attendance in chats')
+ON CONFLICT (code) DO NOTHING;
+
+-- Escalations Permissions
+INSERT INTO public.permissions (code, resource, action, description) VALUES
+('escalations.view', 'escalations', 'view', 'View escalation requests'),
+('escalations.resolve', 'escalations', 'resolve', 'Resolve/respond to escalations'),
+('escalations.export', 'escalations', 'export', 'Export escalation data')
+ON CONFLICT (code) DO NOTHING;
+
+-- Companies Permissions
+INSERT INTO public.permissions (code, resource, action, description) VALUES
+('companies.view', 'companies', 'view', 'View company list'),
+('companies.create', 'companies', 'create', 'Create new companies/tenants'),
+('companies.edit', 'companies', 'edit', 'Edit company details'),
+('companies.delete', 'companies', 'delete', 'Delete companies'),
+('companies.manage_schema', 'companies', 'manage_schema', 'Manage company database schemas')
+ON CONFLICT (code) DO NOTHING;
+
+-- AI Settings Permissions
+INSERT INTO public.permissions (code, resource, action, description) VALUES
+('ai_settings.view', 'ai_settings', 'view', 'View AI configuration'),
+('ai_settings.edit', 'ai_settings', 'edit', 'Modify AI settings')
+ON CONFLICT (code) DO NOTHING;
+
+-- Admin Users Permissions
+INSERT INTO public.permissions (code, resource, action, description) VALUES
+('admin_users.view', 'admin_users', 'view', 'View admin user list'),
+('admin_users.create', 'admin_users', 'create', 'Create new admin users'),
+('admin_users.edit', 'admin_users', 'edit', 'Edit admin user details'),
+('admin_users.delete', 'admin_users', 'delete', 'Delete/deactivate admin users'),
+('admin_users.reset_password', 'admin_users', 'reset_password', 'Reset user passwords'),
+('admin_users.view_audit', 'admin_users', 'view_audit', 'View user audit logs')
+ON CONFLICT (code) DO NOTHING;
+
+-- Roles Permissions
+INSERT INTO public.permissions (code, resource, action, description) VALUES
+('roles.view', 'roles', 'view', 'View role list'),
+('roles.create', 'roles', 'create', 'Create new roles'),
+('roles.edit', 'roles', 'edit', 'Edit role permissions'),
+('roles.delete', 'roles', 'delete', 'Delete roles')
+ON CONFLICT (code) DO NOTHING;
+
+-- =====================================================
+-- SEED: Default Roles
+-- =====================================================
+
+-- Create "Super Admin" system role
+INSERT INTO public.roles (name, description, is_system, created_by)
+VALUES (
+    'Super Admin',
+    'System administrator with full access to all features',
+    true,
+    NULL
+)
+ON CONFLICT (name) DO NOTHING;
+
+-- Create "Admin" role
+INSERT INTO public.roles (name, description, is_system, created_by)
+VALUES (
+    'Admin',
+    'Standard admin with access to operational features (no user management or AI settings)',
+    false,
+    NULL
+)
+ON CONFLICT (name) DO NOTHING;
+
+-- =====================================================
+-- SEED: Assign Permissions to Roles
+-- =====================================================
+
+-- Assign ALL permissions to Super Admin role
+INSERT INTO public.role_permissions (role_id, permission_id)
+SELECT
+    r.id AS role_id,
+    p.id AS permission_id
+FROM public.roles r
+CROSS JOIN public.permissions p
+WHERE r.name = 'Super Admin'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- Assign operational permissions to Admin role (excluding super admin-only features)
+INSERT INTO public.role_permissions (role_id, permission_id)
+SELECT
+    r.id AS role_id,
+    p.id AS permission_id
+FROM public.roles r
+CROSS JOIN public.permissions p
+WHERE r.name = 'Admin'
+AND p.code NOT IN (
+    'admin_users.view',
+    'admin_users.create',
+    'admin_users.edit',
+    'admin_users.delete',
+    'admin_users.reset_password',
+    'admin_users.view_audit',
+    'ai_settings.view',
+    'ai_settings.edit',
+    'roles.view',
+    'roles.create',
+    'roles.edit',
+    'roles.delete'
+)
+ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- =====================================================
 -- INSERT: Initial admin account
 -- =====================================================
 -- Default credentials: username=admin, password=Admin123!
 -- IMPORTANT: Change this password immediately after first login!
-INSERT INTO public.admin_users (username, password_hash, role, full_name, email)
+INSERT INTO public.admin_users (username, password_hash, role, full_name, email, role_id)
 VALUES (
     'admin',
     '$2a$10$rQZ8vJZ9XZqN5xGx5xGx5.xGx5xGx5xGx5xGx5xGx5xGx5xGx5xGx',
     'super_admin',
     'Super Administrator',
-    'admin@example.com'
+    'admin@example.com',
+    (SELECT id FROM public.roles WHERE name = 'Super Admin')
 ) ON CONFLICT (username) DO NOTHING;
 
 -- =====================================================
@@ -381,6 +634,18 @@ CREATE POLICY admin_sessions_admin_all ON public.admin_sessions FOR ALL USING (t
 
 ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY admin_audit_logs_admin_all ON public.admin_audit_logs FOR ALL USING (true);
+
+ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY roles_admin_all ON public.roles FOR ALL USING (true);
+
+ALTER TABLE public.permissions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY permissions_admin_all ON public.permissions FOR ALL USING (true);
+
+ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY role_permissions_admin_all ON public.role_permissions FOR ALL USING (true);
+
+ALTER TABLE public.role_audit_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY role_audit_logs_admin_all ON public.role_audit_logs FOR ALL USING (true);
 
 -- =====================================================
 -- INSERT: Initial company data
@@ -474,6 +739,10 @@ CREATE TABLE IF NOT EXISTS company_a.employees (
   policy_end_date DATE,
   dependents JSONB DEFAULT '[]',
   metadata JSONB DEFAULT '{}',
+  is_active BOOLEAN DEFAULT true,
+  deactivated_at TIMESTAMP WITH TIME ZONE,
+  deactivated_by VARCHAR(255),
+  deactivation_reason TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -481,6 +750,33 @@ CREATE TABLE IF NOT EXISTS company_a.employees (
 CREATE INDEX IF NOT EXISTS idx_company_a_employees_employee_id ON company_a.employees(employee_id);
 CREATE INDEX IF NOT EXISTS idx_company_a_employees_email ON company_a.employees(email);
 CREATE INDEX IF NOT EXISTS idx_company_a_employees_user_id ON company_a.employees(user_id);
+CREATE INDEX IF NOT EXISTS idx_company_a_employees_is_active ON company_a.employees(is_active);
+
+-- =====================================================
+-- TABLE: company_a.document_uploads
+-- =====================================================
+CREATE TABLE IF NOT EXISTS company_a.document_uploads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filename VARCHAR(500) NOT NULL,
+  original_name VARCHAR(500) NOT NULL,
+  file_size BIGINT NOT NULL,
+  page_count INTEGER,
+  category VARCHAR(100),
+  chunk_count INTEGER DEFAULT 0,
+  status VARCHAR(20) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
+  error_message TEXT,
+  processing_started_at TIMESTAMP WITH TIME ZONE,
+  processing_completed_at TIMESTAMP WITH TIME ZONE,
+  uploaded_by UUID REFERENCES public.admin_users(id) ON DELETE SET NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_company_a_doc_uploads_status ON company_a.document_uploads(status);
+CREATE INDEX IF NOT EXISTS idx_company_a_doc_uploads_uploaded_by ON company_a.document_uploads(uploaded_by);
+CREATE INDEX IF NOT EXISTS idx_company_a_doc_uploads_created_at ON company_a.document_uploads(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_company_a_doc_uploads_category ON company_a.document_uploads(category);
 
 -- =====================================================
 -- TABLE: company_a.knowledge_base
@@ -498,6 +794,7 @@ CREATE TABLE IF NOT EXISTS company_a.knowledge_base (
   usage_count INTEGER DEFAULT 0,
   last_used_at TIMESTAMP WITH TIME ZONE,
   is_active BOOLEAN DEFAULT true,
+  document_id UUID REFERENCES company_a.document_uploads(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -506,6 +803,7 @@ CREATE INDEX IF NOT EXISTS idx_company_a_kb_embedding ON company_a.knowledge_bas
   USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX IF NOT EXISTS idx_company_a_kb_category ON company_a.knowledge_base(category);
 CREATE INDEX IF NOT EXISTS idx_company_a_kb_active ON company_a.knowledge_base(is_active);
+CREATE INDEX IF NOT EXISTS idx_company_a_kb_document_id ON company_a.knowledge_base(document_id);
 
 -- =====================================================
 -- TABLE: company_a.chat_history
@@ -702,6 +1000,9 @@ CREATE TRIGGER update_log_requests_updated_at BEFORE UPDATE ON company_a.log_req
 CREATE TRIGGER update_callback_requests_updated_at BEFORE UPDATE ON company_a.callback_requests
   FOR EACH ROW EXECUTE FUNCTION company_a.update_updated_at_column();
 
+CREATE TRIGGER update_document_uploads_updated_at BEFORE UPDATE ON company_a.document_uploads
+  FOR EACH ROW EXECUTE FUNCTION company_a.update_updated_at_column();
+
 -- Vector search function (with subcategory for policy filtering)
 CREATE OR REPLACE FUNCTION company_a.match_knowledge(
   query_embedding vector(1536),
@@ -801,6 +1102,10 @@ CREATE TABLE IF NOT EXISTS company_b.employees (
   policy_end_date DATE,
   dependents JSONB DEFAULT '[]',
   metadata JSONB DEFAULT '{}',
+  is_active BOOLEAN DEFAULT true,
+  deactivated_at TIMESTAMP WITH TIME ZONE,
+  deactivated_by VARCHAR(255),
+  deactivation_reason TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -808,6 +1113,33 @@ CREATE TABLE IF NOT EXISTS company_b.employees (
 CREATE INDEX IF NOT EXISTS idx_company_b_employees_employee_id ON company_b.employees(employee_id);
 CREATE INDEX IF NOT EXISTS idx_company_b_employees_email ON company_b.employees(email);
 CREATE INDEX IF NOT EXISTS idx_company_b_employees_user_id ON company_b.employees(user_id);
+CREATE INDEX IF NOT EXISTS idx_company_b_employees_is_active ON company_b.employees(is_active);
+
+-- =====================================================
+-- TABLE: company_b.document_uploads
+-- =====================================================
+CREATE TABLE IF NOT EXISTS company_b.document_uploads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filename VARCHAR(500) NOT NULL,
+  original_name VARCHAR(500) NOT NULL,
+  file_size BIGINT NOT NULL,
+  page_count INTEGER,
+  category VARCHAR(100),
+  chunk_count INTEGER DEFAULT 0,
+  status VARCHAR(20) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
+  error_message TEXT,
+  processing_started_at TIMESTAMP WITH TIME ZONE,
+  processing_completed_at TIMESTAMP WITH TIME ZONE,
+  uploaded_by UUID REFERENCES public.admin_users(id) ON DELETE SET NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_company_b_doc_uploads_status ON company_b.document_uploads(status);
+CREATE INDEX IF NOT EXISTS idx_company_b_doc_uploads_uploaded_by ON company_b.document_uploads(uploaded_by);
+CREATE INDEX IF NOT EXISTS idx_company_b_doc_uploads_created_at ON company_b.document_uploads(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_company_b_doc_uploads_category ON company_b.document_uploads(category);
 
 -- =====================================================
 -- TABLE: company_b.knowledge_base
@@ -825,6 +1157,7 @@ CREATE TABLE IF NOT EXISTS company_b.knowledge_base (
   usage_count INTEGER DEFAULT 0,
   last_used_at TIMESTAMP WITH TIME ZONE,
   is_active BOOLEAN DEFAULT true,
+  document_id UUID REFERENCES company_b.document_uploads(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -833,6 +1166,7 @@ CREATE INDEX IF NOT EXISTS idx_company_b_kb_embedding ON company_b.knowledge_bas
   USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX IF NOT EXISTS idx_company_b_kb_category ON company_b.knowledge_base(category);
 CREATE INDEX IF NOT EXISTS idx_company_b_kb_active ON company_b.knowledge_base(is_active);
+CREATE INDEX IF NOT EXISTS idx_company_b_kb_document_id ON company_b.knowledge_base(document_id);
 
 -- =====================================================
 -- TABLE: company_b.chat_history
@@ -1029,6 +1363,9 @@ CREATE TRIGGER update_log_requests_updated_at BEFORE UPDATE ON company_b.log_req
 CREATE TRIGGER update_callback_requests_updated_at BEFORE UPDATE ON company_b.callback_requests
   FOR EACH ROW EXECUTE FUNCTION company_b.update_updated_at_column();
 
+CREATE TRIGGER update_document_uploads_updated_at BEFORE UPDATE ON company_b.document_uploads
+  FOR EACH ROW EXECUTE FUNCTION company_b.update_updated_at_column();
+
 -- Vector search function (with subcategory for policy filtering)
 CREATE OR REPLACE FUNCTION company_b.match_knowledge(
   query_embedding vector(1536),
@@ -1128,6 +1465,10 @@ CREATE TABLE IF NOT EXISTS cbre.employees (
   policy_end_date DATE,
   dependents JSONB DEFAULT '[]',
   metadata JSONB DEFAULT '{}',
+  is_active BOOLEAN DEFAULT true,
+  deactivated_at TIMESTAMP WITH TIME ZONE,
+  deactivated_by VARCHAR(255),
+  deactivation_reason TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -1135,6 +1476,33 @@ CREATE TABLE IF NOT EXISTS cbre.employees (
 CREATE INDEX IF NOT EXISTS idx_cbre_employees_employee_id ON cbre.employees(employee_id);
 CREATE INDEX IF NOT EXISTS idx_cbre_employees_email ON cbre.employees(email);
 CREATE INDEX IF NOT EXISTS idx_cbre_employees_user_id ON cbre.employees(user_id);
+CREATE INDEX IF NOT EXISTS idx_cbre_employees_is_active ON cbre.employees(is_active);
+
+-- =====================================================
+-- TABLE: cbre.document_uploads
+-- =====================================================
+CREATE TABLE IF NOT EXISTS cbre.document_uploads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filename VARCHAR(500) NOT NULL,
+  original_name VARCHAR(500) NOT NULL,
+  file_size BIGINT NOT NULL,
+  page_count INTEGER,
+  category VARCHAR(100),
+  chunk_count INTEGER DEFAULT 0,
+  status VARCHAR(20) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
+  error_message TEXT,
+  processing_started_at TIMESTAMP WITH TIME ZONE,
+  processing_completed_at TIMESTAMP WITH TIME ZONE,
+  uploaded_by UUID REFERENCES public.admin_users(id) ON DELETE SET NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cbre_doc_uploads_status ON cbre.document_uploads(status);
+CREATE INDEX IF NOT EXISTS idx_cbre_doc_uploads_uploaded_by ON cbre.document_uploads(uploaded_by);
+CREATE INDEX IF NOT EXISTS idx_cbre_doc_uploads_created_at ON cbre.document_uploads(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cbre_doc_uploads_category ON cbre.document_uploads(category);
 
 -- =====================================================
 -- TABLE: cbre.knowledge_base
@@ -1152,6 +1520,7 @@ CREATE TABLE IF NOT EXISTS cbre.knowledge_base (
   usage_count INTEGER DEFAULT 0,
   last_used_at TIMESTAMP WITH TIME ZONE,
   is_active BOOLEAN DEFAULT true,
+  document_id UUID REFERENCES cbre.document_uploads(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -1160,6 +1529,7 @@ CREATE INDEX IF NOT EXISTS idx_cbre_kb_embedding ON cbre.knowledge_base
   USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX IF NOT EXISTS idx_cbre_kb_category ON cbre.knowledge_base(category);
 CREATE INDEX IF NOT EXISTS idx_cbre_kb_active ON cbre.knowledge_base(is_active);
+CREATE INDEX IF NOT EXISTS idx_cbre_kb_document_id ON cbre.knowledge_base(document_id);
 
 -- =====================================================
 -- TABLE: cbre.chat_history
@@ -1354,6 +1724,9 @@ CREATE TRIGGER update_log_requests_updated_at BEFORE UPDATE ON cbre.log_requests
   FOR EACH ROW EXECUTE FUNCTION cbre.update_updated_at_column();
 
 CREATE TRIGGER update_callback_requests_updated_at BEFORE UPDATE ON cbre.callback_requests
+  FOR EACH ROW EXECUTE FUNCTION cbre.update_updated_at_column();
+
+CREATE TRIGGER update_document_uploads_updated_at BEFORE UPDATE ON cbre.document_uploads
   FOR EACH ROW EXECUTE FUNCTION cbre.update_updated_at_column();
 
 -- Vector search function (with subcategory for policy filtering)
