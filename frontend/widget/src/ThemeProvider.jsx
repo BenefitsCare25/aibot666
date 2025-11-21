@@ -19,11 +19,8 @@ export const ThemeProvider = ({ children }) => {
     const stored = localStorage.getItem('chat-widget-theme');
     if (stored) return stored;
 
-    // Check system preference
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
-
+    // Always default to light mode for consistency
+    // Don't auto-detect system dark mode preference
     return 'light';
   });
 
@@ -38,20 +35,19 @@ export const ThemeProvider = ({ children }) => {
     }
   }, [theme]);
 
-  // Listen for system theme changes
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e) => {
-      // Only auto-switch if user hasn't manually set a preference
-      const hasManualPreference = localStorage.getItem('chat-widget-theme');
-      if (!hasManualPreference) {
-        setTheme(e.matches ? 'dark' : 'light');
-      }
-    };
-
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
-  }, []);
+  // Disabled: Don't listen for system theme changes
+  // Widget will stay in user's selected theme (light by default)
+  // useEffect(() => {
+  //   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  //   const handler = (e) => {
+  //     const hasManualPreference = localStorage.getItem('chat-widget-theme');
+  //     if (!hasManualPreference) {
+  //       setTheme(e.matches ? 'dark' : 'light');
+  //     }
+  //   };
+  //   mediaQuery.addEventListener('change', handler);
+  //   return () => mediaQuery.removeEventListener('change', handler);
+  // }, []);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
