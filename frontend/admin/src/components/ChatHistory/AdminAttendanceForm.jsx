@@ -71,7 +71,7 @@ export default function AdminAttendanceForm({ conversation, onUpdate }) {
   const hasAttendance = conversation?.attended_by;
 
   return (
-    <div className="border-t border-gray-200 bg-white relative z-50">
+    <div className="border-t border-gray-200 bg-white flex-shrink-0">
       {/* Collapsed State - Shows attendance info if exists */}
       {!isExpanded && (
         <div className="px-6 py-3 flex items-center justify-between">

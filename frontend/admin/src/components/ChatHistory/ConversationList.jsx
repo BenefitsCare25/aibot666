@@ -29,7 +29,7 @@ export default function ConversationList({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Scrollable list */}
       <div className="flex-1 overflow-y-auto">
         {conversations.map((conversation) => (
