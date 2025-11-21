@@ -199,7 +199,15 @@ export default function KnowledgeBase() {
     setUploadingPdf(true);
     try {
       const response = await knowledgeApi.uploadDocument(file, selectedCategory || null);
-      const documentId = response.data.data.documentId;
+      console.log('Upload response:', response); // Debug log
+
+      // Handle different response structures
+      const documentId = response.data?.data?.documentId || response.data?.documentId;
+
+      if (!documentId) {
+        console.error('No document ID in response:', response);
+        throw new Error('Upload succeeded but no document ID returned');
+      }
 
       toast.success('Document uploaded! Processing in background...');
 
@@ -212,7 +220,9 @@ export default function KnowledgeBase() {
       setSelectedCategory('');
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error(error.response?.data?.error || 'Failed to upload document');
+      console.error('Error response:', error.response);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to upload document';
+      toast.error(errorMsg);
     } finally {
       setUploadingPdf(false);
     }
