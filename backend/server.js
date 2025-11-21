@@ -42,13 +42,54 @@ app.use(helmet({
   }
 }));
 
-// CORS configuration - Allow widget embedding
-app.use(cors({
-  origin: CORS_ORIGIN.split(',').map(origin => origin.trim()),
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Widget-Domain']
-}));
+// CORS configuration - Allow widget embedding from any domain
+// Widget endpoints (/api/chat, /widget.*) accept requests from any domain
+// Admin endpoints (/api/admin) only accept whitelisted domains
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  // Allow requests with no origin (like Postman, curl)
+  if (!origin) {
+    return next();
+  }
+
+  // Check if this is a widget-related endpoint
+  const isWidgetEndpoint =
+    req.path.startsWith('/api/chat') ||
+    req.path.startsWith('/widget') ||
+    req.path === '/health';
+
+  if (isWidgetEndpoint) {
+    // Allow any origin for widget endpoints
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Widget-Domain');
+
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+  } else {
+    // Admin endpoints - check whitelist
+    const allowedOrigins = CORS_ORIGIN.split(',').map(o => o.trim());
+    if (allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Widget-Domain');
+
+      if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+      }
+    } else {
+      // Origin not allowed for admin endpoints
+      return res.status(403).json({ error: 'CORS policy: Origin not allowed' });
+    }
+  }
+
+  next();
+});
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
