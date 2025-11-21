@@ -118,7 +118,7 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
 
   return (
     <motion.div
-      className="ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-h-[90vh] sm:ic-h-[650px] ic-max-h-[650px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-transition-colors"
+      className="ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-h-[85vh] sm:ic-h-[650px] ic-max-h-[85vh] sm:ic-max-h-[650px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-transition-colors"
       style={{
         backgroundColor: 'var(--color-bg-primary)',
         borderColor: 'var(--color-border)'
@@ -159,38 +159,38 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons - Optimized for mobile touch targets */}
           <div className="ic-flex ic-items-center ic-gap-1">
             <motion.button
               onClick={toggleQuickQuestions}
-              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
+              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 sm:ic-p-2 ic-min-w-[44px] ic-min-h-[44px] sm:ic-min-w-0 sm:ic-min-h-0 ic-flex ic-items-center ic-justify-center ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
               title={showQuickQuestions ? "Hide Quick Questions" : "Show Quick Questions"}
               aria-label={showQuickQuestions ? "Hide Quick Questions" : "Show Quick Questions"}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
             >
-              <HelpCircle className="ic-w-4 ic-h-4" strokeWidth={2} />
+              <HelpCircle className="ic-w-5 ic-h-5" strokeWidth={2} />
             </motion.button>
 
             <motion.button
               onClick={onLogout}
-              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
+              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 sm:ic-p-2 ic-min-w-[44px] ic-min-h-[44px] sm:ic-min-w-0 sm:ic-min-h-0 ic-flex ic-items-center ic-justify-center ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
               title="Logout"
               aria-label="Logout"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
             >
-              <LogOut className="ic-w-4 ic-h-4" strokeWidth={2} />
+              <LogOut className="ic-w-5 ic-h-5" strokeWidth={2} />
             </motion.button>
 
             <motion.button
               onClick={onClose}
-              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
+              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 sm:ic-p-2 ic-min-w-[44px] ic-min-h-[44px] sm:ic-min-w-0 sm:ic-min-h-0 ic-flex ic-items-center ic-justify-center ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
               aria-label="Close chat window"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
             >
-              <X className="ic-w-4 ic-h-4" strokeWidth={2} />
+              <X className="ic-w-5 ic-h-5" strokeWidth={2} />
             </motion.button>
           </div>
         </div>

@@ -234,7 +234,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
 
   return (
     <motion.div
-      className="ic-rounded-2xl ic-shadow-soft-lg ic-w-[450px] ic-overflow-hidden"
+      className="ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-overflow-hidden"
       style={{
         backgroundColor: 'var(--color-bg-primary)',
         borderColor: 'var(--color-border)'
