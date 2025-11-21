@@ -244,9 +244,9 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
       exit={{ opacity: 0, scale: 0.95, y: 20 }}
       transition={{ type: "spring", duration: 0.5 }}
     >
-      {/* Header with Red Gradient */}
+      {/* Header with Red Gradient - Mobile Optimized */}
       <motion.div
-        className="ic-p-6 ic-text-white ic-relative"
+        className="ic-p-4 sm:ic-p-6 ic-text-white ic-relative"
         style={{ background: 'var(--gradient-primary)' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -254,10 +254,10 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
       >
         <div className="ic-flex ic-items-start ic-justify-between">
           <div className="ic-flex-1">
-            <h3 className="ic-text-2xl ic-font-medium ic-mb-1">
+            <h3 className="ic-text-lg sm:ic-text-2xl ic-font-medium ic-mb-0.5 sm:ic-mb-1">
               Hi there <span className="ic-inline-block ic-animate-wave">👋</span>
             </h3>
-            <h2 className="ic-text-4xl ic-font-bold ic-leading-tight">
+            <h2 className="ic-text-2xl sm:ic-text-4xl ic-font-bold ic-leading-tight">
               How can we help?
             </h2>
           </div>
