@@ -275,7 +275,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
 
       {/* Main Content */}
       <motion.div
-        className="ic-p-6"
+        className="ic-p-6 ic-overflow-y-auto ic-max-h-[calc(85vh-140px)] sm:ic-max-h-[calc(650px-140px)] ic-min-h-0"
         style={{ backgroundColor: 'var(--color-bg-primary)' }}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}

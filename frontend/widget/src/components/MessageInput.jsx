@@ -142,7 +142,8 @@ export default function MessageInput({
             rows={1}
             onInput={(e) => {
               e.target.style.height = 'auto';
-              e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px';
+              const maxHeight = window.innerWidth < 640 ? 80 : 120;
+              e.target.style.height = Math.min(e.target.scrollHeight, maxHeight) + 'px';
             }}
           />
 

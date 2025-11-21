@@ -118,7 +118,7 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
 
   return (
     <motion.div
-      className="ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-h-[85vh] sm:ic-h-[650px] ic-max-h-[85vh] sm:ic-max-h-[650px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-transition-colors"
+      className="ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-max-h-[85vh] sm:ic-max-h-[650px] ic-min-h-[400px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-transition-colors"
       style={{
         backgroundColor: 'var(--color-bg-primary)',
         borderColor: 'var(--color-border)'

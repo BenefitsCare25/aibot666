@@ -167,9 +167,8 @@
 
 /* Mobile Landscape Optimizations */
 @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
-  /* Reduce height in landscape mode to prevent keyboard overlap */
-  .ic-h-\[85vh\] {
-    height: 75vh !important;
+  /* Reduce max-height in landscape mode to prevent keyboard overlap */
+  .ic-max-h-\[85vh\] {
     max-height: 75vh !important;
   }
 
@@ -191,10 +190,6 @@
 /* iOS Safari bottom bar fix */
 @supports (-webkit-touch-callout: none) {
   /* Account for iOS Safari's bottom bar */
-  .ic-h-\[85vh\] {
-    height: calc(85vh - env(safe-area-inset-bottom));
-  }
-
   .ic-max-h-\[85vh\] {
     max-height: calc(85vh - env(safe-area-inset-bottom));
   }

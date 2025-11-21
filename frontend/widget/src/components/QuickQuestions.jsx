@@ -93,7 +93,7 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
 
   return (
     <div
-      className="ic-flex-1 ic-overflow-y-auto ic-p-5 ic-space-y-3"
+      className="ic-flex-1 ic-overflow-y-auto ic-p-5 ic-space-y-3 ic-min-h-0"
       style={{ backgroundColor: 'var(--color-bg-primary)' }}
     >
       {/* Header */}
