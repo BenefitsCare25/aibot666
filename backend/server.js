@@ -227,6 +227,15 @@ app.get('/chat', async (req, res) => {
         document.getElementById('chat-container').innerHTML = '<div class="error">Error: Missing company parameter</div>';
         return;
       }
+      // Get domain: 1) from URL param, 2) from parent page (referrer), 3) fallback to current host
+      let domain = params.get('domain');
+      if (!domain && document.referrer) {
+        try {
+          domain = new URL(document.referrer).hostname;
+        } catch (e) {}
+      }
+      domain = domain || window.location.hostname;
+
       if (window.InsuranceWidget) {
         window.InsuranceWidget.init({
           companyId: companyId,
@@ -234,7 +243,7 @@ app.get('/chat', async (req, res) => {
           primaryColor: decodeURIComponent(params.get('color') || '#3b82f6'),
           position: 'embedded',
           welcomeMessage: params.get('welcome') || undefined,
-          domain: params.get('domain') || window.location.hostname,
+          domain: domain,
           embedded: true
         });
       }
