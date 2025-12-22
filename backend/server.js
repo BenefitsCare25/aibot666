@@ -239,8 +239,8 @@ app.get('/chat', async (req, res) => {
       }
       domain = domain || window.location.hostname;
 
-      if (window.InsuranceWidget) {
-        window.InsuranceWidget.init({
+      if (window.InsuranceChatWidget) {
+        window.InsuranceChatWidget.init({
           companyId: companyId,
           apiUrl: '${baseUrl}',
           primaryColor: decodeURIComponent(params.get('color') || '#3b82f6'),

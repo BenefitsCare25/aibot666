@@ -6,8 +6,8 @@ import LoginForm from './components/LoginForm';
 import { ThemeProvider } from './ThemeProvider';
 import { Toaster } from 'react-hot-toast';
 
-export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryColor = '#3b82f6', domain = null }) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryColor = '#3b82f6', domain = null, embedded = false }) {
+  const [isOpen, setIsOpen] = useState(embedded); // Auto-open in embedded mode
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { initialize } = useChatStore();
 
@@ -60,6 +60,44 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     useChatStore.getState().reset();
     setIsOpen(false);
   };
+
+  // Embedded mode: full container, no toggle button
+  if (embedded) {
+    return (
+      <ThemeProvider>
+        <div className="ic-w-full ic-h-full ic-flex ic-flex-col">
+          {isAuthenticated ? (
+            <ChatWindow
+              onClose={() => {}} // No close in embedded mode
+              onLogout={handleLogout}
+              primaryColor={primaryColor}
+              embedded={true}
+            />
+          ) : (
+            <LoginForm
+              onLogin={handleLogin}
+              onClose={() => {}} // No close in embedded mode
+              primaryColor={primaryColor}
+              embedded={true}
+            />
+          )}
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              duration: 3000,
+              style: {
+                background: 'var(--color-bg-primary)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '0.75rem',
+                padding: '12px 16px',
+              },
+            }}
+          />
+        </div>
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider>

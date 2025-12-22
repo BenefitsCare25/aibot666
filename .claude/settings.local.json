@@ -28,7 +28,8 @@
       "WebSearch",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:github.com)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
