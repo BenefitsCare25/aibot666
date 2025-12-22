@@ -207,8 +207,16 @@ app.get('/chat', async (req, res) => {
   <title>Chat Widget</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
-    #chat-container { width: 100%; height: 100%; display: flex; flex-direction: column; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent !important;
+      background-color: transparent !important;
+    }
+    #insurance-chat-widget-root {
+      background: transparent !important;
+    }
     .error { padding: 20px; color: #ef4444; font-family: system-ui; }
   </style>
   ${cssIntegrity
