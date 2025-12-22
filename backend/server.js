@@ -101,8 +101,10 @@ app.use(cookieParser());
 
 // Security headers for admin authentication
 app.use((req, res, next) => {
-  // Prevent clickjacking
-  res.setHeader('X-Frame-Options', 'DENY');
+  // Prevent clickjacking - but allow /chat route for iframe embedding
+  if (req.path !== '/chat') {
+    res.setHeader('X-Frame-Options', 'DENY');
+  }
 
   // Prevent MIME type sniffing
   res.setHeader('X-Content-Type-Options', 'nosniff');
