@@ -39,8 +39,9 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
   useEffect(() => {
     if (window.parent !== window) {
       // We're in an iframe - notify parent of state change
+      // Use dimensions matching admin panel chat area proportions
       const size = isOpen
-        ? { width: 470, height: 700, state: 'open' }
+        ? { width: 450, height: '85vh', maxHeight: 700, state: 'open' }
         : { width: 200, height: 80, state: 'closed' };
 
       window.parent.postMessage({
@@ -81,23 +82,30 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     setIsOpen(false);
   };
 
+  // In iframe mode when open, fill entire container
+  const containerClasses = isInIframe && isOpen
+    ? "ic-fixed ic-inset-0 ic-w-full ic-h-full ic-z-[999999]"
+    : `ic-fixed ${positionClasses[position]} ic-z-[999999]`;
+
   return (
     <ThemeProvider>
-      <div className={`ic-fixed ${positionClasses[position]} ic-z-[999999]`}>
+      <div className={containerClasses}>
         {/* Chat Window */}
         {isOpen && (
-          <div className="ic-mb-4 ic-animate-slide-up">
+          <div className={isInIframe ? "ic-w-full ic-h-full" : "ic-mb-4 ic-animate-slide-up"}>
             {isAuthenticated ? (
               <ChatWindow
                 onClose={handleToggle}
                 onLogout={handleLogout}
                 primaryColor={primaryColor}
+                isEmbedded={isInIframe}
               />
             ) : (
               <LoginForm
                 onLogin={handleLogin}
                 onClose={handleToggle}
                 primaryColor={primaryColor}
+                isEmbedded={isInIframe}
               />
             )}
           </div>

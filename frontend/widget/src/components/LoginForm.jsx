@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Mail, Phone, Loader2, FileText, ArrowRight, Paperclip, Upload } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 
-export default function LoginForm({ onLogin, onClose, primaryColor }) {
+export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded = false }) {
   const [identifier, setIdentifier] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [error, setError] = useState('');
@@ -232,9 +232,14 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
     }
   };
 
+  // Use flexible sizing when embedded (like admin panel), fixed sizing for popup
+  const containerClasses = isEmbedded
+    ? "ic-w-full ic-h-full ic-rounded-none ic-overflow-hidden ic-flex ic-flex-col"
+    : "ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-overflow-hidden";
+
   return (
     <motion.div
-      className="ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-overflow-hidden"
+      className={containerClasses}
       style={{
         backgroundColor: 'var(--color-bg-primary)',
         borderColor: 'var(--color-border)'
@@ -246,8 +251,11 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
     >
       {/* Header with Red Gradient - Mobile Optimized */}
       <motion.div
-        className="ic-p-4 sm:ic-p-6 ic-text-white ic-relative"
-        style={{ background: 'var(--gradient-primary)' }}
+        className="ic-p-4 sm:ic-p-6 ic-text-white ic-relative ic-flex-shrink-0"
+        style={{
+          background: 'var(--gradient-primary)',
+          borderRadius: isEmbedded ? '0' : undefined
+        }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.1 }}
@@ -275,7 +283,10 @@ export default function LoginForm({ onLogin, onClose, primaryColor }) {
 
       {/* Main Content */}
       <motion.div
-        className="ic-p-6 ic-overflow-y-auto ic-max-h-[calc(85vh-140px)] sm:ic-max-h-[calc(650px-140px)] ic-min-h-0"
+        className={isEmbedded
+          ? "ic-p-6 ic-overflow-y-auto ic-flex-1 ic-min-h-0"
+          : "ic-p-6 ic-overflow-y-auto ic-max-h-[calc(85vh-140px)] sm:ic-max-h-[calc(650px-140px)] ic-min-h-0"
+        }
         style={{ backgroundColor: 'var(--color-bg-primary)' }}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}

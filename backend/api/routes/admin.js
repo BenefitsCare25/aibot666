@@ -1514,12 +1514,12 @@ router.get('/companies/:id/embed-code', async (req, res) => {
 </script>`;
 
     // Iframe embed code (sandboxed for maximum security)
-    // Dynamic sizing: starts small (button only), expands when chat opens
+    // Dynamic sizing: starts small (button only), expands to fill container when open
     const embedCodeIframe = `<!-- ${company.name} AI Chatbot Widget (Sandboxed Iframe) -->
 <iframe
   id="chat-widget-iframe"
   src="${apiUrl}/chat?company=${company.id}&color=%233b82f6"
-  style="position: fixed; bottom: 16px; right: 16px; width: 200px; height: 80px; border: none; background: transparent; z-index: 9999; transition: width 0.3s ease, height 0.3s ease;"
+  style="position: fixed; bottom: 16px; right: 16px; width: 200px; height: 80px; border: none; background: transparent; z-index: 9999; transition: all 0.3s ease;"
   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
   allow="clipboard-write"
   allowtransparency="true"
@@ -1530,8 +1530,21 @@ router.get('/companies/:id/embed-code', async (req, res) => {
   var iframe = document.getElementById('chat-widget-iframe');
   window.addEventListener('message', function(event) {
     if (event.data && event.data.type === 'chatWidgetResize') {
-      iframe.style.width = event.data.width + 'px';
-      iframe.style.height = event.data.height + 'px';
+      var w = event.data.width;
+      var h = event.data.height;
+      var maxH = event.data.maxHeight;
+      // Handle percentage or pixel values
+      iframe.style.width = typeof w === 'string' ? w : w + 'px';
+      iframe.style.height = typeof h === 'string' ? h : h + 'px';
+      iframe.style.maxHeight = maxH ? maxH + 'px' : '';
+      // Adjust position for open/closed state
+      if (event.data.state === 'open') {
+        iframe.style.bottom = '16px';
+        iframe.style.right = '16px';
+      } else {
+        iframe.style.bottom = '16px';
+        iframe.style.right = '16px';
+      }
     }
   });
 })();

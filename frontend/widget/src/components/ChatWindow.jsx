@@ -7,7 +7,7 @@ import MessageInput from './MessageInput';
 import QuickQuestions from './QuickQuestions';
 import { isLogCategory } from '../utils/logDetection';
 
-export default function ChatWindow({ onClose, onLogout, primaryColor }) {
+export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded = false }) {
   const {
     employeeName,
     messages,
@@ -116,9 +116,14 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
     setInputValue(''); // Clear input after LOG request
   };
 
+  // Use flexible sizing when embedded (like admin panel), fixed sizing for popup
+  const containerClasses = isEmbedded
+    ? "ic-w-full ic-h-full ic-rounded-none ic-flex ic-flex-col ic-overflow-hidden ic-border-0 ic-transition-colors"
+    : "ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-max-h-[85vh] sm:ic-max-h-[650px] ic-min-h-[400px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-transition-colors";
+
   return (
     <motion.div
-      className="ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-max-h-[85vh] sm:ic-max-h-[650px] ic-min-h-[400px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-transition-colors"
+      className={containerClasses}
       style={{
         backgroundColor: 'var(--color-bg-primary)',
         borderColor: 'var(--color-border)'
@@ -137,7 +142,7 @@ export default function ChatWindow({ onClose, onLogout, primaryColor }) {
         className="ic-p-4 ic-text-white ic-relative ic-backdrop-blur-md"
         style={{
           background: 'var(--gradient-primary)',
-          borderRadius: '1rem 1rem 0 0'
+          borderRadius: isEmbedded ? '0' : '1rem 1rem 0 0'
         }}
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
