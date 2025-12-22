@@ -1514,16 +1514,28 @@ router.get('/companies/:id/embed-code', async (req, res) => {
 </script>`;
 
     // Iframe embed code (sandboxed for maximum security)
-    // Note: Uses transparent background so only widget button/window is visible
+    // Dynamic sizing: starts small (button only), expands when chat opens
     const embedCodeIframe = `<!-- ${company.name} AI Chatbot Widget (Sandboxed Iframe) -->
 <iframe
+  id="chat-widget-iframe"
   src="${apiUrl}/chat?company=${company.id}&color=%233b82f6"
-  style="position: fixed; bottom: 0; right: 0; width: 420px; height: 650px; border: none; background: transparent; z-index: 9999;"
+  style="position: fixed; bottom: 16px; right: 16px; width: 200px; height: 80px; border: none; background: transparent; z-index: 9999; transition: width 0.3s ease, height 0.3s ease;"
   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
   allow="clipboard-write"
   allowtransparency="true"
   title="${company.name} Chat Widget">
-</iframe>`;
+</iframe>
+<script>
+(function() {
+  var iframe = document.getElementById('chat-widget-iframe');
+  window.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'chatWidgetResize') {
+      iframe.style.width = event.data.width + 'px';
+      iframe.style.height = event.data.height + 'px';
+    }
+  });
+})();
+</script>`;
 
     const instructions = `Implementation Instructions:
 

@@ -35,9 +35,29 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     }
   }, [apiUrl, domain, initialize]);
 
+  // Notify parent window of size changes (for iframe embedding)
+  useEffect(() => {
+    if (window.parent !== window) {
+      // We're in an iframe - notify parent of state change
+      const size = isOpen
+        ? { width: 470, height: 700, state: 'open' }
+        : { width: 200, height: 80, state: 'closed' };
+
+      window.parent.postMessage({
+        type: 'chatWidgetResize',
+        ...size
+      }, '*');
+    }
+  }, [isOpen]);
+
+  // Check if we're in an iframe
+  const isInIframe = window.parent !== window;
+
+  // In iframe mode, position at edge (iframe provides offset from page)
+  // In direct mode, add padding from page edges
   const positionClasses = {
-    'bottom-right': 'ic-bottom-4 ic-right-4',
-    'bottom-left': 'ic-bottom-4 ic-left-4'
+    'bottom-right': isInIframe ? 'ic-bottom-0 ic-right-0' : 'ic-bottom-4 ic-right-4',
+    'bottom-left': isInIframe ? 'ic-bottom-0 ic-left-0' : 'ic-bottom-4 ic-left-4'
   };
 
   const handleToggle = () => {
