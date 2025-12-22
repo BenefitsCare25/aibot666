@@ -31,8 +31,7 @@ import './index.css';
         position = 'bottom-right',
         primaryColor = '#3b82f6',
         containerId = 'insurance-chat-widget-root',
-        domain = null, // Optional: override domain detection (useful for admin dashboards)
-        embedded = false // For iframe embedding - auto-opens and hides toggle button
+        domain = null // Optional: override domain detection (useful for admin dashboards)
       } = config;
 
       // Create container if it doesn't exist
@@ -50,8 +49,7 @@ import './index.css';
           apiUrl,
           position,
           primaryColor,
-          domain,
-          embedded
+          domain
         })
       );
     }

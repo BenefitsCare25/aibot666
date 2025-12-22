@@ -7,7 +7,7 @@ import MessageInput from './MessageInput';
 import QuickQuestions from './QuickQuestions';
 import { isLogCategory } from '../utils/logDetection';
 
-export default function ChatWindow({ onClose, onLogout, primaryColor, embedded = false }) {
+export default function ChatWindow({ onClose, onLogout, primaryColor }) {
   const {
     employeeName,
     messages,
@@ -116,17 +116,12 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, embedded =
     setInputValue(''); // Clear input after LOG request
   };
 
-  // Embedded mode: full size, no rounded corners or max dimensions
-  const containerClass = embedded
-    ? "ic-w-full ic-h-full ic-flex ic-flex-col ic-overflow-hidden ic-border-0"
-    : "ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-max-h-[85vh] sm:ic-max-h-[650px] ic-min-h-[400px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-transition-colors";
-
   return (
     <motion.div
-      className={containerClass}
+      className="ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-max-h-[85vh] sm:ic-max-h-[650px] ic-min-h-[400px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-transition-colors"
       style={{
         backgroundColor: 'var(--color-bg-primary)',
-        borderColor: embedded ? 'transparent' : 'var(--color-border)'
+        borderColor: 'var(--color-border)'
       }}
       initial={{ opacity: 0, scale: 0.95, y: 20 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}

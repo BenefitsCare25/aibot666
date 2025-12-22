@@ -244,10 +244,9 @@ app.get('/chat', async (req, res) => {
           companyId: companyId,
           apiUrl: '${baseUrl}',
           primaryColor: decodeURIComponent(params.get('color') || '#3b82f6'),
-          position: 'embedded',
+          position: 'bottom-right',
           welcomeMessage: params.get('welcome') || undefined,
-          domain: domain,
-          embedded: true
+          domain: domain
         });
       }
     })();

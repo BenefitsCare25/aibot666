@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Mail, Phone, Loader2, FileText, ArrowRight, Paperclip, Upload } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 
-export default function LoginForm({ onLogin, onClose, primaryColor, embedded = false }) {
+export default function LoginForm({ onLogin, onClose, primaryColor }) {
   const [identifier, setIdentifier] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [error, setError] = useState('');
@@ -232,14 +232,9 @@ export default function LoginForm({ onLogin, onClose, primaryColor, embedded = f
     }
   };
 
-  // Embedded mode: full size, no rounded corners
-  const containerClass = embedded
-    ? "ic-w-full ic-h-full ic-flex ic-flex-col ic-overflow-hidden"
-    : "ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-overflow-hidden";
-
   return (
     <motion.div
-      className={containerClass}
+      className="ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-overflow-hidden"
       style={{
         backgroundColor: 'var(--color-bg-primary)',
         borderColor: 'var(--color-border)'

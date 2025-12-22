@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2025-12-22T03:46:16.205Z",
+  "generatedAt": "2025-12-22T04:00:09.160Z",
   "baseUrl": "https://aibot666.onrender.com",
   "files": {
-    "widget.iife.js": "sha384-hDn0ju176XbWbTPSgMxdoqag4UP5LNJC0PIYCn1ct7ZoQ+X+W08cctFfOK8SbPkL",
-    "widget.css": "sha384-X9zk1V1mI4EVIrVGmTKvkiCXLherEMeUYjkcb2mciqX7zcUv1q+7W5R4FN89aI3G"
+    "widget.iife.js": "sha384-vhDdYR+4H3Tm7Hs26wKoFytqWPiRKAn4HFpQsCTdkmiXN+TujGufR8xx3JgKv2En",
+    "widget.css": "sha384-TqhfrXqqN0ZEe4AOUQEqRmFHJ/4veWcSFUChajQhWTwTD6afpP+VfFbGokLHVFcZ"
   }
 }
