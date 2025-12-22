@@ -217,7 +217,7 @@ app.get('/chat', async (req, res) => {
   }
 </head>
 <body>
-  <div id="chat-container"></div>
+  <div id="insurance-chat-widget-root"></div>
   ${jsIntegrity
     ? `<script src="${baseUrl}/widget.iife.js" integrity="${jsIntegrity}" crossorigin="anonymous"></script>`
     : `<script src="${baseUrl}/widget.iife.js"></script>`
@@ -241,7 +241,6 @@ app.get('/chat', async (req, res) => {
 
       if (window.InsuranceChatWidget) {
         window.InsuranceChatWidget.init({
-          containerId: 'chat-container',
           companyId: companyId,
           apiUrl: '${baseUrl}',
           primaryColor: decodeURIComponent(params.get('color') || '#3b82f6'),
