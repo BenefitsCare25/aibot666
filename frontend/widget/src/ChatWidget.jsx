@@ -86,9 +86,10 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     setIsOpen(false);
   };
 
-  // In iframe mode when open, fill entire container
+  // In iframe mode when open, constrain size to prevent full-page takeover
+  // The widget should never exceed popup dimensions even if iframe is larger
   const containerClasses = isInIframe && isOpen
-    ? "ic-fixed ic-inset-0 ic-w-full ic-h-full ic-z-[999999]"
+    ? "ic-fixed ic-bottom-0 ic-right-0 ic-z-[999999]"
     : `ic-fixed ${positionClasses[position]} ic-z-[999999]`;
 
   return (
@@ -96,20 +97,20 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
       <div className={containerClasses}>
         {/* Chat Window */}
         {isOpen && (
-          <div className={isInIframe ? "ic-w-full ic-h-full" : "ic-mb-4 ic-animate-slide-up"}>
+          <div className="ic-mb-4 ic-animate-slide-up">
             {isAuthenticated ? (
               <ChatWindow
                 onClose={handleToggle}
                 onLogout={handleLogout}
                 primaryColor={primaryColor}
-                isEmbedded={isInIframe}
+                isEmbedded={false}
               />
             ) : (
               <LoginForm
                 onLogin={handleLogin}
                 onClose={handleToggle}
                 primaryColor={primaryColor}
-                isEmbedded={isInIframe}
+                isEmbedded={false}
               />
             )}
           </div>
