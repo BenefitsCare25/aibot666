@@ -171,20 +171,78 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Standalone chat page for iframe embedding
+// Standalone chat page for iframe embedding (with SRI protection)
 app.get('/chat', async (req, res) => {
   try {
     const fs = await import('fs');
     const path = await import('path');
 
-    const chatPath = path.join(process.cwd(), 'public', 'chat.html');
-    if (fs.existsSync(chatPath)) {
-      const chatHtml = fs.readFileSync(chatPath, 'utf8');
-      res.type('text/html').send(chatHtml);
-    } else {
-      res.status(404).send('Chat page not found');
+    // Load SRI hashes
+    let sriHashes = { files: {} };
+    try {
+      const sriPath = path.join(process.cwd(), 'public', 'sri-hashes.json');
+      if (fs.existsSync(sriPath)) {
+        sriHashes = JSON.parse(fs.readFileSync(sriPath, 'utf8'));
+      }
+    } catch (e) {
+      console.warn('SRI hashes not available for iframe:', e.message);
     }
+
+    const jsIntegrity = sriHashes.files?.['widget.iife.js'] || '';
+    const cssIntegrity = sriHashes.files?.['widget.css'] || '';
+    const baseUrl = process.env.API_URL || process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
+
+    // Generate HTML with SRI
+    const chatHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Widget</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+    #chat-container { width: 100%; height: 100%; display: flex; flex-direction: column; }
+    .error { padding: 20px; color: #ef4444; font-family: system-ui; }
+  </style>
+  ${cssIntegrity
+    ? `<link rel="stylesheet" href="${baseUrl}/widget.css" integrity="${cssIntegrity}" crossorigin="anonymous">`
+    : `<link rel="stylesheet" href="${baseUrl}/widget.css">`
+  }
+</head>
+<body>
+  <div id="chat-container"></div>
+  ${jsIntegrity
+    ? `<script src="${baseUrl}/widget.iife.js" integrity="${jsIntegrity}" crossorigin="anonymous"></script>`
+    : `<script src="${baseUrl}/widget.iife.js"></script>`
+  }
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const companyId = params.get('company');
+      if (!companyId) {
+        document.getElementById('chat-container').innerHTML = '<div class="error">Error: Missing company parameter</div>';
+        return;
+      }
+      if (window.InsuranceWidget) {
+        window.InsuranceWidget.init({
+          companyId: companyId,
+          apiUrl: '${baseUrl}',
+          primaryColor: decodeURIComponent(params.get('color') || '#3b82f6'),
+          position: 'embedded',
+          welcomeMessage: params.get('welcome') || undefined,
+          domain: params.get('domain') || window.location.hostname,
+          embedded: true
+        });
+      }
+    })();
+  </script>
+</body>
+</html>`;
+
+    res.type('text/html').send(chatHtml);
   } catch (error) {
+    console.error('Error serving chat page:', error);
     res.status(500).send('Failed to load chat page');
   }
 });
