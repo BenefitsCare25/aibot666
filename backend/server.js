@@ -36,6 +36,7 @@ app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP to allow widget embedding
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" },
+  frameguard: false, // Disable - handled by custom middleware for /chat route
   hsts: {
     maxAge: 31536000, // 1 year
     includeSubDomains: true,
