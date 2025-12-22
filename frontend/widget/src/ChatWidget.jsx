@@ -38,10 +38,9 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
   // Notify parent window of size changes (for iframe embedding)
   useEffect(() => {
     if (window.parent !== window) {
-      // We're in an iframe - notify parent of state change
-      // Use dimensions matching admin panel chat area proportions
+      // Match admin panel: full screen when open (h-screen, flex-1)
       const size = isOpen
-        ? { width: 450, height: '85vh', maxHeight: 700, state: 'open' }
+        ? { width: '100%', height: '100%', state: 'open' }
         : { width: 200, height: 80, state: 'closed' };
 
       window.parent.postMessage({
