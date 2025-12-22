@@ -176,6 +176,9 @@ app.get('/health', (req, res) => {
 
 // Standalone chat page for iframe embedding (with SRI protection)
 app.get('/chat', async (req, res) => {
+  // Allow referrer for parent domain detection in iframe
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
   try {
     const fs = await import('fs');
     const path = await import('path');
