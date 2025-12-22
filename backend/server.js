@@ -241,6 +241,7 @@ app.get('/chat', async (req, res) => {
 
       if (window.InsuranceChatWidget) {
         window.InsuranceChatWidget.init({
+          containerId: 'chat-container',
           companyId: companyId,
           apiUrl: '${baseUrl}',
           primaryColor: decodeURIComponent(params.get('color') || '#3b82f6'),
