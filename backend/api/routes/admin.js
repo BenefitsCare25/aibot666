@@ -1521,20 +1521,7 @@ router.get('/companies/:id/embed-code', async (req, res) => {
   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
   allow="clipboard-write"
   title="${company.name} Chat Widget">
-</iframe>
-
-<!-- Alternative: Inline chat (fills container) -->
-<!--
-<div style="width: 100%; height: 500px;">
-  <iframe
-    src="${apiUrl}/chat?company=${company.id}&color=%233b82f6"
-    style="width: 100%; height: 100%; border: none; border-radius: 8px;"
-    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-    allow="clipboard-write"
-    title="${company.name} Chat Widget">
-  </iframe>
-</div>
--->`;
+</iframe>`;
 
     const instructions = `Implementation Instructions:
 
