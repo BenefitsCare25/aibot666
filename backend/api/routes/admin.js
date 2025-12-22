@@ -215,7 +215,7 @@ router.post('/employees/upload', upload.single('file'), async (req, res) => {
     const filePath = req.file.path;
 
     // Validate format first
-    const validation = validateExcelFormat(filePath);
+    const validation = await validateExcelFormat(filePath);
 
     if (!validation.valid) {
       // Clean up uploaded file
@@ -282,9 +282,9 @@ router.post('/employees/upload', upload.single('file'), async (req, res) => {
  * GET /api/admin/employees/template
  * Download Excel template
  */
-router.get('/employees/template', (req, res) => {
+router.get('/employees/template', async (req, res) => {
   try {
-    const buffer = generateExcelTemplate();
+    const buffer = await generateExcelTemplate();
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=employee_template.xlsx');
@@ -1427,7 +1427,7 @@ router.patch('/companies/:id/email-config', async (req, res) => {
 
 /**
  * GET /api/admin/companies/:id/embed-code
- * Get embed code for a company
+ * Get embed code for a company (with SRI integrity hashes)
  */
 router.get('/companies/:id/embed-code', async (req, res) => {
   try {
@@ -1444,22 +1444,67 @@ router.get('/companies/:id/embed-code', async (req, res) => {
     // Get API URL from environment or construct from request
     const apiUrl = process.env.API_URL || process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
 
-    // Cache-busting version parameter (use build timestamp for cache invalidation)
-    const version = process.env.BUILD_TIME || Date.now();
+    // Load SRI hashes if available
+    let sriHashes = null;
+    try {
+      const sriPath = path.join(process.cwd(), 'public', 'sri-hashes.json');
+      if (fs.existsSync(sriPath)) {
+        sriHashes = JSON.parse(fs.readFileSync(sriPath, 'utf8'));
+      }
+    } catch (sriError) {
+      console.warn('SRI hashes not available:', sriError.message);
+    }
 
-    // Generate embed code snippets
-    const embedCodeAutoInit = `<!-- ${company.name} AI Chatbot Widget -->
+    const jsIntegrity = sriHashes?.files?.['widget.iife.js'] || '';
+    const cssIntegrity = sriHashes?.files?.['widget.css'] || '';
+
+    // Generate embed code with SRI (recommended for security)
+    const embedCodeAutoInit = jsIntegrity
+      ? `<!-- ${company.name} AI Chatbot Widget (Secure with SRI) -->
 <script
-  src="${apiUrl}/widget.iife.js?v=${version}"
+  src="${apiUrl}/widget.iife.js"
+  integrity="${jsIntegrity}"
+  crossorigin="anonymous"
   data-api-url="${apiUrl}"
   data-position="bottom-right"
   data-color="#3b82f6">
 </script>
-<link rel="stylesheet" href="${apiUrl}/widget.css?v=${version}">`;
+<link
+  rel="stylesheet"
+  href="${apiUrl}/widget.css"
+  integrity="${cssIntegrity}"
+  crossorigin="anonymous">`
+      : `<!-- ${company.name} AI Chatbot Widget -->
+<script
+  src="${apiUrl}/widget.iife.js"
+  data-api-url="${apiUrl}"
+  data-position="bottom-right"
+  data-color="#3b82f6">
+</script>
+<link rel="stylesheet" href="${apiUrl}/widget.css">`;
 
-    const embedCodeManualInit = `<!-- ${company.name} AI Chatbot Widget -->
-<script src="${apiUrl}/widget.iife.js?v=${version}"></script>
-<link rel="stylesheet" href="${apiUrl}/widget.css?v=${version}">
+    const embedCodeManualInit = jsIntegrity
+      ? `<!-- ${company.name} AI Chatbot Widget (Secure with SRI) -->
+<script
+  src="${apiUrl}/widget.iife.js"
+  integrity="${jsIntegrity}"
+  crossorigin="anonymous">
+</script>
+<link
+  rel="stylesheet"
+  href="${apiUrl}/widget.css"
+  integrity="${cssIntegrity}"
+  crossorigin="anonymous">
+<script>
+  InsuranceChatWidget.init({
+    apiUrl: '${apiUrl}',
+    position: 'bottom-right',  // Options: 'bottom-right', 'bottom-left'
+    primaryColor: '#3b82f6'    // Customize widget color
+  });
+</script>`
+      : `<!-- ${company.name} AI Chatbot Widget -->
+<script src="${apiUrl}/widget.iife.js"></script>
+<link rel="stylesheet" href="${apiUrl}/widget.css">
 <script>
   InsuranceChatWidget.init({
     apiUrl: '${apiUrl}',
@@ -1468,12 +1513,44 @@ router.get('/companies/:id/embed-code', async (req, res) => {
   });
 </script>`;
 
+    // Iframe embed code (sandboxed for maximum security)
+    const embedCodeIframe = `<!-- ${company.name} AI Chatbot Widget (Sandboxed Iframe) -->
+<iframe
+  src="${apiUrl}/chat?company=${company.id}&color=%233b82f6"
+  style="position: fixed; bottom: 20px; right: 20px; width: 400px; height: 600px; border: none; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); z-index: 9999;"
+  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+  allow="clipboard-write"
+  title="${company.name} Chat Widget">
+</iframe>
+
+<!-- Alternative: Inline chat (fills container) -->
+<!--
+<div style="width: 100%; height: 500px;">
+  <iframe
+    src="${apiUrl}/chat?company=${company.id}&color=%233b82f6"
+    style="width: 100%; height: 100%; border: none; border-radius: 8px;"
+    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+    allow="clipboard-write"
+    title="${company.name} Chat Widget">
+  </iframe>
+</div>
+-->`;
+
     const instructions = `Implementation Instructions:
 
 1. Copy one of the embed code snippets below
 2. Paste it just before the closing </body> tag in your HTML
 3. The widget will automatically detect your domain (${company.domain}) and route to your company's chatbot
 4. Users can start chatting immediately - no additional configuration needed
+${jsIntegrity ? `
+Security Note:
+This embed code includes SRI (Subresource Integrity) hashes which verify the widget
+files haven't been tampered with. The browser will refuse to load the files if they
+don't match the expected hash.
+` : ''}
+Embed Options:
+- Script (Auto/Manual): Widget runs directly on your page with full styling control
+- Iframe (Sandbox): Maximum security isolation, widget runs in sandboxed iframe
 
 Customization Options:
 - position: 'bottom-right' or 'bottom-left' (where the widget appears)
@@ -1492,10 +1569,17 @@ Need help? Contact your system administrator.`;
         },
         embedCode: {
           autoInit: embedCodeAutoInit,
-          manualInit: embedCodeManualInit
+          manualInit: embedCodeManualInit,
+          iframe: embedCodeIframe
         },
         instructions,
-        apiUrl
+        apiUrl,
+        security: {
+          sriEnabled: !!jsIntegrity,
+          jsIntegrity: jsIntegrity || null,
+          cssIntegrity: cssIntegrity || null,
+          generatedAt: sriHashes?.generatedAt || null
+        }
       }
     });
   } catch (error) {

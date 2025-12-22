@@ -109,20 +109,46 @@ export default function EmbedCodeModal({ company, onClose }) {
             >
               Manual Initialize
             </button>
+            <button
+              onClick={() => setActiveTab('iframe')}
+              className={`pb-2 px-1 font-medium transition-colors ${
+                activeTab === 'iframe'
+                  ? 'border-b-2 border-primary-600 text-primary-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Iframe Sandbox
+            </button>
           </div>
         </div>
 
         {/* Code Display */}
         <div className="mb-6">
+          {activeTab === 'iframe' && (
+            <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-sm text-amber-800">
+                <strong>Sandbox Mode:</strong> This embed runs in an isolated iframe with restricted permissions.
+                Best for maximum security when you don't need deep integration with the parent page.
+              </p>
+            </div>
+          )}
           <div className="relative">
             <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono">
               <code>
-                {activeTab === 'auto' ? embedData.embedCode.autoInit : embedData.embedCode.manualInit}
+                {activeTab === 'auto'
+                  ? embedData.embedCode.autoInit
+                  : activeTab === 'manual'
+                    ? embedData.embedCode.manualInit
+                    : embedData.embedCode.iframe}
               </code>
             </pre>
             <button
               onClick={() => copyToClipboard(
-                activeTab === 'auto' ? embedData.embedCode.autoInit : embedData.embedCode.manualInit,
+                activeTab === 'auto'
+                  ? embedData.embedCode.autoInit
+                  : activeTab === 'manual'
+                    ? embedData.embedCode.manualInit
+                    : embedData.embedCode.iframe,
                 activeTab
               )}
               className={`absolute top-3 right-3 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -145,6 +171,25 @@ export default function EmbedCodeModal({ company, onClose }) {
             {embedData.instructions}
           </div>
         </div>
+
+        {/* Security Status */}
+        {embedData.security?.sriEnabled && (
+          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+            <h3 className="font-medium text-green-900 mb-2 flex items-center gap-2">
+              <span>🔒</span> SRI Security Enabled
+            </h3>
+            <p className="text-sm text-green-800">
+              This embed code includes Subresource Integrity (SRI) hashes that verify widget files
+              haven't been tampered with. Browsers will refuse to load files if they don't match
+              the expected hash.
+            </p>
+            {embedData.security.generatedAt && (
+              <p className="text-xs text-green-600 mt-2">
+                Hashes generated: {new Date(embedData.security.generatedAt).toLocaleString()}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Additional Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -176,6 +221,16 @@ export default function EmbedCodeModal({ company, onClose }) {
               <div><span className="font-medium">API URL:</span> {embedData.apiUrl}</div>
               <div><span className="font-medium">Position:</span> bottom-right</div>
               <div><span className="font-medium">Color:</span> #3b82f6 (customizable)</div>
+              {embedData.embedCode?.iframe && (
+                <div className="flex items-center gap-1 text-purple-600">
+                  <span className="font-medium">Iframe:</span> Sandbox Available ✓
+                </div>
+              )}
+              {embedData.security?.sriEnabled && (
+                <div className="flex items-center gap-1 text-green-600">
+                  <span className="font-medium">Security:</span> SRI Protected ✓
+                </div>
+              )}
             </div>
           </div>
         </div>

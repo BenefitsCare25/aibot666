@@ -10,7 +10,8 @@
     "migrate": "node scripts/migrate-excel.js",
     "migrate:rbac": "node scripts/run-rbac-migration.js",
     "seed:permissions": "node scripts/seed-permissions.js",
-    "generate-embeddings": "node scripts/generate-embeddings.js"
+    "generate-embeddings": "node scripts/generate-embeddings.js",
+    "generate-sri": "node scripts/generate-sri.js"
   },
   "keywords": [
     "chatbot",
@@ -44,8 +45,7 @@
     "pdf-parse": "^2.4.5",
     "pg": "^8.16.3",
     "telegraf": "^4.15.6",
-    "uuid": "^9.0.1",
-    "xlsx": "^0.18.5"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"

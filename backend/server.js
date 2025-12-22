@@ -123,8 +123,8 @@ app.use(compression());
 // Serve static files (widget)
 app.use(express.static('public'));
 
-// Rate limiting
-const limiter = rateLimit({
+// Rate limiting - General API limiter (per IP)
+const apiLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60000, // 1 minute
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
   message: {
@@ -135,7 +135,31 @@ const limiter = rateLimit({
   legacyHeaders: false
 });
 
-app.use('/api/', limiter);
+// Chat rate limiting - Per company (100 msg/min per company to allow concurrent users)
+const chatLimiter = rateLimit({
+  windowMs: 60000, // 1 minute
+  max: parseInt(process.env.CHAT_RATE_LIMIT_MAX) || 100, // 100 messages per minute per company
+  message: {
+    success: false,
+    error: 'Too many messages from this company, please slow down'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    // Extract company identifier from request (same logic as companyContext middleware)
+    const domain = req.body?.domain ||
+                   req.headers['x-widget-domain'] ||
+                   req.headers.origin ||
+                   req.headers.referer ||
+                   req.ip;
+    // Normalize: strip protocol and www
+    const normalized = domain?.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] || req.ip;
+    return `chat:${normalized}`;
+  }
+});
+
+app.use('/api/', apiLimiter);
+app.use('/api/chat', chatLimiter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -145,6 +169,58 @@ app.get('/health', (req, res) => {
     uptime: process.uptime(),
     redis: redis.status === 'ready' ? 'connected' : 'disconnected'
   });
+});
+
+// Standalone chat page for iframe embedding
+app.get('/chat', async (req, res) => {
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+
+    const chatPath = path.join(process.cwd(), 'public', 'chat.html');
+    if (fs.existsSync(chatPath)) {
+      const chatHtml = fs.readFileSync(chatPath, 'utf8');
+      res.type('text/html').send(chatHtml);
+    } else {
+      res.status(404).send('Chat page not found');
+    }
+  } catch (error) {
+    res.status(500).send('Failed to load chat page');
+  }
+});
+
+// Widget embed code endpoint - serves SRI-protected embed code
+app.get('/embed-code', async (req, res) => {
+  const format = req.query.format || 'html';
+
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+
+    if (format === 'json') {
+      const hashesPath = path.join(process.cwd(), 'public', 'sri-hashes.json');
+      if (fs.existsSync(hashesPath)) {
+        const hashes = JSON.parse(fs.readFileSync(hashesPath, 'utf8'));
+        return res.json(hashes);
+      }
+    }
+
+    const embedPath = path.join(process.cwd(), 'public', 'embed-code.html');
+    if (fs.existsSync(embedPath)) {
+      const embedCode = fs.readFileSync(embedPath, 'utf8');
+      res.type('text/html').send(embedCode);
+    } else {
+      res.status(404).json({
+        success: false,
+        error: 'Embed code not generated yet. Run: npm run generate-sri'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to load embed code'
+    });
+  }
 });
 
 // API routes
@@ -165,6 +241,7 @@ app.get('/', (req, res) => {
     description: 'AI-powered insurance chatbot with RAG capabilities',
     endpoints: {
       health: '/health',
+      embedCode: '/embed-code',
       auth: '/api/auth/*',
       adminUsers: '/api/admin-users/*',
       chat: '/api/chat/*',

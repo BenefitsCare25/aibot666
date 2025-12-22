@@ -1,4 +1,4 @@
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { addEmployeesBatch, updateEmployee, updateEmployeesBatch } from './vectorDB.js';
 import fs from 'fs';
 
@@ -13,12 +13,16 @@ export async function parseEmployeeExcel(filePath) {
       throw new Error('File not found');
     }
 
-    const workbook = XLSX.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const worksheet = workbook.worksheets[0];
 
-    // Convert to JSON
-    const rawData = XLSX.utils.sheet_to_json(worksheet);
+    if (!worksheet) {
+      throw new Error('No worksheet found in Excel file');
+    }
+
+    // Convert worksheet to JSON
+    const rawData = worksheetToJson(worksheet);
 
     if (!rawData || rawData.length === 0) {
       throw new Error('No data found in Excel file');
@@ -39,6 +43,73 @@ export async function parseEmployeeExcel(filePath) {
     console.error('Error parsing Excel file:', error);
     throw error;
   }
+}
+
+/**
+ * Convert ExcelJS worksheet to JSON array
+ * @param {ExcelJS.Worksheet} worksheet - ExcelJS worksheet
+ * @returns {Array} - Array of row objects
+ */
+function worksheetToJson(worksheet) {
+  const rows = [];
+  const headers = [];
+
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) {
+      // First row is headers
+      row.eachCell((cell, colNumber) => {
+        headers[colNumber] = getCellValue(cell);
+      });
+    } else {
+      // Data rows
+      const rowData = {};
+      row.eachCell((cell, colNumber) => {
+        const header = headers[colNumber];
+        if (header) {
+          rowData[header] = getCellValue(cell);
+        }
+      });
+      // Only add row if it has data
+      if (Object.keys(rowData).length > 0) {
+        rows.push(rowData);
+      }
+    }
+  });
+
+  return rows;
+}
+
+/**
+ * Get cell value handling different types
+ * @param {ExcelJS.Cell} cell - ExcelJS cell
+ * @returns {*} - Cell value
+ */
+function getCellValue(cell) {
+  if (cell.value === null || cell.value === undefined) {
+    return null;
+  }
+
+  // Handle rich text
+  if (cell.value.richText) {
+    return cell.value.richText.map(rt => rt.text).join('');
+  }
+
+  // Handle formula results
+  if (cell.value.result !== undefined) {
+    return cell.value.result;
+  }
+
+  // Handle hyperlinks
+  if (cell.value.hyperlink) {
+    return cell.value.text || cell.value.hyperlink;
+  }
+
+  // Handle dates
+  if (cell.value instanceof Date) {
+    return cell.value;
+  }
+
+  return cell.value;
 }
 
 /**
@@ -110,15 +181,17 @@ function parseExcelDate(dateValue) {
   if (!dateValue) return null;
 
   try {
-    // If it's already a Date object
+    // If it's already a Date object (ExcelJS returns Date objects)
     if (dateValue instanceof Date) {
       return dateValue.toISOString().split('T')[0];
     }
 
-    // If it's an Excel serial number
+    // If it's a number (Excel serial date), convert it
     if (typeof dateValue === 'number') {
-      const date = XLSX.SSF.parse_date_code(dateValue);
-      return new Date(date.y, date.m - 1, date.d).toISOString().split('T')[0];
+      // Excel dates are days since 1900-01-01 (with a bug for 1900 leap year)
+      const excelEpoch = new Date(1899, 11, 30);
+      const date = new Date(excelEpoch.getTime() + dateValue * 24 * 60 * 60 * 1000);
+      return date.toISOString().split('T')[0];
     }
 
     // If it's a string, try to parse it
@@ -390,24 +463,35 @@ export async function importEmployeesFromExcel(filePath, supabaseClient, duplica
 /**
  * Validate Excel file format
  * @param {string} filePath - Path to Excel file
- * @returns {Object} - Validation results
+ * @returns {Promise<Object>} - Validation results
  */
-export function validateExcelFormat(filePath) {
+export async function validateExcelFormat(filePath) {
   try {
-    const workbook = XLSX.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const worksheet = workbook.worksheets[0];
 
-    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    if (!worksheet) {
+      return {
+        valid: false,
+        errors: ['No worksheet found in file']
+      };
+    }
 
-    if (data.length === 0) {
+    // Get headers from first row
+    const headers = [];
+    const firstRow = worksheet.getRow(1);
+    firstRow.eachCell((cell, colNumber) => {
+      headers.push(getCellValue(cell));
+    });
+
+    if (headers.length === 0) {
       return {
         valid: false,
         errors: ['File is empty']
       };
     }
 
-    const headers = data[0];
     const requiredFields = ['employee_id', 'name', 'email'];
     const errors = [];
     const warnings = [];
@@ -453,11 +537,17 @@ export function validateExcelFormat(filePath) {
       warnings.push(`Optional columns not found (will use default values): ${missingOptional.join(', ')}. ${missingOptional.includes('policy_type') ? 'Policy type will default to "Standard".' : ''}`);
     }
 
+    // Count data rows
+    let rowCount = 0;
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) rowCount++;
+    });
+
     return {
       valid: errors.length === 0,
       errors,
       warnings,
-      rowCount: data.length - 1, // Exclude header row
+      rowCount,
       headers: headers
     };
   } catch (error) {
@@ -471,67 +561,49 @@ export function validateExcelFormat(filePath) {
 /**
  * Generate Excel template for employee import
  * @param {boolean} minimal - Generate minimal template with only required fields
- * @returns {Buffer} - Excel file buffer
+ * @returns {Promise<Buffer>} - Excel file buffer
  */
-export function generateExcelTemplate(minimal = false) {
-  let template;
+export async function generateExcelTemplate(minimal = false) {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Employees');
 
   if (minimal) {
     // Minimal template with only required fields
-    template = [
-      {
-        'Employee ID': 'EMP001',
-        'UserID': 'USER001',
-        'Name': 'John Doe',
-        'Email': 'john.doe@company.com'
-      },
-      {
-        'Employee ID': 'EMP002',
-        'UserID': 'USER002',
-        'Name': 'Jane Smith',
-        'Email': 'jane.smith@company.com'
-      }
+    worksheet.columns = [
+      { header: 'Employee ID', key: 'employee_id', width: 15 },
+      { header: 'UserID', key: 'user_id', width: 12 },
+      { header: 'Name', key: 'name', width: 20 },
+      { header: 'Email', key: 'email', width: 30 }
     ];
+
+    worksheet.addRows([
+      { employee_id: 'EMP001', user_id: 'USER001', name: 'John Doe', email: 'john.doe@company.com' },
+      { employee_id: 'EMP002', user_id: 'USER002', name: 'Jane Smith', email: 'jane.smith@company.com' }
+    ]);
   } else {
     // Full template with all fields
-    template = [
-      {
-        'employee_id': 'EMP001',
-        'user_id': 'USER001',
-        'name': 'John Doe',
-        'email': 'john.doe@company.com'
-      },
-      {
-        'employee_id': 'EMP002',
-        'user_id': 'USER002',
-        'name': 'Jane Smith',
-        'email': 'jane.smith@company.com'
-      }
+    worksheet.columns = [
+      { header: 'employee_id', key: 'employee_id', width: 12 },
+      { header: 'user_id', key: 'user_id', width: 12 },
+      { header: 'name', key: 'name', width: 20 },
+      { header: 'email', key: 'email', width: 30 }
     ];
+
+    worksheet.addRows([
+      { employee_id: 'EMP001', user_id: 'USER001', name: 'John Doe', email: 'john.doe@company.com' },
+      { employee_id: 'EMP002', user_id: 'USER002', name: 'Jane Smith', email: 'jane.smith@company.com' }
+    ]);
   }
 
-  const worksheet = XLSX.utils.json_to_sheet(template);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Employees');
+  // Style the header row
+  worksheet.getRow(1).font = { bold: true };
+  worksheet.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFE0E0E0' }
+  };
 
-  // Add column widths
-  if (minimal) {
-    worksheet['!cols'] = [
-      { wch: 15 }, // Employee ID
-      { wch: 12 }, // UserID
-      { wch: 20 }, // Name
-      { wch: 30 }  // Email
-    ];
-  } else {
-    worksheet['!cols'] = [
-      { wch: 12 }, // employee_id
-      { wch: 12 }, // user_id
-      { wch: 20 }, // name
-      { wch: 30 }  // email
-    ];
-  }
-
-  return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  return await workbook.xlsx.writeBuffer();
 }
 
 export default {
