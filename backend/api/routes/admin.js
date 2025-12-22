@@ -1514,12 +1514,14 @@ router.get('/companies/:id/embed-code', async (req, res) => {
 </script>`;
 
     // Iframe embed code (sandboxed for maximum security)
+    // Note: Uses transparent background so only the widget button/window is visible
     const embedCodeIframe = `<!-- ${company.name} AI Chatbot Widget (Sandboxed Iframe) -->
 <iframe
   src="${apiUrl}/chat?company=${company.id}&color=%233b82f6"
-  style="position: fixed; bottom: 20px; right: 20px; width: 400px; height: 600px; border: none; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); z-index: 9999;"
+  style="position: fixed; bottom: 0; right: 0; width: 420px; height: 650px; border: none; background: transparent; z-index: 9999;"
   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
   allow="clipboard-write"
+  allowtransparency="true"
   title="${company.name} Chat Widget">
 </iframe>`;
 

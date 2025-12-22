@@ -48,6 +48,7 @@
   position: fixed;
   z-index: 999999;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: transparent !important;
 }
 
 #insurance-chat-widget-root * {

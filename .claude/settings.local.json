@@ -31,7 +31,8 @@
       "Bash(gh auth:*)",
       "Bash(curl:*)",
       "Bash(openssl dgst:*)",
-      "Bash(openssl base64:*)"
+      "Bash(openssl base64:*)",
+      "Bash(npm run generate-sri:*)"
     ],
     "deny": [],
     "ask": []
