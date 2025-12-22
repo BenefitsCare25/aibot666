@@ -38,9 +38,14 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
   // Notify parent window of size changes (for iframe embedding)
   useEffect(() => {
     if (window.parent !== window) {
-      // Match admin panel: full screen when open (h-screen, flex-1)
+      // Detect mobile (screen width < 480px)
+      const isMobile = window.innerWidth < 480;
+
+      // Mobile: larger popup, Desktop: fixed size popup
       const size = isOpen
-        ? { width: '100%', height: '100%', state: 'open' }
+        ? isMobile
+          ? { width: '100vw', height: '90vh', state: 'open' }
+          : { width: 420, height: 650, state: 'open' }
         : { width: 200, height: 80, state: 'closed' };
 
       window.parent.postMessage({
