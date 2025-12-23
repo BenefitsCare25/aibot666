@@ -2165,21 +2165,22 @@ router.get('/analytics/query-trends', async (req, res) => {
 
 /**
  * GET /api/admin/quick-questions
- * Get all quick questions grouped by category
+ * Get all quick questions grouped by category (active only)
  */
 router.get('/quick-questions', async (req, res) => {
   try {
-    const schemaName = req.companySchema;
-
-    // Use RPC function to query across schemas without manual exposure
+    // Query directly from the schema-specific table
     const { data: questions, error } = await req.supabase
-      .rpc('get_quick_questions_by_schema', { schema_name: schemaName });
+      .from('quick_questions')
+      .select('*')
+      .eq('is_active', true)
+      .order('category_id')
+      .order('display_order');
 
     if (error) {
       console.error('Error fetching quick questions:', error);
       throw error;
     }
-
 
     // Group by category
     const categorized = {};
@@ -2220,11 +2221,12 @@ router.get('/quick-questions', async (req, res) => {
  */
 router.get('/quick-questions/all', async (req, res) => {
   try {
-    const schemaName = req.companySchema;
-
-    // Use RPC function to query all questions (including inactive)
+    // Query directly from the schema-specific table (all questions including inactive)
     const { data: questions, error } = await req.supabase
-      .rpc('get_all_quick_questions_by_schema', { schema_name: schemaName });
+      .from('quick_questions')
+      .select('*')
+      .order('category_id')
+      .order('display_order');
 
     if (error) {
       console.error('Error fetching all quick questions:', error);
