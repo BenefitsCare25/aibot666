@@ -61,7 +61,6 @@ export default function KnowledgeBase() {
   const loadDocuments = async () => {
     try {
       const response = await knowledgeApi.getDocuments({ limit: 100 });
-      console.log('Load documents response:', response); // Debug log
 
       // Handle different response structures (axios interceptor strips first .data)
       const documentsData = response.data?.data || response.data || [];
@@ -203,7 +202,6 @@ export default function KnowledgeBase() {
     setUploadingPdf(true);
     try {
       const response = await knowledgeApi.uploadDocument(file, selectedCategory || null);
-      console.log('Upload response:', response); // Debug log
 
       // Handle different response structures
       const documentId = response.data?.data?.documentId || response.data?.documentId;
@@ -243,7 +241,6 @@ export default function KnowledgeBase() {
   const pollDocumentStatus = async (documentId, delay = 2000) => {
     try {
       const response = await knowledgeApi.getDocumentStatus(documentId);
-      console.log('Poll response:', response); // Debug log
 
       // Handle different response structures (axios interceptor strips first .data)
       const documentData = response.data?.data || response.data;
@@ -316,7 +313,6 @@ export default function KnowledgeBase() {
     setChunksLoading(true);
     try {
       const response = await knowledgeApi.getDocumentChunks(documentId, { limit: 50 });
-      console.log('Chunks response:', response); // Debug log
 
       // Handle different response structures (axios interceptor strips first .data)
       const chunksData = response.data?.data || response.data || [];

@@ -433,8 +433,6 @@ router.post('/reset-password', [
   }
 });
 
-export default router;
-
 /**
  * GET /api/auth/me/permissions
  * Get current user's permissions
@@ -462,3 +460,5 @@ router.get('/me/permissions', authenticateToken, async (req, res) => {
     });
   }
 });
+
+export default router;

@@ -228,10 +228,6 @@ router.post('/employees/upload', upload.single('file'), async (req, res) => {
       });
     }
 
-    // Log warnings if any
-    if (validation.warnings && validation.warnings.length > 0) {
-    }
-
     // Get duplicate handling action from request (skip or update)
     const duplicateAction = req.body.duplicateAction || 'skip';
 

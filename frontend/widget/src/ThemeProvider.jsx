@@ -35,20 +35,6 @@ export const ThemeProvider = ({ children }) => {
     }
   }, [theme]);
 
-  // Disabled: Don't listen for system theme changes
-  // Widget will stay in user's selected theme (light by default)
-  // useEffect(() => {
-  //   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  //   const handler = (e) => {
-  //     const hasManualPreference = localStorage.getItem('chat-widget-theme');
-  //     if (!hasManualPreference) {
-  //       setTheme(e.matches ? 'dark' : 'light');
-  //     }
-  //   };
-  //   mediaQuery.addEventListener('change', handler);
-  //   return () => mediaQuery.removeEventListener('change', handler);
-  // }, []);
-
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };

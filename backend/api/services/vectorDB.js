@@ -34,10 +34,6 @@ export async function searchKnowledgeBase(query, supabaseClient = null, topK = T
       match_count: 1
     });
 
-    const hasAnyKnowledge = anyData && anyData.length > 0;
-    if (hasAnyKnowledge) {
-    }
-
     // Use Supabase RPC to call the match_knowledge function with actual threshold
     // Fetch more results initially if we're going to filter by policy type
     const fetchCount = policyType ? topK * 3 : topK;
@@ -56,16 +52,6 @@ export async function searchKnowledgeBase(query, supabaseClient = null, topK = T
     }
 
     let results = data || [];
-
-    // Log all results before filtering
-    if (results.length > 0) {
-      results.forEach((item, idx) => {
-      });
-    } else {
-      if (hasAnyKnowledge) {
-      } else {
-      }
-    }
 
     // Apply policy type filtering if provided
     if (policyType && results.length > 0) {

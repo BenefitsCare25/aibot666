@@ -123,5 +123,3 @@ export function usePermissions() {
     refresh: fetchPermissions
   };
 }
-
-export default usePermissions;

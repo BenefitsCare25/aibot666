@@ -425,19 +425,16 @@ function calculateConfidence(answer, contexts, finishReason) {
 
   // Only reduce confidence if uncertain AND not a contact acknowledgment
   if (hasUncertainty && !isContactAcknowledgment) {
-    const beforeCap = confidence;
     confidence = Math.min(confidence, 0.5); // Cap at 0.5 if uncertain
   }
 
   // Boost confidence for contact acknowledgments (these are valid responses)
   if (isContactAcknowledgment) {
-    const beforeBoost = confidence;
     confidence = Math.max(confidence, 0.75); // Higher confidence for acknowledgments
   }
 
   // Adjust based on finish reason
   if (finishReason === 'length') {
-    const beforeAdjust = confidence;
     confidence *= 0.9; // Slightly reduce if response was cut off
   }
 
