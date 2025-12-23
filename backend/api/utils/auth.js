@@ -7,21 +7,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { supabase } from '../../config/supabase.js';
-import Redis from 'ioredis';
-
-// Create Redis client for admin sessions
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-export const redis = new Redis(REDIS_URL, {
-  maxRetriesPerRequest: 3,
-  enableReadyCheck: true,
-  tls: REDIS_URL.startsWith('rediss://') ? {
-    rejectUnauthorized: false  // Required for Azure Redis Cache
-  } : undefined,
-  retryStrategy(times) {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  }
-});
+import { redis } from './redisClient.js';
 
 // Configuration
 const SALT_ROUNDS = 10;

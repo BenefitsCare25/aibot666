@@ -1,31 +1,10 @@
-import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import dotenv from 'dotenv';
+import { redis, closeRedis } from './redisClient.js';
 
 dotenv.config();
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const SESSION_TTL = parseInt(process.env.REDIS_SESSION_TTL) || 3600; // 1 hour default
-
-// Create Redis client with Azure TLS support
-const redis = new Redis(REDIS_URL, {
-  maxRetriesPerRequest: 3,
-  enableReadyCheck: true,
-  tls: REDIS_URL.startsWith('rediss://') ? {
-    rejectUnauthorized: false  // Required for Azure Redis Cache
-  } : undefined,
-  retryStrategy(times) {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  }
-});
-
-redis.on('connect', () => {
-});
-
-redis.on('error', (err) => {
-  console.error('Redis connection error:', err);
-});
 
 /**
  * Create a new session for an employee
@@ -393,18 +372,7 @@ export async function getConversationState(sessionId) {
   }
 }
 
-/**
- * Close Redis connection
- */
-export async function closeRedis() {
-  try {
-    await redis.quit();
-  } catch (error) {
-    console.error('Error closing Redis connection:', error);
-  }
-}
-
-export { redis };
+export { redis, closeRedis };
 
 export default {
   createSession,
