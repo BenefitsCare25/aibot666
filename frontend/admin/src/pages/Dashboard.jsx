@@ -32,8 +32,17 @@ export default function Dashboard() {
   const [queryTrends, setQueryTrends] = useState([]);
   const [loading, setLoading] = useState(true);
   const [timeFilter, setTimeFilter] = useState('all'); // 'today', 'week', 'month', 'all'
+  const [noCompany, setNoCompany] = useState(false);
 
   useEffect(() => {
+    // Check if company is selected before loading data
+    const selectedCompany = localStorage.getItem('selected_company_domain');
+    if (!selectedCompany) {
+      setNoCompany(true);
+      setLoading(false);
+      return;
+    }
+    setNoCompany(false);
     loadDashboardData();
   }, [timeFilter]);
 
@@ -87,6 +96,16 @@ export default function Dashboard() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  if (noCompany) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <div className="text-6xl mb-4">🏢</div>
+        <h2 className="text-xl font-semibold text-gray-700 mb-2">No Company Selected</h2>
+        <p className="text-gray-500">Please select a company from the dropdown above to view analytics.</p>
       </div>
     );
   }
