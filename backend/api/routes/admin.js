@@ -2172,7 +2172,7 @@ router.get('/quick-questions', async (req, res) => {
     const schemaName = req.companySchema;
 
     // Use RPC function to query across schemas without manual exposure
-    const { data: questions, error } = await supabase
+    const { data: questions, error } = await req.supabase
       .rpc('get_quick_questions_by_schema', { schema_name: schemaName });
 
     if (error) {
@@ -2223,7 +2223,7 @@ router.get('/quick-questions/all', async (req, res) => {
     const schemaName = req.companySchema;
 
     // Use RPC function to query all questions (including inactive)
-    const { data: questions, error } = await supabase
+    const { data: questions, error } = await req.supabase
       .rpc('get_all_quick_questions_by_schema', { schema_name: schemaName });
 
     if (error) {
