@@ -1,5 +1,5 @@
 import { getCompanyByDomain, normalizeDomain } from '../services/companySchema.js';
-import { getSchemaClient, supabase } from '../../config/supabase.js';
+import { getSchemaClient } from '../../config/supabase.js';
 import { redis } from '../utils/session.js';
 
 // Cache TTL for company lookups (5 minutes)
@@ -53,25 +53,6 @@ export async function companyContextMiddleware(req, res, next) {
         error: 'Company account is not active',
         status: company.status
       });
-    }
-
-    // Verify schema exists in database (non-blocking - just warn if RPC not available)
-    if (company.schema_name) {
-      try {
-        const { data: schemaCheck, error: schemaError } = await supabase
-          .rpc('check_schema_exists', { p_schema_name: company.schema_name });
-
-        if (schemaError) {
-          // RPC function doesn't exist or other error - log and continue
-          console.warn(`Schema validation skipped for "${company.schema_name}": ${schemaError.message}`);
-        } else if (!schemaCheck) {
-          // Schema doesn't exist - log warning but continue (schema might be created on-demand)
-          console.warn(`Schema "${company.schema_name}" not found for company "${company.name}" - continuing anyway`);
-        }
-      } catch (schemaCheckError) {
-        // If RPC doesn't exist, skip validation (for backwards compatibility)
-        console.warn('Schema validation skipped - check_schema_exists function not available');
-      }
     }
 
     // Get schema-specific Supabase client
