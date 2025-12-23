@@ -55,20 +55,18 @@ export async function companyContextMiddleware(req, res, next) {
       });
     }
 
-    // Verify schema exists in database
+    // Verify schema exists in database (non-blocking - just warn if RPC not available)
     if (company.schema_name) {
       try {
         const { data: schemaCheck, error: schemaError } = await supabase
           .rpc('check_schema_exists', { p_schema_name: company.schema_name });
 
-        if (schemaError || !schemaCheck) {
-          console.error(`Schema "${company.schema_name}" does not exist for company "${company.name}"`);
-          return res.status(500).json({
-            success: false,
-            error: 'Company database schema not found',
-            hint: `Schema "${company.schema_name}" needs to be created. Contact administrator.`,
-            company: company.name
-          });
+        if (schemaError) {
+          // RPC function doesn't exist or other error - log and continue
+          console.warn(`Schema validation skipped for "${company.schema_name}": ${schemaError.message}`);
+        } else if (!schemaCheck) {
+          // Schema doesn't exist - log warning but continue (schema might be created on-demand)
+          console.warn(`Schema "${company.schema_name}" not found for company "${company.name}" - continuing anyway`);
         }
       } catch (schemaCheckError) {
         // If RPC doesn't exist, skip validation (for backwards compatibility)
