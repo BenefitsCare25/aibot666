@@ -27,7 +27,7 @@ import './index.css';
      */
     init: function(config = {}) {
       const {
-        apiUrl = 'https://insurance-chatbot-api.onrender.com',
+        apiUrl = 'https://app-aibot-api.azurewebsites.net',
         position = 'bottom-right',
         primaryColor = '#3b82f6',
         containerId = 'insurance-chat-widget-root',

@@ -32,7 +32,10 @@
       "Bash(curl:*)",
       "Bash(openssl dgst:*)",
       "Bash(openssl base64:*)",
-      "Bash(npm run generate-sri:*)"
+      "Bash(npm run generate-sri:*)",
+      "Bash(wc:*)",
+      "Bash(dir /b \"C:\\\\Users\\\\huien\\\\aibot\\\\backend\\\\api\\\\routes\")",
+      "Bash(git -C /c/Users/huien/aibot pull origin main)"
     ],
     "deny": [],
     "ask": []

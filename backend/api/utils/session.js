@@ -7,10 +7,11 @@ dotenv.config();
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const SESSION_TTL = parseInt(process.env.REDIS_SESSION_TTL) || 3600; // 1 hour default
 
-// Create Redis client
+// Create Redis client with Azure TLS support
 const redis = new Redis(REDIS_URL, {
   maxRetriesPerRequest: 3,
   enableReadyCheck: true,
+  tls: REDIS_URL.startsWith('rediss://') ? {} : undefined,
   retryStrategy(times) {
     const delay = Math.min(times * 50, 2000);
     return delay;

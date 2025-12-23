@@ -40,7 +40,7 @@ function main() {
   }
 
   // Get base URL from environment or use default
-  const baseUrl = process.env.WIDGET_BASE_URL || 'https://aibot666.onrender.com';
+  const baseUrl = process.env.WIDGET_BASE_URL || 'https://app-aibot-api.azurewebsites.net';
 
   // Generate embed code HTML
   let embedCode = `<!-- Secure Widget Embed Code with SRI -->
