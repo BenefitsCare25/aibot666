@@ -11,7 +11,9 @@ const SESSION_TTL = parseInt(process.env.REDIS_SESSION_TTL) || 3600; // 1 hour d
 const redis = new Redis(REDIS_URL, {
   maxRetriesPerRequest: 3,
   enableReadyCheck: true,
-  tls: REDIS_URL.startsWith('rediss://') ? {} : undefined,
+  tls: REDIS_URL.startsWith('rediss://') ? {
+    rejectUnauthorized: false  // Required for Azure Redis Cache
+  } : undefined,
   retryStrategy(times) {
     const delay = Math.min(times * 50, 2000);
     return delay;

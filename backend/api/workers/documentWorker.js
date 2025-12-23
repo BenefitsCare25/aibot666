@@ -17,9 +17,9 @@ const parseRedisUrl = (url) => {
     return {
       host: urlObj.hostname,
       port: parseInt(urlObj.port) || (isTls ? 6380 : 6379),
-      password: urlObj.password || undefined,
+      password: urlObj.password ? decodeURIComponent(urlObj.password) : undefined,
       username: urlObj.username || undefined,
-      tls: isTls ? {} : undefined,
+      tls: isTls ? { rejectUnauthorized: false } : undefined,
     };
   } catch (error) {
     console.error('Error parsing Redis URL:', error);
