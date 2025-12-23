@@ -126,6 +126,17 @@ app.use(compression());
 // Serve static files (widget)
 app.use(express.static('public'));
 
+// Helper to extract clean IP from potentially malformed addresses (Azure adds port)
+const getCleanIp = (req) => {
+  let ip = req.ip || req.headers['x-forwarded-for']?.split(',')[0] || 'unknown';
+  // Remove port if present (e.g., "151.192.100.64:52535" -> "151.192.100.64")
+  if (ip.includes(':') && !ip.includes('::')) {
+    // IPv4 with port, not IPv6
+    ip = ip.split(':')[0];
+  }
+  return ip;
+};
+
 // Rate limiting - General API limiter (per IP)
 const apiLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60000, // 1 minute
@@ -135,7 +146,9 @@ const apiLimiter = rateLimit({
     error: 'Too many requests, please try again later'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  keyGenerator: (req) => getCleanIp(req),
+  validate: { ip: false } // Disable built-in IP validation (Azure adds port to IP)
 });
 
 // Chat rate limiting - Per company (100 msg/min per company to allow concurrent users)
@@ -148,15 +161,16 @@ const chatLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { ip: false }, // Disable built-in IP validation (Azure adds port to IP)
   keyGenerator: (req) => {
     // Extract company identifier from request (same logic as companyContext middleware)
     const domain = req.body?.domain ||
                    req.headers['x-widget-domain'] ||
                    req.headers.origin ||
                    req.headers.referer ||
-                   req.ip;
+                   getCleanIp(req);
     // Normalize: strip protocol and www
-    const normalized = domain?.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] || req.ip;
+    const normalized = domain?.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] || getCleanIp(req);
     return `chat:${normalized}`;
   }
 });
