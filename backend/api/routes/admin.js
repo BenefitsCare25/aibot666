@@ -2501,4 +2501,97 @@ router.post('/quick-questions/upload-excel', upload.single('file'), async (req, 
   }
 });
 
+/**
+ * GET /api/admin/debug/company-context
+ * Diagnostic endpoint to check company context setup
+ */
+router.get('/debug/company-context', async (req, res) => {
+  try {
+    const diagnostics = {
+      timestamp: new Date().toISOString(),
+      headers: {
+        'x-widget-domain': req.headers['x-widget-domain'] || 'NOT SET',
+        origin: req.headers.origin || 'NOT SET',
+        host: req.headers.host || 'NOT SET'
+      },
+      companyContext: {
+        found: !!req.company,
+        id: req.company?.id || null,
+        name: req.company?.name || null,
+        domain: req.company?.domain || null,
+        schemaName: req.companySchema || null
+      },
+      supabaseClient: {
+        configured: !!req.supabase,
+        schema: req.supabase?._schemaName || 'unknown'
+      }
+    };
+
+    // Test a simple query to verify schema access
+    if (req.supabase) {
+      try {
+        const { count, error } = await req.supabase
+          .from('employees')
+          .select('*', { count: 'exact', head: true });
+
+        diagnostics.schemaTest = {
+          success: !error,
+          employeeCount: count || 0,
+          error: error?.message || null
+        };
+      } catch (queryError) {
+        diagnostics.schemaTest = {
+          success: false,
+          error: queryError.message
+        };
+      }
+    }
+
+    res.json({
+      success: true,
+      diagnostics
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/admin/cache/clear-company
+ * Clear company cache for a specific domain
+ */
+router.post('/cache/clear-company', async (req, res) => {
+  try {
+    const { domain } = req.body;
+
+    if (domain) {
+      // Clear specific domain
+      await invalidateCompanyCache(domain);
+      res.json({
+        success: true,
+        message: `Cache cleared for domain: ${domain}`
+      });
+    } else {
+      // Clear all company caches
+      const { redis } = await import('../utils/session.js');
+      const keys = await redis.keys('company:domain:*');
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+      res.json({
+        success: true,
+        message: `Cleared ${keys.length} company cache entries`
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 export default router;
