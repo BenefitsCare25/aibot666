@@ -53,38 +53,41 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
 
     if (isMobileFullscreen) {
       // Lock body scroll for mobile fullscreen
-      document.body.style.cssText = 'overflow: hidden !important; position: fixed !important; width: 100% !important; height: 100% !important; top: 0 !important; left: 0 !important;';
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.height = '100%';
+      document.body.style.top = '0';
+      document.body.style.left = '0';
 
-      // Force widget root to full screen with inline styles
+      // Add fullscreen class to widget root (CSS handles positioning)
       if (widgetRoot) {
-        widgetRoot.style.cssText = `
-          position: fixed !important;
-          top: 0 !important;
-          left: 0 !important;
-          right: 0 !important;
-          bottom: 0 !important;
-          width: 100vw !important;
-          height: 100vh !important;
-          height: 100dvh !important;
-          z-index: 999999 !important;
-          background: #ffffff !important;
-        `;
+        widgetRoot.classList.add('ic-mobile-fullscreen');
       }
     } else {
       // Reset body scroll
-      document.body.style.cssText = '';
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
 
-      // Only reset widget root inline styles if they were previously set for mobile fullscreen
-      // Desktop positioning is handled by CSS (bottom: 16px; right: 16px)
-      if (widgetRoot && widgetRoot.style.cssText) {
-        widgetRoot.style.cssText = '';
+      // Remove fullscreen class
+      if (widgetRoot) {
+        widgetRoot.classList.remove('ic-mobile-fullscreen');
       }
     }
 
     return () => {
-      document.body.style.cssText = '';
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
       if (widgetRoot) {
-        widgetRoot.style.cssText = '';
+        widgetRoot.classList.remove('ic-mobile-fullscreen');
       }
     };
   }, [isMobile, isOpen]);

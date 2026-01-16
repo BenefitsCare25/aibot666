@@ -53,6 +53,14 @@
   background: transparent !important;
 }
 
+/* Mobile: ensure button doesn't get cut off */
+@media (max-width: 640px) {
+  #insurance-chat-widget-root:not(.ic-mobile-fullscreen) {
+    bottom: 12px;
+    right: 12px;
+  }
+}
+
 /* Mobile full-screen: widget root fills entire viewport */
 #insurance-chat-widget-root.ic-mobile-fullscreen {
   top: 0 !important;
@@ -62,7 +70,7 @@
   width: 100vw !important;
   height: 100vh !important;
   height: 100dvh !important;
-  background: var(--color-bg-primary) !important;
+  background: #ffffff !important;
 }
 
 #insurance-chat-widget-root * {
