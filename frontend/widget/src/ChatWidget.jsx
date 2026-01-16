@@ -49,9 +49,10 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
   // Lock body scroll and expand widget root on mobile when chat is open
   useEffect(() => {
     const widgetRoot = document.getElementById('insurance-chat-widget-root');
+    const isMobileFullscreen = isMobile && isOpen;
 
-    if (isMobile && isOpen) {
-      // Lock body scroll
+    if (isMobileFullscreen) {
+      // Lock body scroll for mobile fullscreen
       document.body.style.cssText = 'overflow: hidden !important; position: fixed !important; width: 100% !important; height: 100% !important; top: 0 !important; left: 0 !important;';
 
       // Force widget root to full screen with inline styles
@@ -70,11 +71,12 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         `;
       }
     } else {
-      // Reset body
+      // Reset body scroll
       document.body.style.cssText = '';
 
-      // Reset widget root
-      if (widgetRoot) {
+      // Only reset widget root inline styles if they were previously set for mobile fullscreen
+      // Desktop positioning is handled by CSS (bottom: 16px; right: 16px)
+      if (widgetRoot && widgetRoot.style.cssText) {
         widgetRoot.style.cssText = '';
       }
     }
