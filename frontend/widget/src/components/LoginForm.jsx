@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, Mail, Phone, Loader2, FileText, ArrowRight, Paperclip, Upload } from 'lucide-react';
+import { MessageCircle, X, Mail, Phone, Loader2, FileText, ArrowRight, Paperclip, Upload, ChevronDown } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 
-export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded = false }) {
+export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded = false, isMobileFullScreen = false }) {
   const [identifier, setIdentifier] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [error, setError] = useState('');
@@ -232,10 +232,12 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
     }
   };
 
-  // Use flexible sizing when embedded (like admin panel), fixed sizing for popup
+  // Use flexible sizing when embedded (like admin panel), full-screen for mobile, fixed sizing for desktop popup
   const containerClasses = isEmbedded
     ? "ic-w-full ic-h-full ic-rounded-none ic-overflow-hidden ic-flex ic-flex-col"
-    : "ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-overflow-hidden";
+    : isMobileFullScreen
+      ? "ic-w-full ic-h-full ic-rounded-none ic-overflow-hidden ic-flex ic-flex-col"
+      : "ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-overflow-hidden ic-flex ic-flex-col";
 
   return (
     <motion.div
@@ -254,7 +256,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
         className="ic-p-4 sm:ic-p-6 ic-text-white ic-relative ic-flex-shrink-0"
         style={{
           background: 'var(--gradient-primary)',
-          borderRadius: isEmbedded ? '0' : undefined
+          borderRadius: (isEmbedded || isMobileFullScreen) ? '0' : undefined
         }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -271,19 +273,23 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
           </div>
           <motion.button
             onClick={onClose}
-            className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200 ic-ml-4"
+            className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200 ic-ml-4 ic-min-w-[44px] ic-min-h-[44px] ic-flex ic-items-center ic-justify-center"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
-            aria-label="Close"
+            aria-label={isMobileFullScreen ? "Minimize" : "Close"}
           >
-            <X className="ic-w-5 ic-h-5" strokeWidth={2} />
+            {isMobileFullScreen ? (
+              <ChevronDown className="ic-w-6 ic-h-6" strokeWidth={2} />
+            ) : (
+              <X className="ic-w-5 ic-h-5" strokeWidth={2} />
+            )}
           </motion.button>
         </div>
       </motion.div>
 
       {/* Main Content */}
       <motion.div
-        className={isEmbedded
+        className={(isEmbedded || isMobileFullScreen)
           ? "ic-p-6 ic-overflow-y-auto ic-flex-1 ic-min-h-0"
           : "ic-p-6 ic-overflow-y-auto ic-max-h-[calc(85vh-140px)] sm:ic-max-h-[calc(650px-140px)] ic-min-h-0"
         }

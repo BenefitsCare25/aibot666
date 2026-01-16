@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, HelpCircle, LogOut, X } from 'lucide-react';
+import { User, HelpCircle, LogOut, X, ChevronDown } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import QuickQuestions from './QuickQuestions';
 import { isLogCategory } from '../utils/logDetection';
 
-export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded = false }) {
+export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded = false, isMobileFullScreen = false }) {
   const {
     employeeName,
     messages,
@@ -116,10 +116,12 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
     setInputValue(''); // Clear input after LOG request
   };
 
-  // Use flexible sizing when embedded (like admin panel), fixed sizing for popup
+  // Use flexible sizing when embedded (like admin panel), full-screen for mobile, fixed sizing for desktop popup
   const containerClasses = isEmbedded
     ? "ic-w-full ic-h-full ic-rounded-none ic-flex ic-flex-col ic-overflow-hidden ic-border-0 ic-transition-colors"
-    : "ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-max-h-[85vh] sm:ic-max-h-[650px] ic-min-h-[400px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-transition-colors";
+    : isMobileFullScreen
+      ? "ic-w-full ic-h-full ic-rounded-none ic-flex ic-flex-col ic-overflow-hidden ic-border-0 ic-transition-colors"
+      : "ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-max-h-[85vh] sm:ic-max-h-[650px] ic-min-h-[400px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-transition-colors";
 
   return (
     <motion.div
@@ -139,10 +141,10 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
     >
       {/* Header with Glass Morphism */}
       <motion.div
-        className="ic-p-4 ic-text-white ic-relative ic-backdrop-blur-md"
+        className="ic-p-4 ic-text-white ic-relative ic-backdrop-blur-md ic-flex-shrink-0"
         style={{
           background: 'var(--gradient-primary)',
-          borderRadius: isEmbedded ? '0' : '1rem 1rem 0 0'
+          borderRadius: (isEmbedded || isMobileFullScreen) ? '0' : '1rem 1rem 0 0'
         }}
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -191,11 +193,15 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
             <motion.button
               onClick={onClose}
               className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 sm:ic-p-2 ic-min-w-[44px] ic-min-h-[44px] sm:ic-min-w-0 sm:ic-min-h-0 ic-flex ic-items-center ic-justify-center ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
-              aria-label="Close chat window"
+              aria-label={isMobileFullScreen ? "Minimize chat" : "Close chat window"}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
             >
-              <X className="ic-w-5 ic-h-5" strokeWidth={2} />
+              {isMobileFullScreen ? (
+                <ChevronDown className="ic-w-6 ic-h-6" strokeWidth={2} />
+              ) : (
+                <X className="ic-w-5 ic-h-5" strokeWidth={2} />
+              )}
             </motion.button>
           </div>
         </div>

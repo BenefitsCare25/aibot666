@@ -35,16 +35,48 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     }
   }, [apiUrl, domain, initialize]);
 
+  // Detect mobile viewport
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Lock body scroll on mobile when chat is open
+  useEffect(() => {
+    if (isMobile && isOpen) {
+      document.body.classList.add('ic-chat-open');
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.height = '100%';
+    } else {
+      document.body.classList.remove('ic-chat-open');
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+    }
+    return () => {
+      document.body.classList.remove('ic-chat-open');
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+    };
+  }, [isMobile, isOpen]);
+
   // Notify parent window of size changes (for iframe embedding)
   useEffect(() => {
     if (window.parent !== window) {
-      // Detect mobile (screen width < 480px)
-      const isMobile = window.innerWidth < 480;
-
-      // Mobile: larger popup, Desktop: fixed size popup
+      // Mobile: full screen, Desktop: fixed size popup
       const size = isOpen
         ? isMobile
-          ? { width: '100vw', height: '90vh', state: 'open' }
+          ? { width: '100vw', height: '100vh', state: 'open' }
           : { width: 420, height: 650, state: 'open' }
         : { width: 200, height: 80, state: 'closed' };
 
@@ -53,7 +85,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         ...size
       }, '*');
     }
-  }, [isOpen]);
+  }, [isOpen, isMobile]);
 
   // Check if we're in an iframe
   const isInIframe = window.parent !== window;
@@ -86,24 +118,27 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     setIsOpen(false);
   };
 
-  // In iframe mode when open, constrain size to prevent full-page takeover
-  // The widget should never exceed popup dimensions even if iframe is larger
-  const containerClasses = isInIframe && isOpen
-    ? "ic-fixed ic-bottom-0 ic-right-0 ic-z-[999999]"
-    : `ic-fixed ${positionClasses[position]} ic-z-[999999]`;
+  // Mobile full-screen: fill entire viewport
+  // Desktop: positioned popup
+  const containerClasses = isMobile && isOpen
+    ? "ic-fixed ic-inset-0 ic-z-[999999]"
+    : isInIframe && isOpen
+      ? "ic-fixed ic-bottom-0 ic-right-0 ic-z-[999999]"
+      : `ic-fixed ${positionClasses[position]} ic-z-[999999]`;
 
   return (
     <ThemeProvider>
       <div className={containerClasses}>
         {/* Chat Window */}
         {isOpen && (
-          <div className="ic-mb-4 ic-animate-slide-up">
+          <div className={isMobile ? "ic-h-full ic-w-full" : "ic-mb-4 ic-animate-slide-up"}>
             {isAuthenticated ? (
               <ChatWindow
                 onClose={handleToggle}
                 onLogout={handleLogout}
                 primaryColor={primaryColor}
                 isEmbedded={false}
+                isMobileFullScreen={isMobile}
               />
             ) : (
               <LoginForm
@@ -111,17 +146,20 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
                 onClose={handleToggle}
                 primaryColor={primaryColor}
                 isEmbedded={false}
+                isMobileFullScreen={isMobile}
               />
             )}
           </div>
         )}
 
-        {/* Toggle Button */}
-        <ChatButton
-          isOpen={isOpen}
-          onClick={handleToggle}
-          primaryColor={primaryColor}
-        />
+        {/* Toggle Button - Hidden when mobile fullscreen is active */}
+        {!(isMobile && isOpen) && (
+          <ChatButton
+            isOpen={isOpen}
+            onClick={handleToggle}
+            primaryColor={primaryColor}
+          />
+        )}
 
         {/* Toast Notifications */}
         <Toaster
