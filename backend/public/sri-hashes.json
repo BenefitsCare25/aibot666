@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-01-16T12:45:01.467Z",
+  "generatedAt": "2026-01-16T12:55:16.914Z",
   "baseUrl": "https://app-aibot-api.azurewebsites.net",
   "files": {
-    "widget.iife.js": "sha384-G4MwI0RiMMM9AXQx3ciW/6jJuz9RFidOZXeLtPsBK+oOGlZK8o72oyUDpSHsKNHc",
-    "widget.css": "sha384-ivTzrrP1PcElPpvSYIdv6nC2bDjrZMrbTeQmPA3aR9Y5FkpUTYN0yB5rFYJeeuc+"
+    "widget.iife.js": "sha384-kXHN9qAdFBYWfNLHIZquii7O3IXhxqGKr75mNzfawQR6K2k32lqeVuq9k0187Pok",
+    "widget.css": "sha384-ff+hy1l8YGkmsMW4JKhC09XmB7oBGDkVICL1uVX0h0uxpFH6tjYwhaRGaOlUX1t4"
   }
 }

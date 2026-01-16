@@ -1,9 +1,37 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { MessageCircle, X, Mail, Phone, Loader2, FileText, ArrowRight, Paperclip, Upload, ChevronDown } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 
 export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded = false, isMobileFullScreen = false }) {
+  // Container styles - inline for reliability
+  const containerStyle = isMobileFullScreen
+    ? {
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: '#ffffff',
+        overflow: 'hidden'
+      }
+    : isEmbedded
+      ? {
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }
+      : {
+          width: '100%',
+          maxWidth: 450,
+          borderRadius: 16,
+          boxShadow: '0 8px 24px rgba(231, 76, 94, 0.16)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          backgroundColor: '#ffffff'
+        };
   const [identifier, setIdentifier] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [error, setError] = useState('');
@@ -232,35 +260,15 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
     }
   };
 
-  // Use flexible sizing when embedded (like admin panel), full-screen for mobile, fixed sizing for desktop popup
-  const containerClasses = isEmbedded
-    ? "ic-w-full ic-h-full ic-rounded-none ic-overflow-hidden ic-flex ic-flex-col"
-    : isMobileFullScreen
-      ? "ic-w-full ic-h-full ic-rounded-none ic-overflow-hidden ic-flex ic-flex-col"
-      : "ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-overflow-hidden ic-flex ic-flex-col";
-
   return (
-    <motion.div
-      className={containerClasses}
-      style={{
-        backgroundColor: 'var(--color-bg-primary)',
-        borderColor: 'var(--color-border)'
-      }}
-      initial={{ opacity: 0, scale: 0.95, y: 20 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, y: 20 }}
-      transition={{ type: "spring", duration: 0.5 }}
-    >
+    <div style={containerStyle}>
       {/* Header with Red Gradient - Mobile Optimized */}
-      <motion.div
+      <div
         className="ic-p-4 sm:ic-p-6 ic-text-white ic-relative ic-flex-shrink-0"
         style={{
-          background: 'var(--gradient-primary)',
-          borderRadius: (isEmbedded || isMobileFullScreen) ? '0' : undefined
+          background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
+          borderRadius: (isEmbedded || isMobileFullScreen) ? 0 : undefined
         }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
       >
         <div className="ic-flex ic-items-start ic-justify-between">
           <div className="ic-flex-1">
@@ -271,11 +279,10 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
               How can we help?
             </h2>
           </div>
-          <motion.button
+          <button
             onClick={onClose}
             className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200 ic-ml-4 ic-min-w-[44px] ic-min-h-[44px] ic-flex ic-items-center ic-justify-center"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
             aria-label={isMobileFullScreen ? "Minimize" : "Close"}
           >
             {isMobileFullScreen ? (
@@ -283,20 +290,19 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
             ) : (
               <X className="ic-w-5 ic-h-5" strokeWidth={2} />
             )}
-          </motion.button>
+          </button>
         </div>
-      </motion.div>
+      </div>
 
       {/* Main Content */}
-      <motion.div
-        className={(isEmbedded || isMobileFullScreen)
-          ? "ic-p-6 ic-overflow-y-auto ic-flex-1 ic-min-h-0"
-          : "ic-p-6 ic-overflow-y-auto ic-max-h-[calc(85vh-140px)] sm:ic-max-h-[calc(650px-140px)] ic-min-h-0"
-        }
-        style={{ backgroundColor: 'var(--color-bg-primary)' }}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+      <div
+        style={{
+          padding: 24,
+          overflowY: 'auto',
+          flex: 1,
+          minHeight: 0,
+          backgroundColor: '#ffffff'
+        }}
       >
         {/* Show option cards when no option is selected */}
         {selectedOption === null && (
@@ -779,7 +785,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
             helpdesk@inspro.com.sg
           </p>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

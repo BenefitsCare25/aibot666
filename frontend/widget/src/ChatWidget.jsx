@@ -36,7 +36,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
   }, [apiUrl, domain, initialize]);
 
   // Detect mobile viewport
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 640);
 
   useEffect(() => {
     const handleResize = () => {
@@ -51,34 +51,38 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     const widgetRoot = document.getElementById('insurance-chat-widget-root');
 
     if (isMobile && isOpen) {
-      document.body.classList.add('ic-chat-open');
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-      document.body.style.height = '100%';
-      // Add fullscreen class to widget root
+      // Lock body scroll
+      document.body.style.cssText = 'overflow: hidden !important; position: fixed !important; width: 100% !important; height: 100% !important; top: 0 !important; left: 0 !important;';
+
+      // Force widget root to full screen with inline styles
       if (widgetRoot) {
-        widgetRoot.classList.add('ic-mobile-fullscreen');
+        widgetRoot.style.cssText = `
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          height: 100dvh !important;
+          z-index: 999999 !important;
+          background: #ffffff !important;
+        `;
       }
     } else {
-      document.body.classList.remove('ic-chat-open');
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
-      // Remove fullscreen class from widget root
+      // Reset body
+      document.body.style.cssText = '';
+
+      // Reset widget root
       if (widgetRoot) {
-        widgetRoot.classList.remove('ic-mobile-fullscreen');
+        widgetRoot.style.cssText = '';
       }
     }
+
     return () => {
-      document.body.classList.remove('ic-chat-open');
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
+      document.body.style.cssText = '';
       if (widgetRoot) {
-        widgetRoot.classList.remove('ic-mobile-fullscreen');
+        widgetRoot.style.cssText = '';
       }
     };
   }, [isMobile, isOpen]);
@@ -103,13 +107,6 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
   // Check if we're in an iframe
   const isInIframe = window.parent !== window;
 
-  // In iframe mode, position at edge (iframe provides offset from page)
-  // In direct mode, add padding from page edges
-  const positionClasses = {
-    'bottom-right': isInIframe ? 'ic-bottom-0 ic-right-0' : 'ic-bottom-4 ic-right-4',
-    'bottom-left': isInIframe ? 'ic-bottom-0 ic-left-0' : 'ic-bottom-4 ic-left-4'
-  };
-
   const handleToggle = () => {
     setIsOpen(!isOpen);
   };
@@ -131,27 +128,55 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     setIsOpen(false);
   };
 
-  // Mobile full-screen: fill entire viewport
-  // Desktop: positioned popup
-  const containerClasses = isMobile && isOpen
-    ? "ic-fixed ic-inset-0 ic-z-[999999]"
-    : isInIframe && isOpen
-      ? "ic-fixed ic-bottom-0 ic-right-0 ic-z-[999999]"
-      : `ic-fixed ${positionClasses[position]} ic-z-[999999]`;
+  // Mobile full-screen uses inline styles, desktop uses positioned popup
+  const isMobileFullScreen = isMobile && isOpen;
+
+  // Container styles - inline for reliability
+  const containerStyle = isMobileFullScreen
+    ? {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 999999,
+        display: 'flex',
+        flexDirection: 'column'
+      }
+    : {
+        position: 'fixed',
+        bottom: isInIframe ? 0 : 16,
+        right: isInIframe ? 0 : 16,
+        zIndex: 999999
+      };
+
+  // Chat content wrapper styles
+  const chatWrapperStyle = isMobileFullScreen
+    ? {
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column'
+      }
+    : {
+        marginBottom: 16
+      };
 
   return (
     <ThemeProvider>
-      <div className={containerClasses}>
+      <div style={containerStyle}>
         {/* Chat Window */}
         {isOpen && (
-          <div className={isMobile ? "ic-h-full ic-w-full" : "ic-mb-4 ic-animate-slide-up"}>
+          <div style={chatWrapperStyle}>
             {isAuthenticated ? (
               <ChatWindow
                 onClose={handleToggle}
                 onLogout={handleLogout}
                 primaryColor={primaryColor}
                 isEmbedded={false}
-                isMobileFullScreen={isMobile}
+                isMobileFullScreen={isMobileFullScreen}
               />
             ) : (
               <LoginForm
@@ -159,14 +184,14 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
                 onClose={handleToggle}
                 primaryColor={primaryColor}
                 isEmbedded={false}
-                isMobileFullScreen={isMobile}
+                isMobileFullScreen={isMobileFullScreen}
               />
             )}
           </div>
         )}
 
         {/* Toggle Button - Hidden when mobile fullscreen is active */}
-        {!(isMobile && isOpen) && (
+        {!isMobileFullScreen && (
           <ChatButton
             isOpen={isOpen}
             onClick={handleToggle}

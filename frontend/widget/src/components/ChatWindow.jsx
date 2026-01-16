@@ -116,39 +116,48 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
     setInputValue(''); // Clear input after LOG request
   };
 
-  // Use flexible sizing when embedded (like admin panel), full-screen for mobile, fixed sizing for desktop popup
-  const containerClasses = isEmbedded
-    ? "ic-w-full ic-h-full ic-rounded-none ic-flex ic-flex-col ic-overflow-hidden ic-border-0 ic-transition-colors"
-    : isMobileFullScreen
-      ? "ic-w-full ic-h-full ic-rounded-none ic-flex ic-flex-col ic-overflow-hidden ic-border-0 ic-transition-colors"
-      : "ic-rounded-2xl ic-shadow-soft-lg ic-w-full sm:ic-w-[450px] ic-max-w-[95vw] ic-max-h-[85vh] sm:ic-max-h-[650px] ic-min-h-[400px] ic-flex ic-flex-col ic-overflow-hidden ic-border ic-transition-colors";
+  // Container styles - inline for reliability
+  const containerStyle = isMobileFullScreen
+    ? {
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: '#ffffff',
+        overflow: 'hidden'
+      }
+    : isEmbedded
+      ? {
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          backgroundColor: '#ffffff'
+        }
+      : {
+          width: '100%',
+          maxWidth: 450,
+          maxHeight: '85vh',
+          minHeight: 400,
+          borderRadius: 16,
+          boxShadow: '0 8px 24px rgba(231, 76, 94, 0.16)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          backgroundColor: '#ffffff',
+          border: '1px solid #e5e5e5'
+        };
 
   return (
-    <motion.div
-      className={containerClasses}
-      style={{
-        backgroundColor: 'var(--color-bg-primary)',
-        borderColor: 'var(--color-border)'
-      }}
-      initial={{ opacity: 0, scale: 0.95, y: 20 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, y: 20 }}
-      transition={{
-        type: "spring",
-        stiffness: 300,
-        damping: 30
-      }}
-    >
+    <div style={containerStyle}>
       {/* Header with Glass Morphism */}
-      <motion.div
-        className="ic-p-4 ic-text-white ic-relative ic-backdrop-blur-md ic-flex-shrink-0"
+      <div
+        className="ic-p-4 ic-text-white ic-relative ic-flex-shrink-0"
         style={{
-          background: 'var(--gradient-primary)',
-          borderRadius: (isEmbedded || isMobileFullScreen) ? '0' : '1rem 1rem 0 0'
+          background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
+          borderRadius: (isEmbedded || isMobileFullScreen) ? 0 : '1rem 1rem 0 0'
         }}
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.1 }}
       >
         <div className="ic-flex ic-items-center ic-justify-between">
           <div className="ic-flex ic-items-center ic-gap-3">
@@ -205,7 +214,7 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
             </motion.button>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Content Area - Toggle between Messages and Quick Questions */}
       {showQuickQuestions ? (
@@ -242,6 +251,6 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
         onEnterLogMode={enterLogMode}
         onExitLogMode={exitLogMode}
       />
-    </motion.div>
+    </div>
   );
 }
