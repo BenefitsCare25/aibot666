@@ -144,11 +144,12 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         left: 0,
         right: 0,
         bottom: 0,
-        width: '100vw',
-        height: '100vh',
+        width: '100%',
+        height: '100%',
         zIndex: 999999,
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        overflow: 'hidden'
       }
     : {
         position: 'fixed',

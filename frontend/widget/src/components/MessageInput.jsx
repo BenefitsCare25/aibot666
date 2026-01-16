@@ -60,7 +60,10 @@ export default function MessageInput({
   };
 
   return (
-    <div className="ic-bg-white/95 ic-border-t ic-border-pink-200 ic-backdrop-blur-sm">
+    <div
+      className="ic-bg-white/95 ic-border-t ic-border-pink-200 ic-backdrop-blur-sm ic-flex-shrink-0"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+    >
       {/* LOG Suggestion Banner (shown when LOG keywords detected) */}
       {showLogSuggestion && !isLogMode && (
         <div className="ic-bg-pink-50 ic-border-b ic-border-pink-200 ic-px-4 ic-py-2 ic-flex ic-items-center ic-gap-2 ic-text-sm">

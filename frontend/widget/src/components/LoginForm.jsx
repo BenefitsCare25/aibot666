@@ -298,6 +298,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
       <div
         style={{
           padding: 24,
+          paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))',
           overflowY: 'auto',
           flex: 1,
           minHeight: 0,
