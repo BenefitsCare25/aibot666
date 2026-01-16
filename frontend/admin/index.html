@@ -17,12 +17,12 @@
         // Load widget CSS
         const widgetCSS = document.createElement('link');
         widgetCSS.rel = 'stylesheet';
-        widgetCSS.href = 'https://aibot666.onrender.com/widget.css';
+        widgetCSS.href = 'https://app-aibot-api.azurewebsites.net/widget.css';
         document.head.appendChild(widgetCSS);
 
         // Load widget JavaScript
         const widgetScript = document.createElement('script');
-        widgetScript.src = 'https://aibot666.onrender.com/widget.iife.js';
+        widgetScript.src = 'https://app-aibot-api.azurewebsites.net/widget.iife.js';
         widgetScript.async = true;
 
         widgetScript.onload = function() {
@@ -32,7 +32,7 @@
             const selectedDomain = localStorage.getItem('selected_company_domain') || 'company-a.local';
 
             window.InsuranceChatWidget.init({
-              apiUrl: 'https://aibot666.onrender.com',
+              apiUrl: 'https://app-aibot-api.azurewebsites.net',
               position: 'bottom-right',
               primaryColor: '#D13439',
               domain: selectedDomain // Pass company domain to widget
