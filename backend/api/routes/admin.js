@@ -1528,17 +1528,30 @@ router.get('/companies/:id/embed-code', async (req, res) => {
     if (event.data && event.data.type === 'chatWidgetResize') {
       var w = event.data.width;
       var h = event.data.height;
-      // Handle percentage or pixel values (vw/vh/%)
-      iframe.style.width = typeof w === 'string' ? w : w + 'px';
-      iframe.style.height = typeof h === 'string' ? h : h + 'px';
-      // Keep in corner - mobile may need edge positioning
-      var isMobile = window.innerWidth < 480;
-      if (event.data.state === 'open' && isMobile) {
-        iframe.style.bottom = '0';
+      var isMobile = window.innerWidth < 640;
+      var isFullscreen = event.data.state === 'open' && isMobile;
+
+      if (isFullscreen) {
+        // Mobile fullscreen: cover entire viewport
+        iframe.style.position = 'fixed';
+        iframe.style.top = '0';
+        iframe.style.left = '0';
         iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '100vw';
+        iframe.style.height = '100vh';
+        iframe.style.height = '100dvh'; // Dynamic viewport height for mobile browsers
+        iframe.style.zIndex = '999999';
       } else {
-        iframe.style.bottom = '16px';
-        iframe.style.right = '16px';
+        // Desktop or closed: corner positioning
+        iframe.style.position = 'fixed';
+        iframe.style.top = 'auto';
+        iframe.style.left = 'auto';
+        iframe.style.bottom = isMobile ? '12px' : '16px';
+        iframe.style.right = isMobile ? '12px' : '16px';
+        iframe.style.width = typeof w === 'string' ? w : w + 'px';
+        iframe.style.height = typeof h === 'string' ? h : h + 'px';
+        iframe.style.zIndex = '9999';
       }
     }
   });

@@ -45,7 +45,8 @@
       "Bash(echo:*)",
       "Bash(done)",
       "Bash(for id in 4951029667 4950978845 4950923340 4950883655 4950857987 4950806294 4950771827 4950732573 4950475587 4950096897 4949608085 4949546024 4949498760 4949036515)",
-      "Bash(do gh api -X DELETE \"repos/BenefitsCare25/aibot666/actions/artifacts/$id\")"
+      "Bash(do gh api -X DELETE \"repos/BenefitsCare25/aibot666/actions/artifacts/$id\")",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
