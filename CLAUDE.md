@@ -14,25 +14,27 @@ Clients use an **iframe embed** approach with a hosted helper script. This means
 2. **Clients only reference our hosted files** - they don't host widget code themselves
 3. **Any updates we push automatically apply** to all client sites
 
-### Client Embed Code (Iframe Method)
+### Client Embed Code (Iframe Only)
 
-Clients embed this code on their website:
+Clients embed this code on their website (get from Admin Portal → Company Management → Embed Code):
 
 ```html
-<!-- AI Chatbot Widget (Sandboxed Iframe) -->
+<!-- Company Name AI Chatbot Widget -->
 <iframe
   id="chat-widget-iframe"
-  src="https://app-aibot-api.azurewebsites.net/chat?company=COMPANY_ID&color=%23COLOR"
+  src="https://app-aibot-api.azurewebsites.net/chat?company=COMPANY_ID&color=%233b82f6"
   style="position: fixed; bottom: 16px; right: 16px; width: 200px; height: 80px; border: none; background: transparent; z-index: 9999; transition: all 0.3s ease;"
   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
   allow="clipboard-write"
   allowtransparency="true"
-  title="Chat Widget">
+  title="Company Name Chat Widget">
 </iframe>
 
 <!-- Embed Helper Script (handles mobile fullscreen automatically) -->
 <script src="https://app-aibot-api.azurewebsites.net/embed-helper.js"></script>
 ```
+
+**Note:** Only iframe embed is supported. Auto-initialize and manual-initialize methods have been removed.
 
 ### Files That Auto-Update on Client Sites
 

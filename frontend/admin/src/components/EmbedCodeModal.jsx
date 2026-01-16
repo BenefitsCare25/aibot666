@@ -5,8 +5,7 @@ export default function EmbedCodeModal({ company, onClose }) {
   const [embedData, setEmbedData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [copiedType, setCopiedType] = useState(null);
-  const [activeTab, setActiveTab] = useState('auto');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     loadEmbedCode();
@@ -26,11 +25,11 @@ export default function EmbedCodeModal({ company, onClose }) {
     }
   };
 
-  const copyToClipboard = async (text, type) => {
+  const copyToClipboard = async (text) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopiedType(type);
-      setTimeout(() => setCopiedType(null), 2000);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
       alert('Failed to copy to clipboard');
@@ -86,110 +85,42 @@ export default function EmbedCodeModal({ company, onClose }) {
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="mb-4 border-b border-gray-200">
-          <div className="flex gap-4">
-            <button
-              onClick={() => setActiveTab('auto')}
-              className={`pb-2 px-1 font-medium transition-colors ${
-                activeTab === 'auto'
-                  ? 'border-b-2 border-primary-600 text-primary-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Auto-Initialize (Recommended)
-            </button>
-            <button
-              onClick={() => setActiveTab('manual')}
-              className={`pb-2 px-1 font-medium transition-colors ${
-                activeTab === 'manual'
-                  ? 'border-b-2 border-primary-600 text-primary-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Manual Initialize
-            </button>
-            <button
-              onClick={() => setActiveTab('iframe')}
-              className={`pb-2 px-1 font-medium transition-colors ${
-                activeTab === 'iframe'
-                  ? 'border-b-2 border-primary-600 text-primary-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Iframe Sandbox
-            </button>
-          </div>
+        {/* Info Banner */}
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <p className="text-sm text-blue-800">
+            <strong>Iframe Sandbox:</strong> This embed runs in an isolated iframe with restricted permissions.
+            Updates are automatic - no code changes needed on client sites.
+          </p>
         </div>
 
         {/* Code Display */}
         <div className="mb-6">
-          {activeTab === 'iframe' && (
-            <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <p className="text-sm text-amber-800">
-                <strong>Sandbox Mode:</strong> This embed runs in an isolated iframe with restricted permissions.
-                Best for maximum security when you don't need deep integration with the parent page.
-              </p>
-            </div>
-          )}
           <div className="relative">
             <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono">
-              <code>
-                {activeTab === 'auto'
-                  ? embedData.embedCode.autoInit
-                  : activeTab === 'manual'
-                    ? embedData.embedCode.manualInit
-                    : embedData.embedCode.iframe}
-              </code>
+              <code>{embedData.embedCode.iframe}</code>
             </pre>
             <button
-              onClick={() => copyToClipboard(
-                activeTab === 'auto'
-                  ? embedData.embedCode.autoInit
-                  : activeTab === 'manual'
-                    ? embedData.embedCode.manualInit
-                    : embedData.embedCode.iframe,
-                activeTab
-              )}
+              onClick={() => copyToClipboard(embedData.embedCode.iframe)}
               className={`absolute top-3 right-3 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                copiedType === activeTab
+                copied
                   ? 'bg-green-500 text-white'
                   : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
               }`}
             >
-              {copiedType === activeTab ? '✓ Copied!' : 'Copy Code'}
+              {copied ? '✓ Copied!' : 'Copy Code'}
             </button>
           </div>
         </div>
 
         {/* Instructions */}
-        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+        <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h3 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
             <span>📋</span> Implementation Instructions
           </h3>
-          <div className="text-sm text-blue-800 space-y-2 whitespace-pre-line">
+          <div className="text-sm text-gray-700 space-y-2 whitespace-pre-line">
             {embedData.instructions}
           </div>
         </div>
-
-        {/* Security Status */}
-        {embedData.security?.sriEnabled && (
-          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
-            <h3 className="font-medium text-green-900 mb-2 flex items-center gap-2">
-              <span>🔒</span> SRI Security Enabled
-            </h3>
-            <p className="text-sm text-green-800">
-              This embed code includes Subresource Integrity (SRI) hashes that verify widget files
-              haven't been tampered with. Browsers will refuse to load files if they don't match
-              the expected hash.
-            </p>
-            {embedData.security.generatedAt && (
-              <p className="text-xs text-green-600 mt-2">
-                Hashes generated: {new Date(embedData.security.generatedAt).toLocaleString()}
-              </p>
-            )}
-          </div>
-        )}
 
         {/* Additional Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -216,21 +147,17 @@ export default function EmbedCodeModal({ company, onClose }) {
           </div>
 
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h4 className="font-medium text-gray-900 mb-2">Widget Configuration</h4>
+            <h4 className="font-medium text-gray-900 mb-2">Widget Features</h4>
             <div className="space-y-1 text-sm text-gray-700">
               <div><span className="font-medium">API URL:</span> {embedData.apiUrl}</div>
-              <div><span className="font-medium">Position:</span> bottom-right</div>
-              <div><span className="font-medium">Color:</span> #3b82f6 (customizable)</div>
-              {embedData.embedCode?.iframe && (
-                <div className="flex items-center gap-1 text-purple-600">
-                  <span className="font-medium">Iframe:</span> Sandbox Available ✓
-                </div>
-              )}
-              {embedData.security?.sriEnabled && (
-                <div className="flex items-center gap-1 text-green-600">
-                  <span className="font-medium">Security:</span> SRI Protected ✓
-                </div>
-              )}
+              <div><span className="font-medium">Position:</span> bottom-right (fixed)</div>
+              <div><span className="font-medium">Color:</span> #3b82f6 (customizable via URL)</div>
+              <div className="flex items-center gap-1 text-green-600">
+                <span className="font-medium">Mobile:</span> Full-screen support ✓
+              </div>
+              <div className="flex items-center gap-1 text-green-600">
+                <span className="font-medium">Updates:</span> Automatic ✓
+              </div>
             </div>
           </div>
         </div>

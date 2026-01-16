@@ -1440,78 +1440,9 @@ router.get('/companies/:id/embed-code', async (req, res) => {
     // Get API URL from environment or construct from request
     const apiUrl = process.env.API_URL || process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
 
-    // Load SRI hashes if available
-    let sriHashes = null;
-    try {
-      const sriPath = path.join(process.cwd(), 'public', 'sri-hashes.json');
-      if (fs.existsSync(sriPath)) {
-        sriHashes = JSON.parse(fs.readFileSync(sriPath, 'utf8'));
-      }
-    } catch (sriError) {
-      console.warn('SRI hashes not available:', sriError.message);
-    }
-
-    const jsIntegrity = sriHashes?.files?.['widget.iife.js'] || '';
-    const cssIntegrity = sriHashes?.files?.['widget.css'] || '';
-
-    // Generate embed code with SRI (recommended for security)
-    const embedCodeAutoInit = jsIntegrity
-      ? `<!-- ${company.name} AI Chatbot Widget (Secure with SRI) -->
-<script
-  src="${apiUrl}/widget.iife.js"
-  integrity="${jsIntegrity}"
-  crossorigin="anonymous"
-  data-api-url="${apiUrl}"
-  data-position="bottom-right"
-  data-color="#3b82f6">
-</script>
-<link
-  rel="stylesheet"
-  href="${apiUrl}/widget.css"
-  integrity="${cssIntegrity}"
-  crossorigin="anonymous">`
-      : `<!-- ${company.name} AI Chatbot Widget -->
-<script
-  src="${apiUrl}/widget.iife.js"
-  data-api-url="${apiUrl}"
-  data-position="bottom-right"
-  data-color="#3b82f6">
-</script>
-<link rel="stylesheet" href="${apiUrl}/widget.css">`;
-
-    const embedCodeManualInit = jsIntegrity
-      ? `<!-- ${company.name} AI Chatbot Widget (Secure with SRI) -->
-<script
-  src="${apiUrl}/widget.iife.js"
-  integrity="${jsIntegrity}"
-  crossorigin="anonymous">
-</script>
-<link
-  rel="stylesheet"
-  href="${apiUrl}/widget.css"
-  integrity="${cssIntegrity}"
-  crossorigin="anonymous">
-<script>
-  InsuranceChatWidget.init({
-    apiUrl: '${apiUrl}',
-    position: 'bottom-right',  // Options: 'bottom-right', 'bottom-left'
-    primaryColor: '#3b82f6'    // Customize widget color
-  });
-</script>`
-      : `<!-- ${company.name} AI Chatbot Widget -->
-<script src="${apiUrl}/widget.iife.js"></script>
-<link rel="stylesheet" href="${apiUrl}/widget.css">
-<script>
-  InsuranceChatWidget.init({
-    apiUrl: '${apiUrl}',
-    position: 'bottom-right',  // Options: 'bottom-right', 'bottom-left'
-    primaryColor: '#3b82f6'    // Customize widget color
-  });
-</script>`;
-
     // Iframe embed code (sandboxed for maximum security)
     // Uses hosted embed-helper.js for automatic updates and mobile fullscreen support
-    const embedCodeIframe = `<!-- ${company.name} AI Chatbot Widget (Sandboxed Iframe) -->
+    const embedCodeIframe = `<!-- ${company.name} AI Chatbot Widget -->
 <iframe
   id="chat-widget-iframe"
   src="${apiUrl}/chat?company=${company.id}&color=%233b82f6"
@@ -1527,25 +1458,19 @@ router.get('/companies/:id/embed-code', async (req, res) => {
 
     const instructions = `Implementation Instructions:
 
-1. Copy one of the embed code snippets below
+1. Copy the embed code above
 2. Paste it just before the closing </body> tag in your HTML
-3. The widget will automatically detect your domain (${company.domain}) and route to your company's chatbot
-4. Users can start chatting immediately - no additional configuration needed
-${jsIntegrity ? `
-Security Note:
-This embed code includes SRI (Subresource Integrity) hashes which verify the widget
-files haven't been tampered with. The browser will refuse to load the files if they
-don't match the expected hash.
-` : ''}
-Embed Options:
-- Script (Auto/Manual): Widget runs directly on your page with full styling control
-- Iframe (Sandbox): Maximum security isolation, widget runs in sandboxed iframe
-  • Includes embed-helper.js for automatic mobile fullscreen support
-  • Helper script receives updates automatically - no code changes needed
+3. The widget will automatically appear in the bottom-right corner
+4. Users can start chatting immediately
 
-Customization Options:
-- position: 'bottom-right' or 'bottom-left' (where the widget appears)
-- primaryColor: Any valid CSS color (e.g., '#3b82f6', 'rgb(59, 130, 246)', 'blue')
+Features:
+• Mobile full-screen support (automatic)
+• Desktop corner positioning (bottom-right)
+• Automatic updates - no code changes needed on your site
+
+Customization:
+• Change color by modifying the "color" parameter in the iframe src URL
+• Example: color=%23ff0000 for red (use %23 for #)
 
 Need help? Contact your system administrator.`;
 
@@ -1559,18 +1484,10 @@ Need help? Contact your system administrator.`;
           additional_domains: company.additional_domains
         },
         embedCode: {
-          autoInit: embedCodeAutoInit,
-          manualInit: embedCodeManualInit,
           iframe: embedCodeIframe
         },
         instructions,
-        apiUrl,
-        security: {
-          sriEnabled: !!jsIntegrity,
-          jsIntegrity: jsIntegrity || null,
-          cssIntegrity: cssIntegrity || null,
-          generatedAt: sriHashes?.generatedAt || null
-        }
+        apiUrl
       }
     });
   } catch (error) {
