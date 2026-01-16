@@ -1510,7 +1510,7 @@ router.get('/companies/:id/embed-code', async (req, res) => {
 </script>`;
 
     // Iframe embed code (sandboxed for maximum security)
-    // Dynamic sizing: starts small (button only), expands to fill container when open
+    // Uses hosted embed-helper.js for automatic updates and mobile fullscreen support
     const embedCodeIframe = `<!-- ${company.name} AI Chatbot Widget (Sandboxed Iframe) -->
 <iframe
   id="chat-widget-iframe"
@@ -1521,42 +1521,9 @@ router.get('/companies/:id/embed-code', async (req, res) => {
   allowtransparency="true"
   title="${company.name} Chat Widget">
 </iframe>
-<script>
-(function() {
-  var iframe = document.getElementById('chat-widget-iframe');
-  window.addEventListener('message', function(event) {
-    if (event.data && event.data.type === 'chatWidgetResize') {
-      var w = event.data.width;
-      var h = event.data.height;
-      var isMobile = window.innerWidth < 640;
-      var isFullscreen = event.data.state === 'open' && isMobile;
 
-      if (isFullscreen) {
-        // Mobile fullscreen: cover entire viewport
-        iframe.style.position = 'fixed';
-        iframe.style.top = '0';
-        iframe.style.left = '0';
-        iframe.style.right = '0';
-        iframe.style.bottom = '0';
-        iframe.style.width = '100vw';
-        iframe.style.height = '100vh';
-        iframe.style.height = '100dvh'; // Dynamic viewport height for mobile browsers
-        iframe.style.zIndex = '999999';
-      } else {
-        // Desktop or closed: corner positioning
-        iframe.style.position = 'fixed';
-        iframe.style.top = 'auto';
-        iframe.style.left = 'auto';
-        iframe.style.bottom = isMobile ? '12px' : '16px';
-        iframe.style.right = isMobile ? '12px' : '16px';
-        iframe.style.width = typeof w === 'string' ? w : w + 'px';
-        iframe.style.height = typeof h === 'string' ? h : h + 'px';
-        iframe.style.zIndex = '9999';
-      }
-    }
-  });
-})();
-</script>`;
+<!-- Embed Helper Script (handles mobile fullscreen automatically) -->
+<script src="${apiUrl}/embed-helper.js"></script>`;
 
     const instructions = `Implementation Instructions:
 
@@ -1573,6 +1540,8 @@ don't match the expected hash.
 Embed Options:
 - Script (Auto/Manual): Widget runs directly on your page with full styling control
 - Iframe (Sandbox): Maximum security isolation, widget runs in sandboxed iframe
+  • Includes embed-helper.js for automatic mobile fullscreen support
+  • Helper script receives updates automatically - no code changes needed
 
 Customization Options:
 - position: 'bottom-right' or 'bottom-left' (where the widget appears)
