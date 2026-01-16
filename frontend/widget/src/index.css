@@ -51,6 +51,18 @@
   background: transparent !important;
 }
 
+/* Mobile full-screen: widget root fills entire viewport */
+#insurance-chat-widget-root.ic-mobile-fullscreen {
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  background: var(--color-bg-primary) !important;
+}
+
 #insurance-chat-widget-root * {
   box-sizing: border-box;
 }

@@ -46,20 +46,30 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Lock body scroll on mobile when chat is open
+  // Lock body scroll and expand widget root on mobile when chat is open
   useEffect(() => {
+    const widgetRoot = document.getElementById('insurance-chat-widget-root');
+
     if (isMobile && isOpen) {
       document.body.classList.add('ic-chat-open');
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
       document.body.style.width = '100%';
       document.body.style.height = '100%';
+      // Add fullscreen class to widget root
+      if (widgetRoot) {
+        widgetRoot.classList.add('ic-mobile-fullscreen');
+      }
     } else {
       document.body.classList.remove('ic-chat-open');
       document.body.style.overflow = '';
       document.body.style.position = '';
       document.body.style.width = '';
       document.body.style.height = '';
+      // Remove fullscreen class from widget root
+      if (widgetRoot) {
+        widgetRoot.classList.remove('ic-mobile-fullscreen');
+      }
     }
     return () => {
       document.body.classList.remove('ic-chat-open');
@@ -67,6 +77,9 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
       document.body.style.position = '';
       document.body.style.width = '';
       document.body.style.height = '';
+      if (widgetRoot) {
+        widgetRoot.classList.remove('ic-mobile-fullscreen');
+      }
     };
   }, [isMobile, isOpen]);
 
