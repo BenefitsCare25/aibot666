@@ -79,16 +79,6 @@ export async function searchKnowledgeBase(query, supabaseClient = null, topK = T
 
       // Limit to requested topK after filtering
       results = results.slice(0, topK);
-
-
-      if (beforeFilterCount > 0 && results.length === 0) {
-      }
-    }
-
-    // Log final results
-    if (results.length > 0) {
-      results.forEach((item, idx) => {
-      });
     }
 
     // Update usage statistics for retrieved documents
@@ -103,67 +93,6 @@ export async function searchKnowledgeBase(query, supabaseClient = null, topK = T
     return results;
   } catch (error) {
     console.error('Error in searchKnowledgeBase:', error.message);
-    throw error;
-  }
-}
-
-/**
- * Search employee data using vector similarity
- * @param {string} query - Query text
- * @param {number} topK - Number of results to return
- * @param {number} threshold - Minimum similarity threshold
- * @param {string} currentEmployeeId - Current employee's ID (for filtering to prevent data leakage)
- * @returns {Promise<Array>} - Array of matching employee entries
- */
-export async function searchEmployeeData(query, topK = 3, threshold = 0.6, currentEmployeeId = null) {
-  try {
-    // SECURITY WARNING: This function is currently DISABLED for production use
-    // It can potentially expose other employees' data through semantic search
-    console.warn('searchEmployeeData called - this function should only be used for self-lookup');
-
-    const queryEmbedding = await generateEmbedding(query);
-
-    const { data, error } = await supabase.rpc('match_employees', {
-      query_embedding: queryEmbedding,
-      match_threshold: threshold,
-      match_count: topK
-    });
-
-    if (error) {
-      console.error('Error searching employee data:', error);
-      throw new Error(`Employee search failed: ${error.message}`);
-    }
-
-    // Fetch full employee details
-    if (data && data.length > 0) {
-      const employeeIds = data.map(item => item.employee_id);
-
-      // SECURITY: Build query with employee filter
-      let query = supabase
-        .from('employees')
-        .select('*')
-        .in('id', employeeIds);
-
-      // CRITICAL: If currentEmployeeId is provided, ONLY return that employee's data
-      if (currentEmployeeId) {
-        query = query.eq('id', currentEmployeeId);
-      } else {
-        // If no employee filter provided, log a security warning
-        console.warn('SECURITY WARNING: searchEmployeeData called without currentEmployeeId filter - potential data leak');
-      }
-
-      const { data: employees, error: empError } = await query;
-
-      if (empError) {
-        throw new Error(`Failed to fetch employee details: ${empError.message}`);
-      }
-
-      return employees;
-    }
-
-    return [];
-  } catch (error) {
-    console.error('Error in searchEmployeeData:', error.message);
     throw error;
   }
 }
@@ -913,7 +842,6 @@ export async function deactivateEmployeesBulk(employeeIds, options = {}, supabas
 
 export default {
   searchKnowledgeBase,
-  searchEmployeeData,
   addKnowledgeEntry,
   addKnowledgeEntriesBatch,
   updateKnowledgeEntry,

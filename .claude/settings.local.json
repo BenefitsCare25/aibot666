@@ -36,7 +36,16 @@
       "Bash(wc:*)",
       "Bash(dir /b \"C:\\\\Users\\\\huien\\\\aibot\\\\backend\\\\api\\\\routes\")",
       "Bash(git -C /c/Users/huien/aibot pull origin main)",
-      "Bash(node --check:*)"
+      "Bash(node --check:*)",
+      "Bash(xargs -I {} sh -c 'echo \"\"=== {} ===\"\" && grep -c \"\"function\\\\|export\\\\|const.*=.*\\(\"\" {}')",
+      "Bash(ls:*)",
+      "Bash(gh api:*)",
+      "Bash(while read id)",
+      "Bash(do echo \"Deleting artifact $id...\")",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(for id in 4951029667 4950978845 4950923340 4950883655 4950857987 4950806294 4950771827 4950732573 4950475587 4950096897 4949608085 4949546024 4949498760 4949036515)",
+      "Bash(do gh api -X DELETE \"repos/BenefitsCare25/aibot666/actions/artifacts/$id\")"
     ],
     "deny": [],
     "ask": []

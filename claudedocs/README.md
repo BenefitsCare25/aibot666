@@ -1,7 +1,7 @@
 # AI Chatbot Platform - Complete Documentation
 
-**Last Updated:** January 20, 2025
-**Version:** 3.0
+**Last Updated:** December 23, 2025
+**Version:** 3.1
 **Status:** ✅ Production Ready
 
 ---
@@ -91,8 +91,9 @@ Role-based access control (RBAC) and security features:
 | **[RBAC_DEPLOYMENT_GUIDE.md](RBAC_DEPLOYMENT_GUIDE.md)** | **Complete RBAC setup & deployment** | Setting up roles and permissions |
 | [RBAC_PERMISSION_MODEL.md](RBAC_PERMISSION_MODEL.md) | Permission reference (47 permissions) | Understanding permission structure |
 | [EMPLOYEE-DATA-SECURITY.md](EMPLOYEE-DATA-SECURITY.md) | Security guidelines & privacy protection | Implementing security best practices |
+| [SECURITY_IMPLEMENTATION_ROADMAP.md](SECURITY_IMPLEMENTATION_ROADMAP.md) | Widget security hardening roadmap | Securing embed code & CSP setup |
 
-**Features:** 47 granular permissions, custom roles, audit logging
+**Features:** 47 granular permissions, custom roles, audit logging, security roadmap
 
 ---
 
@@ -108,6 +109,7 @@ How to use and configure platform features:
 | [EXACT_OPENAI_PROMPT_BREAKDOWN.md](EXACT_OPENAI_PROMPT_BREAKDOWN.md) | System prompt engineering | Customizing chatbot behavior |
 | [IMPROVED_CUSTOM_PROMPT.md](IMPROVED_CUSTOM_PROMPT.md) | Prompt optimization guide | Improving response quality |
 | [POLICY-FILTERING-IMPLEMENTATION.md](POLICY-FILTERING-IMPLEMENTATION.md) | Policy-based filtering | Filtering responses by employee policy |
+| [PDF_DOCUMENT_UPLOAD_SYSTEM_IMPLEMENTATION.md](PDF_DOCUMENT_UPLOAD_SYSTEM_IMPLEMENTATION.md) | PDF document processing | Uploading PDFs to knowledge base |
 
 **Common Tasks:**
 - Create custom roles → RBAC_DEPLOYMENT_GUIDE.md
@@ -141,8 +143,9 @@ Production deployment, configuration, and operations:
 | Document | Description | Use When |
 |----------|-------------|----------|
 | **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** | **Production deployment guide** | Deploying to Render, Vercel, or self-hosted |
+| [AZURE_MIGRATION_GUIDE.md](AZURE_MIGRATION_GUIDE.md) | Azure Web App migration guide | Migrating from Render to Azure |
 
-**Covers:** Environment variables, CORS, Redis, email/Telegram, SSL setup
+**Covers:** Environment variables, CORS, Redis, email/Telegram, SSL setup, Azure migration
 
 ---
 
@@ -153,11 +156,13 @@ Implementation logs and bug fix documentation (archived):
 | Document | Description |
 |----------|-------------|
 | [archive/context-awareness-hybrid-fix-2025-11-17.md](archive/context-awareness-hybrid-fix-2025-11-17.md) | Context awareness implementation |
+| [archive/context-awareness-fix-2025-11-17.md](archive/context-awareness-fix-2025-11-17.md) | Context awareness fix |
 | [archive/escalation-bug-fix-2025-11-17.md](archive/escalation-bug-fix-2025-11-17.md) | Escalation system bug fix |
 | [archive/IMPLEMENTATION_SUMMARY.md](archive/IMPLEMENTATION_SUMMARY.md) | General implementation summary |
 | [archive/LOG-button-optimization-implementation.md](archive/LOG-button-optimization-implementation.md) | LOG button UI optimization |
 | [archive/PROMPT_ISSUE_SUMMARY_2025-11-18.md](archive/PROMPT_ISSUE_SUMMARY_2025-11-18.md) | Prompt engineering fixes |
 | [archive/comprehensive-code-analysis-2025-11-10.md](archive/comprehensive-code-analysis-2025-11-10.md) | Initial code analysis |
+| [archive/DOCUMENTATION_ORGANIZATION_COMPLETE.md](archive/DOCUMENTATION_ORGANIZATION_COMPLETE.md) | Documentation cleanup summary |
 
 ---
 
@@ -200,6 +205,15 @@ Implementation logs and bug fix documentation (archived):
 
 **Improve chatbot responses**
 → [EXACT_OPENAI_PROMPT_BREAKDOWN.md](EXACT_OPENAI_PROMPT_BREAKDOWN.md)
+
+**Migrate to Azure**
+→ [AZURE_MIGRATION_GUIDE.md](AZURE_MIGRATION_GUIDE.md)
+
+**Harden widget security**
+→ [SECURITY_IMPLEMENTATION_ROADMAP.md](SECURITY_IMPLEMENTATION_ROADMAP.md)
+
+**Upload PDF documents**
+→ [PDF_DOCUMENT_UPLOAD_SYSTEM_IMPLEMENTATION.md](PDF_DOCUMENT_UPLOAD_SYSTEM_IMPLEMENTATION.md)
 
 ---
 
@@ -275,11 +289,16 @@ Before deploying:
 
 ## 📝 Version History
 
-### Version 3.0 (January 20, 2025) - CURRENT
+### Version 3.1 (December 23, 2025) - CURRENT
+- ✅ Azure migration guide
+- ✅ Security implementation roadmap
+- ✅ PDF document upload system
+- ✅ Organized documentation (20 active docs + 8 archived)
+
+### Version 3.0 (January 20, 2025)
 - ✅ RBAC system (47 permissions, custom roles)
 - ✅ Employee lifecycle management
 - ✅ Consolidated database schema (2,023 lines)
-- ✅ Organized documentation (18 active docs + 6 archived)
 
 ### Version 2.0 (November 17, 2025)
 - ✅ Multi-tenant architecture
@@ -318,7 +337,8 @@ aibot/
     ├── 🔐 Access Control/
     │   ├── RBAC_DEPLOYMENT_GUIDE.md ⭐
     │   ├── RBAC_PERMISSION_MODEL.md
-    │   └── EMPLOYEE-DATA-SECURITY.md
+    │   ├── EMPLOYEE-DATA-SECURITY.md
+    │   └── SECURITY_IMPLEMENTATION_ROADMAP.md
     │
     ├── 🎨 Features/
     │   ├── CALLBACK_REQUEST_FEATURE.md
@@ -326,7 +346,8 @@ aibot/
     │   ├── complete-ai-integration-and-model-recommendations.md
     │   ├── EXACT_OPENAI_PROMPT_BREAKDOWN.md
     │   ├── IMPROVED_CUSTOM_PROMPT.md
-    │   └── POLICY-FILTERING-IMPLEMENTATION.md
+    │   ├── POLICY-FILTERING-IMPLEMENTATION.md
+    │   └── PDF_DOCUMENT_UPLOAD_SYSTEM_IMPLEMENTATION.md
     │
     ├── 🏗️ Architecture/
     │   ├── MULTI-TENANT-SUMMARY.md ⭐
@@ -334,14 +355,10 @@ aibot/
     │   └── EMBEDDING_GENERATION_REFERENCE.md
     │
     ├── 🚀 Deployment/
-    │   └── DEPLOYMENT_GUIDE.md ⭐
+    │   ├── DEPLOYMENT_GUIDE.md ⭐
+    │   └── AZURE_MIGRATION_GUIDE.md
     │
-    └── 📜 archive/               # Historical implementation logs
-        ├── context-awareness-hybrid-fix-2025-11-17.md
-        ├── escalation-bug-fix-2025-11-17.md
-        ├── IMPLEMENTATION_SUMMARY.md
-        ├── LOG-button-optimization-implementation.md
-        └── PROMPT_ISSUE_SUMMARY_2025-11-18.md
+    └── 📜 archive/               # Historical implementation logs (8 files)
 ```
 
 ---
@@ -382,7 +399,7 @@ aibot/
 
 ## ✨ Summary
 
-**Total Documentation:** 18 active files + 6 archived
+**Total Documentation:** 20 active files + 8 archived
 **Organization:** 5 categories (Database, Security, Features, Architecture, Deployment)
 **Status:** ✅ Complete, organized, production-ready
 
@@ -396,4 +413,4 @@ aibot/
 
 **Maintained By:** Development Team
 **License:** Proprietary
-**Last Updated:** January 20, 2025
+**Last Updated:** December 23, 2025
