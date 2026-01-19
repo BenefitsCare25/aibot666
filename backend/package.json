@@ -11,7 +11,8 @@
     "migrate:rbac": "node scripts/run-rbac-migration.js",
     "seed:permissions": "node scripts/seed-permissions.js",
     "generate-embeddings": "node scripts/generate-embeddings.js",
-    "generate-sri": "node scripts/generate-sri.js"
+    "generate-sri": "node scripts/generate-sri.js",
+    "build-widget": "node scripts/build-widget.js"
   },
   "keywords": [
     "chatbot",

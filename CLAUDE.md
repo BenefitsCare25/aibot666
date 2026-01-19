@@ -67,25 +67,21 @@ frontend/widget/src/
     └── chatStore.js     # Zustand state management
 ```
 
-### Step 2: Build the Widget
+### Step 2: Build Widget (One Command)
 
 ```bash
-cd frontend/widget
-npm run build
+cd backend
+npm run build-widget
 ```
 
-This outputs:
-- `dist/widget.iife.js` - Bundled JavaScript
-- `dist/widget.css` - Bundled CSS
+This single command:
+1. Builds the widget in `frontend/widget`
+2. Copies `widget.iife.js` and `widget.css` to `backend/public/`
+3. Regenerates SRI hashes (required for security integrity checks)
 
-### Step 3: Copy to Backend Public Folder
+**IMPORTANT:** Always use `npm run build-widget` instead of building manually. If SRI hashes are not regenerated after a build, the widget will silently fail to load on client sites.
 
-```bash
-cp frontend/widget/dist/widget.iife.js backend/public/
-cp frontend/widget/dist/widget.css backend/public/
-```
-
-### Step 4: Commit and Push
+### Step 3: Commit and Push
 
 ```bash
 git add -A
