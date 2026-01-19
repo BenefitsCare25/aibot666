@@ -150,7 +150,7 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
         };
 
   return (
-    <div style={containerStyle}>
+    <div style={containerStyle} data-chat-content>
       {/* Header with Glass Morphism */}
       <div
         className="ic-p-4 ic-text-white ic-relative ic-flex-shrink-0"

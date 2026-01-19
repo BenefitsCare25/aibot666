@@ -156,23 +156,35 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     if (!widgetRoot) return;
 
     const sendSize = () => {
-      // Get the actual content height
-      const contentHeight = widgetRoot.scrollHeight;
-      // Minimum height for teaser state (header ~100px + 2 options ~120px + footer ~60px + padding)
-      // Add padding and ensure minimum/maximum bounds
-      const height = Math.min(Math.max(contentHeight + 20, 320), 800);
+      // Find the actual content container (LoginForm or ChatWindow)
+      const contentContainer = widgetRoot.querySelector('[data-chat-content]');
+
+      let contentHeight;
+      if (contentContainer) {
+        // Measure the actual content element's natural height
+        contentHeight = contentContainer.scrollHeight;
+      } else {
+        // Fallback to root scrollHeight
+        contentHeight = widgetRoot.scrollHeight;
+      }
+
+      // Add padding for button below and ensure min/max bounds
+      // Min 280 for teaser, max 700 for forms
+      const height = Math.min(Math.max(contentHeight + 80, 280), 700);
 
       window.parent.postMessage({
         type: 'chatWidgetResize',
-        width: 420,
+        width: 380,
         height: height,
         state: 'open'
       }, '*');
     };
 
-    // Send initial size after a brief delay to ensure content is rendered
-    const initialTimer = setTimeout(sendSize, 100);
+    // Send initial size after delays to ensure content is fully rendered
     sendSize();
+    const timer1 = setTimeout(sendSize, 50);
+    const timer2 = setTimeout(sendSize, 150);
+    const timer3 = setTimeout(sendSize, 300);
 
     // Observe for content changes (e.g., form expansion)
     const resizeObserver = new ResizeObserver(() => {
@@ -191,7 +203,9 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     });
 
     return () => {
-      clearTimeout(initialTimer);
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
       resizeObserver.disconnect();
       mutationObserver.disconnect();
     };
@@ -238,11 +252,10 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
       }
     : isInIframe
       ? {
-          // In iframe: no fixed positioning, content flows naturally from top
+          // In iframe: let content determine height naturally
           // The iframe itself handles the positioning on the parent page
           position: 'relative',
-          width: '100%',
-          minHeight: '100%'
+          width: '100%'
         }
       : {
           // Not in iframe: fixed positioning at bottom-right corner

@@ -261,7 +261,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
   };
 
   return (
-    <div style={containerStyle}>
+    <div style={containerStyle} data-chat-content>
       {/* Header with Red Gradient - Mobile Optimized */}
       <div
         className="ic-p-4 sm:ic-p-6 ic-text-white ic-relative ic-flex-shrink-0"
