@@ -38,6 +38,19 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
   // Check if we're in an iframe
   const isInIframe = typeof window !== 'undefined' && window.parent !== window;
 
+  // Add iframe mode class to widget root for CSS overrides
+  useEffect(() => {
+    const widgetRoot = document.getElementById('insurance-chat-widget-root');
+    if (widgetRoot && isInIframe) {
+      widgetRoot.classList.add('ic-iframe-mode');
+    }
+    return () => {
+      if (widgetRoot) {
+        widgetRoot.classList.remove('ic-iframe-mode');
+      }
+    };
+  }, [isInIframe]);
+
   // Detect mobile viewport - use parent's viewport when in iframe to prevent resize loops
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -220,13 +233,21 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         flexDirection: 'column',
         overflow: 'hidden'
       }
-    : {
-        // Normal positioning - content sizes naturally
-        position: 'fixed',
-        bottom: isInIframe ? 0 : 16,
-        right: isInIframe ? 0 : 16,
-        zIndex: 999999
-      };
+    : isInIframe
+      ? {
+          // In iframe: no fixed positioning, content flows naturally from top
+          // The iframe itself handles the positioning on the parent page
+          position: 'relative',
+          width: '100%',
+          minHeight: '100%'
+        }
+      : {
+          // Not in iframe: fixed positioning at bottom-right corner
+          position: 'fixed',
+          bottom: 16,
+          right: 16,
+          zIndex: 999999
+        };
 
   // Chat content wrapper styles
   const chatWrapperStyle = isMobileFullScreen
@@ -236,9 +257,15 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         display: 'flex',
         flexDirection: 'column'
       }
-    : {
-        marginBottom: 16
-      };
+    : isInIframe
+      ? {
+          // In iframe: content flows naturally, button below
+          marginBottom: 8
+        }
+      : {
+          // Not in iframe: popup above button
+          marginBottom: 16
+        };
 
   return (
     <ThemeProvider>
