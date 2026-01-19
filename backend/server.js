@@ -249,7 +249,7 @@ app.get('/chat', async (req, res) => {
       const params = new URLSearchParams(window.location.search);
       const companyId = params.get('company');
       if (!companyId) {
-        document.getElementById('chat-container').innerHTML = '<div class="error">Error: Missing company parameter</div>';
+        document.getElementById('insurance-chat-widget-root').innerHTML = '<div class="error">Error: Missing company parameter</div>';
         return;
       }
       // Get domain: 1) from URL param, 2) from parent page (referrer), 3) fallback to current host
