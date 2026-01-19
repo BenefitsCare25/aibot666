@@ -158,8 +158,9 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     const sendSize = () => {
       // Get the actual content height
       const contentHeight = widgetRoot.scrollHeight;
+      // Minimum height for teaser state (header ~100px + 2 options ~120px + footer ~60px + padding)
       // Add padding and ensure minimum/maximum bounds
-      const height = Math.min(Math.max(contentHeight + 20, 200), 800);
+      const height = Math.min(Math.max(contentHeight + 20, 320), 800);
 
       window.parent.postMessage({
         type: 'chatWidgetResize',
@@ -169,7 +170,8 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
       }, '*');
     };
 
-    // Send initial size
+    // Send initial size after a brief delay to ensure content is rendered
+    const initialTimer = setTimeout(sendSize, 100);
     sendSize();
 
     // Observe for content changes (e.g., form expansion)
@@ -189,6 +191,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     });
 
     return () => {
+      clearTimeout(initialTimer);
       resizeObserver.disconnect();
       mutationObserver.disconnect();
     };
