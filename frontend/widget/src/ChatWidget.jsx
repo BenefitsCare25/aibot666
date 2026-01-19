@@ -112,20 +112,73 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
   }, [isMobile, isOpen]);
 
   // Notify parent window of size changes (for iframe embedding)
+  // Use ResizeObserver to dynamically size iframe to content
   useEffect(() => {
-    if (window.parent !== window) {
-      // Mobile: full screen, Desktop: fixed size popup
-      const size = isOpen
-        ? isMobile
-          ? { width: '100vw', height: '100vh', state: 'open' }
-          : { width: 420, height: 720, state: 'open' }
-        : { width: 200, height: 80, state: 'closed' };
+    if (window.parent === window) return; // Not in iframe
+
+    if (!isOpen) {
+      // Closed state: small fixed size for button only
+      window.parent.postMessage({
+        type: 'chatWidgetResize',
+        width: 80,
+        height: 80,
+        state: 'closed'
+      }, '*');
+      return;
+    }
+
+    // Mobile fullscreen
+    if (isMobile) {
+      window.parent.postMessage({
+        type: 'chatWidgetResize',
+        width: '100vw',
+        height: '100vh',
+        state: 'open'
+      }, '*');
+      return;
+    }
+
+    // Desktop open: observe content height and resize dynamically
+    const widgetRoot = document.getElementById('insurance-chat-widget-root');
+    if (!widgetRoot) return;
+
+    const sendSize = () => {
+      // Get the actual content height
+      const contentHeight = widgetRoot.scrollHeight;
+      // Add padding and ensure minimum/maximum bounds
+      const height = Math.min(Math.max(contentHeight + 20, 200), 800);
 
       window.parent.postMessage({
         type: 'chatWidgetResize',
-        ...size
+        width: 420,
+        height: height,
+        state: 'open'
       }, '*');
-    }
+    };
+
+    // Send initial size
+    sendSize();
+
+    // Observe for content changes (e.g., form expansion)
+    const resizeObserver = new ResizeObserver(() => {
+      sendSize();
+    });
+    resizeObserver.observe(widgetRoot);
+
+    // Also observe mutations for dynamic content
+    const mutationObserver = new MutationObserver(() => {
+      setTimeout(sendSize, 50); // Small delay for DOM to settle
+    });
+    mutationObserver.observe(widgetRoot, {
+      childList: true,
+      subtree: true,
+      attributes: true
+    });
+
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
   }, [isOpen, isMobile]);
 
   const handleToggle = () => {
@@ -167,25 +220,13 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         flexDirection: 'column',
         overflow: 'hidden'
       }
-    : isInIframe && isOpen
-      ? {
-          // When in iframe and open: fill the iframe from top
-          position: 'fixed',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
-          zIndex: 999999,
-          display: 'flex',
-          flexDirection: 'column'
-        }
-      : {
-          // Normal positioning (closed state or non-iframe)
-          position: 'fixed',
-          bottom: isInIframe ? 0 : 16,
-          right: isInIframe ? 0 : 16,
-          zIndex: 999999
-        };
+    : {
+        // Normal positioning - content sizes naturally
+        position: 'fixed',
+        bottom: isInIframe ? 0 : 16,
+        right: isInIframe ? 0 : 16,
+        zIndex: 999999
+      };
 
   // Chat content wrapper styles
   const chatWrapperStyle = isMobileFullScreen
@@ -195,18 +236,9 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         display: 'flex',
         flexDirection: 'column'
       }
-    : isInIframe && isOpen
-      ? {
-          // Fill the iframe when open
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          marginBottom: 72 // Space for the close button
-        }
-      : {
-          marginBottom: 16
-        };
+    : {
+        marginBottom: 16
+      };
 
   return (
     <ThemeProvider>
@@ -219,7 +251,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
                 onClose={handleToggle}
                 onLogout={handleLogout}
                 primaryColor={primaryColor}
-                isEmbedded={isInIframe}
+                isEmbedded={false}
                 isMobileFullScreen={isMobileFullScreen}
               />
             ) : (
@@ -227,7 +259,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
                 onLogin={handleLogin}
                 onClose={handleToggle}
                 primaryColor={primaryColor}
-                isEmbedded={isInIframe}
+                isEmbedded={false}
                 isMobileFullScreen={isMobileFullScreen}
               />
             )}
@@ -236,18 +268,11 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
 
         {/* Toggle Button - Hidden when mobile fullscreen is active */}
         {!isMobileFullScreen && (
-          <div style={isInIframe && isOpen ? {
-            display: 'flex',
-            justifyContent: 'center',
-            paddingBottom: 12,
-            flexShrink: 0
-          } : undefined}>
-            <ChatButton
-              isOpen={isOpen}
-              onClick={handleToggle}
-              primaryColor={primaryColor}
-            />
-          </div>
+          <ChatButton
+            isOpen={isOpen}
+            onClick={handleToggle}
+            primaryColor={primaryColor}
+          />
         )}
 
         {/* Toast Notifications */}
