@@ -35,16 +35,35 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     }
   }, [apiUrl, domain, initialize]);
 
-  // Detect mobile viewport
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 640);
+  // Check if we're in an iframe
+  const isInIframe = typeof window !== 'undefined' && window.parent !== window;
+
+  // Detect mobile viewport - use parent's viewport when in iframe to prevent resize loops
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    // Initial detection based on window size (will be overridden by parent message if in iframe)
+    return window.innerWidth < 640;
+  });
 
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 640);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    if (isInIframe) {
+      // In iframe: listen for parent's viewport info to avoid resize loop
+      const handleParentMessage = (event) => {
+        if (event.data && event.data.type === 'chatWidgetParentInfo') {
+          setIsMobile(event.data.isMobile);
+        }
+      };
+      window.addEventListener('message', handleParentMessage);
+      return () => window.removeEventListener('message', handleParentMessage);
+    } else {
+      // Not in iframe: use normal resize detection
+      const handleResize = () => {
+        setIsMobile(window.innerWidth < 640);
+      };
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, [isInIframe]);
 
   // Lock body scroll and expand widget root on mobile when chat is open
   useEffect(() => {
@@ -108,9 +127,6 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
       }, '*');
     }
   }, [isOpen, isMobile]);
-
-  // Check if we're in an iframe
-  const isInIframe = window.parent !== window;
 
   const handleToggle = () => {
     setIsOpen(!isOpen);

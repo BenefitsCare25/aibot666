@@ -20,9 +20,37 @@
   // Track state for change detection
   var lastState = 'closed';
 
+  // Detect mobile based on PARENT window (not iframe) - this is stable
+  var isParentMobile = window.innerWidth < 640;
+
   // Disable all transitions to prevent flickering
-  // The widget content doesn't animate with iframe resize, causing visual mismatch
   iframe.style.transition = 'none';
+
+  // Send parent viewport info to iframe when it loads
+  function sendParentInfo() {
+    if (iframe.contentWindow) {
+      iframe.contentWindow.postMessage({
+        type: 'chatWidgetParentInfo',
+        parentWidth: window.innerWidth,
+        isMobile: isParentMobile
+      }, '*');
+    }
+  }
+
+  // Send parent info when iframe loads
+  iframe.addEventListener('load', sendParentInfo);
+
+  // Also send immediately in case iframe is already loaded
+  setTimeout(sendParentInfo, 100);
+
+  // Update mobile detection when parent window resizes (not the iframe)
+  window.addEventListener('resize', function() {
+    var newIsMobile = window.innerWidth < 640;
+    if (newIsMobile !== isParentMobile) {
+      isParentMobile = newIsMobile;
+      sendParentInfo();
+    }
+  });
 
   // Handle resize messages from the widget
   window.addEventListener('message', function(event) {
@@ -31,11 +59,8 @@
       return;
     }
 
-    var w = event.data.width;
-    var h = event.data.height;
     var state = event.data.state;
-    var isMobile = window.innerWidth < 640;
-    var isFullscreen = state === 'open' && isMobile;
+    var isFullscreen = state === 'open' && isParentMobile;
 
     // Track state changes (no transition - instant resize)
     lastState = state;
