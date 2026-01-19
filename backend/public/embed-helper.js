@@ -17,6 +17,13 @@
     return;
   }
 
+  // Track if this is the first resize (initial load)
+  var isFirstResize = true;
+  var lastState = 'closed';
+
+  // Remove any transition on initial load to prevent flickering
+  iframe.style.transition = 'none';
+
   // Handle resize messages from the widget
   window.addEventListener('message', function(event) {
     // Verify message type
@@ -30,8 +37,19 @@
     var isMobile = window.innerWidth < 640;
     var isFullscreen = state === 'open' && isMobile;
 
+    // Enable smooth transition only after first resize and on state changes
+    if (isFirstResize) {
+      isFirstResize = false;
+      // Keep transition disabled for initial positioning
+    } else if (lastState !== state) {
+      // Enable transition for open/close state changes
+      iframe.style.transition = 'width 0.2s ease, height 0.2s ease';
+    }
+    lastState = state;
+
     if (isFullscreen) {
-      // Mobile fullscreen: cover entire viewport
+      // Mobile fullscreen: cover entire viewport (no transition for fullscreen)
+      iframe.style.transition = 'none';
       iframe.style.position = 'fixed';
       iframe.style.top = '0';
       iframe.style.left = '0';

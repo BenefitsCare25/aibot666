@@ -1446,7 +1446,7 @@ router.get('/companies/:id/embed-code', async (req, res) => {
 <iframe
   id="chat-widget-iframe"
   src="${apiUrl}/chat?company=${company.id}&color=%233b82f6"
-  style="position: fixed; bottom: 16px; right: 16px; width: 200px; height: 80px; border: none; background: transparent; z-index: 9999; transition: all 0.3s ease;"
+  style="position: fixed; bottom: 16px; right: 16px; width: 200px; height: 80px; border: none; background: transparent; z-index: 9999;"
   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
   allow="clipboard-write"
   allowtransparency="true"
