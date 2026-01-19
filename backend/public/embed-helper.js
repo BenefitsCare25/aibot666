@@ -60,6 +60,8 @@
     }
 
     var state = event.data.state;
+    var w = event.data.width;
+    var h = event.data.height;
     var isFullscreen = state === 'open' && isParentMobile;
 
     // Track state changes (no transition - instant resize)
@@ -77,6 +79,7 @@
       iframe.style.height = '100dvh'; // Dynamic viewport height for mobile browsers
       iframe.style.zIndex = '999999';
       iframe.style.borderRadius = '0';
+      iframe.style.boxShadow = 'none';
 
       // Lock body scroll on mobile
       document.body.style.overflow = 'hidden';
@@ -89,12 +92,13 @@
       iframe.style.position = 'fixed';
       iframe.style.top = 'auto';
       iframe.style.left = 'auto';
-      iframe.style.bottom = isMobile ? '12px' : '16px';
-      iframe.style.right = isMobile ? '12px' : '16px';
+      iframe.style.bottom = isParentMobile ? '12px' : '16px';
+      iframe.style.right = isParentMobile ? '12px' : '16px';
       iframe.style.width = typeof w === 'string' ? w : w + 'px';
       iframe.style.height = typeof h === 'string' ? h : h + 'px';
       iframe.style.zIndex = '9999';
-      iframe.style.borderRadius = '';
+      iframe.style.borderRadius = '16px';
+      iframe.style.boxShadow = 'none';
 
       // Restore body scroll
       document.body.style.overflow = '';
