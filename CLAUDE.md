@@ -167,6 +167,95 @@ Use Company Management → Embed Code to see the current embed code.
 - **Frontend Admin**: Azure Static Web Apps
 - **Auto-deploy**: Push to `main` branch triggers GitHub Actions
 
+## Iframe Dynamic Resize Mechanism
+
+The widget dynamically resizes the iframe to fit its content. This is critical for proper display.
+
+### How It Works (Two-Part System)
+
+**Part 1: Widget sends size to parent** (`ChatWidget.jsx`):
+```javascript
+// Widget measures content and sends postMessage to parent
+window.parent.postMessage({
+  type: 'chatWidgetResize',
+  width: 380,
+  height: calculatedHeight,
+  state: 'open' // or 'closed'
+}, '*');
+```
+
+**Part 2: Parent resizes iframe** (`embed-helper.js`):
+```javascript
+// Parent listens for messages and resizes iframe
+window.addEventListener('message', function(event) {
+  if (event.data.type === 'chatWidgetResize') {
+    iframe.style.width = event.data.width + 'px';
+    iframe.style.height = event.data.height + 'px';
+  }
+});
+```
+
+### Key Implementation Details
+
+**Content measurement** (`ChatWidget.jsx` lines ~158-180):
+- Uses `data-chat-content` attribute on LoginForm/ChatWindow to target the actual content
+- `scrollHeight` measures the natural content height
+- Multiple delayed measurements (50ms, 150ms, 300ms) ensure content is fully rendered
+- ResizeObserver + MutationObserver detect content changes (e.g., form expansion)
+
+**Size states:**
+| State | Width | Height | Notes |
+|-------|-------|--------|-------|
+| Closed (button only) | 80px | 80px | Fixed size |
+| Open - Teaser | 380px | ~280px | 2 options + footer |
+| Open - Form | 380px | up to 700px | Expands to fit form |
+| Mobile Open | 100vw | 100dvh | Fullscreen |
+
+**Critical CSS for measurement:**
+```javascript
+// Container must NOT constrain height (ChatWidget.jsx)
+isInIframe ? {
+  position: 'relative',
+  width: '100%'
+  // NO minHeight - let content determine height
+}
+```
+
+### Adding New Content Components
+
+When creating new components that display in the widget:
+
+1. **Add `data-chat-content` attribute** to the root element:
+```jsx
+<div style={containerStyle} data-chat-content>
+  {/* content */}
+</div>
+```
+
+2. **Avoid fixed heights** - let content flow naturally
+
+3. **Test resize behavior** - verify iframe resizes when content changes
+
+### Debugging Resize Issues
+
+**Content cut off:**
+- Check if `data-chat-content` attribute is present
+- Verify no `overflow: hidden` on parent containers constraining height
+- Add more measurement delays if content renders slowly
+
+**Extra whitespace:**
+- Check for `minHeight` or `height: 100%` on containers
+- Ensure `scrollHeight` is measuring actual content, not iframe size
+
+**Resize not triggering:**
+- Verify MutationObserver is watching for DOM changes
+- Check that content changes are in the observed subtree
+
+### Test the resize behavior:
+URL: `https://app-aibot-api.azurewebsites.net/test-iframe-mobile.html`
+
+Click through different states (teaser → form → back) and verify iframe resizes smoothly.
+
 ## Common Issues & Fixes
 
 ### Mobile input area cut off
