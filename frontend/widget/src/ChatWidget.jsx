@@ -118,7 +118,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
       const size = isOpen
         ? isMobile
           ? { width: '100vw', height: '100vh', state: 'open' }
-          : { width: 420, height: 650, state: 'open' }
+          : { width: 420, height: 720, state: 'open' }
         : { width: 200, height: 80, state: 'closed' };
 
       window.parent.postMessage({
@@ -167,12 +167,25 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         flexDirection: 'column',
         overflow: 'hidden'
       }
-    : {
-        position: 'fixed',
-        bottom: isInIframe ? 0 : 16,
-        right: isInIframe ? 0 : 16,
-        zIndex: 999999
-      };
+    : isInIframe && isOpen
+      ? {
+          // When in iframe and open: fill the iframe from top
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          zIndex: 999999,
+          display: 'flex',
+          flexDirection: 'column'
+        }
+      : {
+          // Normal positioning (closed state or non-iframe)
+          position: 'fixed',
+          bottom: isInIframe ? 0 : 16,
+          right: isInIframe ? 0 : 16,
+          zIndex: 999999
+        };
 
   // Chat content wrapper styles
   const chatWrapperStyle = isMobileFullScreen
@@ -182,9 +195,18 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         display: 'flex',
         flexDirection: 'column'
       }
-    : {
-        marginBottom: 16
-      };
+    : isInIframe && isOpen
+      ? {
+          // Fill the iframe when open
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          marginBottom: 72 // Space for the close button
+        }
+      : {
+          marginBottom: 16
+        };
 
   return (
     <ThemeProvider>
@@ -197,7 +219,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
                 onClose={handleToggle}
                 onLogout={handleLogout}
                 primaryColor={primaryColor}
-                isEmbedded={false}
+                isEmbedded={isInIframe}
                 isMobileFullScreen={isMobileFullScreen}
               />
             ) : (
@@ -205,7 +227,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
                 onLogin={handleLogin}
                 onClose={handleToggle}
                 primaryColor={primaryColor}
-                isEmbedded={false}
+                isEmbedded={isInIframe}
                 isMobileFullScreen={isMobileFullScreen}
               />
             )}
@@ -214,11 +236,18 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
 
         {/* Toggle Button - Hidden when mobile fullscreen is active */}
         {!isMobileFullScreen && (
-          <ChatButton
-            isOpen={isOpen}
-            onClick={handleToggle}
-            primaryColor={primaryColor}
-          />
+          <div style={isInIframe && isOpen ? {
+            display: 'flex',
+            justifyContent: 'center',
+            paddingBottom: 12,
+            flexShrink: 0
+          } : undefined}>
+            <ChatButton
+              isOpen={isOpen}
+              onClick={handleToggle}
+              primaryColor={primaryColor}
+            />
+          </div>
         )}
 
         {/* Toast Notifications */}
