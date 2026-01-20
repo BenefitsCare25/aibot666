@@ -279,17 +279,15 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
               How can we help?
             </h2>
           </div>
-          {/* Only show minimize button on mobile fullscreen - desktop uses floating button to close */}
-          {isMobileFullScreen && (
-            <button
-              onClick={onClose}
-              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200 ic-ml-4 ic-min-w-[44px] ic-min-h-[44px] ic-flex ic-items-center ic-justify-center"
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
-              aria-label="Minimize"
-            >
-              <ChevronDown className="ic-w-6 ic-h-6" strokeWidth={2} />
-            </button>
-          )}
+          {/* Minimize/close button - chevron down */}
+          <button
+            onClick={onClose}
+            className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200 ic-ml-4 ic-min-w-[44px] ic-min-h-[44px] ic-flex ic-items-center ic-justify-center"
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+            aria-label="Minimize"
+          >
+            <ChevronDown className="ic-w-6 ic-h-6" strokeWidth={2} />
+          </button>
         </div>
       </div>
 

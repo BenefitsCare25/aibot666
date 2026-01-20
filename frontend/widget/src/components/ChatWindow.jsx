@@ -199,18 +199,16 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
               <LogOut className="ic-w-5 ic-h-5" strokeWidth={2} />
             </motion.button>
 
-            {/* Only show minimize button on mobile fullscreen - desktop uses floating button to close */}
-            {isMobileFullScreen && (
-              <motion.button
-                onClick={onClose}
-                className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 sm:ic-p-2 ic-min-w-[44px] ic-min-h-[44px] sm:ic-min-w-0 sm:ic-min-h-0 ic-flex ic-items-center ic-justify-center ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
-                aria-label="Minimize chat"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <ChevronDown className="ic-w-6 ic-h-6" strokeWidth={2} />
-              </motion.button>
-            )}
+            {/* Minimize/close button - chevron down */}
+            <motion.button
+              onClick={onClose}
+              className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 sm:ic-p-2 ic-min-w-[44px] ic-min-h-[44px] sm:ic-min-w-0 sm:ic-min-h-0 ic-flex ic-items-center ic-justify-center ic-transition-colors ic-focus-visible:outline-none ic-focus-visible:ring-2 ic-focus-visible:ring-white/50"
+              aria-label="Minimize chat"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <ChevronDown className="ic-w-6 ic-h-6" strokeWidth={2} />
+            </motion.button>
           </div>
         </div>
       </div>

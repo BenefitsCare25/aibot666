@@ -313,8 +313,8 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
           </div>
         )}
 
-        {/* Toggle Button - Hidden when mobile fullscreen is active */}
-        {!isMobileFullScreen && (
+        {/* Toggle Button - Hidden when chat is open (desktop uses header chevron to close) */}
+        {!isOpen && (
           <ChatButton
             isOpen={isOpen}
             onClick={handleToggle}
