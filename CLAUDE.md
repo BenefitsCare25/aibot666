@@ -206,9 +206,9 @@ window.addEventListener('message', function(event) {
 **Size states:**
 | State | Width | Height | Notes |
 |-------|-------|--------|-------|
-| Closed (button only) | 80px | 80px | Fixed size |
+| Closed (button + tooltip) | 300px | 88px | Includes padding for shadow/hover effects |
 | Open - Teaser | 380px | ~280px | 2 options + footer |
-| Open - Form | 380px | up to 700px | Expands to fit form |
+| Open - Form | 380px | up to 850px | Expands to fit form (LOG request) |
 | Mobile Open | 100vw | 100dvh | Fullscreen |
 
 **Critical CSS for measurement:**
@@ -269,6 +269,59 @@ Click through different states (teaser → form → back) and verify iframe resi
 ### Iframe not going fullscreen on mobile
 - Update `embed-helper.js` with proper fullscreen logic
 - Ensure `top: 0; left: 0; right: 0; bottom: 0` are all set
+
+### Chat button icon getting clipped/cut off
+The button can get clipped at iframe edges due to:
+- Box shadow extending beyond button bounds
+- Hover scale effect (1.05x) making button larger
+- Online indicator (green dot) overlapping button edge
+
+**Fix:** Ensure closed state iframe dimensions include padding:
+```javascript
+// ChatWidget.jsx - closed state dimensions
+window.parent.postMessage({
+  type: 'chatWidgetResize',
+  width: 300,  // Button (64px) + tooltip (~200px) + padding
+  height: 88,  // Button (64px) + shadow/indicator overlap + padding
+  state: 'closed'
+}, '*');
+```
+
+**ChatButton.jsx wrapper needs padding:**
+```javascript
+<div style={{
+  padding: '12px',  // Prevents clipping from iframe edges
+  background: 'transparent'
+}}>
+```
+
+### Chat button shadow looks awkward on hover
+Large or multi-layer shadows can create visible rectangular boundaries around the circular button.
+
+**Keep shadows simple and subtle:**
+```javascript
+// Good - single subtle shadow
+boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)'
+
+// Avoid - complex multi-layer shadows
+boxShadow: '0 6px 20px rgba(220, 38, 38, 0.35), 0 2px 8px rgba(0, 0, 0, 0.1)'
+```
+
+**Hover effect should be subtle:**
+```javascript
+onMouseEnter: scale(1.05), boxShadow: '0 6px 16px rgba(220, 38, 38, 0.4)'
+onMouseLeave: scale(1), boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)'
+```
+
+### Large gap at bottom of chat widget (open state)
+Extra whitespace below content is usually caused by padding added for elements that are hidden.
+
+**Check height calculation in ChatWidget.jsx:**
+```javascript
+// Button is hidden when chat is open, so minimal padding needed
+const height = Math.min(Math.max(contentHeight + 8, 280), 850);
+// NOT contentHeight + 80 (old value when button was visible)
+```
 
 ## Client Communication
 
