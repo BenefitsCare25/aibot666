@@ -130,12 +130,13 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     if (window.parent === window) return; // Not in iframe
 
     if (!isOpen) {
-      // Closed state: wider to accommodate tooltip bubble + button
-      // Tooltip (~190px) + gap (12px) + button (64px) + margin
+      // Closed state: accommodate tooltip bubble + button + shadows/hover effects
+      // Tooltip (~190px) + gap (12px) + button (64px) + padding (24px) = ~290px
+      // Height: button (64px) + shadow/indicator overlap + padding = 88px
       window.parent.postMessage({
         type: 'chatWidgetResize',
-        width: 280,
-        height: 80,
+        width: 300,
+        height: 88,
         state: 'closed'
       }, '*');
       return;

@@ -54,10 +54,10 @@ export default function ChatButton({ isOpen, onClick, primaryColor }) {
     background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
     color: 'white',
     border: 'none',
-    boxShadow: '0 4px 16px rgba(220, 38, 38, 0.4)',
+    boxShadow: '0 6px 20px rgba(220, 38, 38, 0.35), 0 2px 8px rgba(0, 0, 0, 0.1)',
     cursor: 'pointer',
     outline: 'none',
-    transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+    transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
   };
 
   const tooltipStyle = {
@@ -97,7 +97,12 @@ export default function ChatButton({ isOpen, onClick, primaryColor }) {
   };
 
   return (
-    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+    <div style={{
+      position: 'relative',
+      display: 'flex',
+      alignItems: 'center',
+      padding: '12px' // Prevent clipping from iframe edges
+    }}>
       {/* Tooltip bubble */}
       {showTooltip && !isOpen && (
         <div style={tooltipStyle}>
@@ -139,12 +144,12 @@ export default function ChatButton({ isOpen, onClick, primaryColor }) {
         aria-label={isOpen ? 'Close chat' : 'Open chat'}
         aria-expanded={isOpen}
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.08)';
-          e.currentTarget.style.boxShadow = '0 6px 24px rgba(220, 38, 38, 0.5)';
+          e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 10px 28px rgba(220, 38, 38, 0.45), 0 4px 12px rgba(0, 0, 0, 0.15)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-          e.currentTarget.style.boxShadow = '0 4px 16px rgba(220, 38, 38, 0.4)';
+          e.currentTarget.style.transform = 'scale(1) translateY(0)';
+          e.currentTarget.style.boxShadow = '0 6px 20px rgba(220, 38, 38, 0.35), 0 2px 8px rgba(0, 0, 0, 0.1)';
         }}
       >
         {isOpen ? (
@@ -168,8 +173,9 @@ export default function ChatButton({ isOpen, onClick, primaryColor }) {
               <rect x="7" y="9" width="10" height="1.5" rx="0.75" fill="#b5233d" />
               <rect x="7" y="12" width="6" height="1.5" rx="0.75" fill="#b5233d" />
             </svg>
-            {/* Online indicator */}
+            {/* Online indicator with pulse animation */}
             <span
+              className="online-indicator"
               style={{
                 position: 'absolute',
                 top: 2,
@@ -179,14 +185,15 @@ export default function ChatButton({ isOpen, onClick, primaryColor }) {
                 backgroundColor: '#22c55e',
                 borderRadius: '50%',
                 border: '2.5px solid white',
-                boxShadow: '0 0 0 1px rgba(34, 197, 94, 0.3)'
+                boxShadow: '0 0 0 2px rgba(34, 197, 94, 0.2)',
+                animation: 'onlinePulse 2s ease-in-out infinite'
               }}
             />
           </>
         )}
       </button>
 
-      {/* Keyframe animation for tooltip */}
+      {/* Keyframe animations */}
       <style>{`
         @keyframes slideIn {
           from {
@@ -196,6 +203,14 @@ export default function ChatButton({ isOpen, onClick, primaryColor }) {
           to {
             opacity: 1;
             transform: translateY(-50%) translateX(0);
+          }
+        }
+        @keyframes onlinePulse {
+          0%, 100% {
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+          }
+          50% {
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15), 0 0 8px rgba(34, 197, 94, 0.3);
           }
         }
       `}</style>
