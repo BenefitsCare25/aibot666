@@ -74,19 +74,27 @@
       iframe.style.left = '0';
       iframe.style.right = '0';
       iframe.style.bottom = '0';
-      iframe.style.width = '100vw';
-      iframe.style.height = '100vh';
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
       iframe.style.height = '100dvh'; // Dynamic viewport height for mobile browsers
+      iframe.style.margin = '0';
+      iframe.style.padding = '0';
+      iframe.style.border = 'none';
       iframe.style.zIndex = '999999';
       iframe.style.borderRadius = '0';
       iframe.style.boxShadow = 'none';
 
-      // Lock body scroll on mobile
+      // Lock body scroll on mobile and reset any margins
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
       document.body.style.width = '100%';
+      document.body.style.height = '100%';
       document.body.style.top = '0';
       document.body.style.left = '0';
+      document.body.style.margin = '0';
+      document.body.style.padding = '0';
+      document.documentElement.style.margin = '0';
+      document.documentElement.style.padding = '0';
     } else {
       // Desktop or closed: corner positioning
       iframe.style.position = 'fixed';
@@ -100,12 +108,17 @@
       iframe.style.borderRadius = '16px';
       iframe.style.boxShadow = 'none';
 
-      // Restore body scroll
+      // Restore body scroll and margins
       document.body.style.overflow = '';
       document.body.style.position = '';
       document.body.style.width = '';
+      document.body.style.height = '';
       document.body.style.top = '';
       document.body.style.left = '';
+      document.body.style.margin = '';
+      document.body.style.padding = '';
+      document.documentElement.style.margin = '';
+      document.documentElement.style.padding = '';
     }
   });
 
