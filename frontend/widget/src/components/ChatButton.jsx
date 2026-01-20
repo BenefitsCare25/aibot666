@@ -54,10 +54,10 @@ export default function ChatButton({ isOpen, onClick, primaryColor }) {
     background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)',
     color: 'white',
     border: 'none',
-    boxShadow: '0 6px 20px rgba(220, 38, 38, 0.35), 0 2px 8px rgba(0, 0, 0, 0.1)',
+    boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
     cursor: 'pointer',
     outline: 'none',
-    transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease'
   };
 
   const tooltipStyle = {
@@ -101,7 +101,8 @@ export default function ChatButton({ isOpen, onClick, primaryColor }) {
       position: 'relative',
       display: 'flex',
       alignItems: 'center',
-      padding: '12px' // Prevent clipping from iframe edges
+      padding: '12px', // Prevent clipping from iframe edges
+      background: 'transparent'
     }}>
       {/* Tooltip bubble */}
       {showTooltip && !isOpen && (
@@ -144,12 +145,12 @@ export default function ChatButton({ isOpen, onClick, primaryColor }) {
         aria-label={isOpen ? 'Close chat' : 'Open chat'}
         aria-expanded={isOpen}
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)';
-          e.currentTarget.style.boxShadow = '0 10px 28px rgba(220, 38, 38, 0.45), 0 4px 12px rgba(0, 0, 0, 0.15)';
+          e.currentTarget.style.transform = 'scale(1.05)';
+          e.currentTarget.style.boxShadow = '0 6px 16px rgba(220, 38, 38, 0.4)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1) translateY(0)';
-          e.currentTarget.style.boxShadow = '0 6px 20px rgba(220, 38, 38, 0.35), 0 2px 8px rgba(0, 0, 0, 0.1)';
+          e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(220, 38, 38, 0.3)';
         }}
       >
         {isOpen ? (
