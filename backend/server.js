@@ -253,13 +253,19 @@ app.get('/chat', async (req, res) => {
         return;
       }
       // Get domain: 1) from URL param, 2) from parent page (referrer), 3) fallback to current host
+      // Preserve first path segment for multi-tenant routing (e.g., /cbre, /ntuc)
       let domain = params.get('domain');
       if (!domain && document.referrer) {
         try {
-          domain = new URL(document.referrer).hostname;
+          const refUrl = new URL(document.referrer);
+          const firstPathSegment = refUrl.pathname.split('/').filter(Boolean)[0];
+          domain = firstPathSegment ? refUrl.hostname + '/' + firstPathSegment : refUrl.hostname;
         } catch (e) {}
       }
-      domain = domain || window.location.hostname;
+      if (!domain) {
+        const firstPathSegment = window.location.pathname.split('/').filter(Boolean)[0];
+        domain = firstPathSegment ? window.location.hostname + '/' + firstPathSegment : window.location.hostname;
+      }
 
       if (window.InsuranceChatWidget) {
         window.InsuranceChatWidget.init({
