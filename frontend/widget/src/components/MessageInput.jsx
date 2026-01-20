@@ -150,29 +150,30 @@ export default function MessageInput({
             }}
           />
 
-          {/* LOG Mode: Show Submit and Cancel buttons */}
+          {/* LOG Mode: Show Cancel and Submit as red icon buttons */}
           {isLogMode ? (
             <div className="ic-flex ic-gap-2">
               <button
                 onClick={onExitLogMode}
                 disabled={disabled}
-                className="ic-px-3 ic-py-2 ic-bg-gray-500 ic-text-white ic-rounded-lg ic-transition-colors hover:ic-bg-gray-600 disabled:ic-opacity-50 disabled:ic-cursor-not-allowed ic-flex ic-items-center ic-gap-1 ic-text-xs ic-whitespace-nowrap ic-flex-shrink-0"
+                className="ic-w-12 ic-h-12 ic-text-white ic-rounded-full ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-lg ic-transform hover:ic-scale-110 ic-flex ic-items-center ic-justify-center ic-flex-shrink-0"
+                style={{ background: 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)' }}
                 title="Cancel LOG request"
+                aria-label="Cancel LOG request"
               >
-                <X className="ic-w-4 ic-h-4" strokeWidth={2} />
-                <span>Cancel</span>
+                <X className="ic-w-5 ic-h-5" strokeWidth={2.5} />
               </button>
               <button
                 onClick={handleRequestLog}
                 disabled={disabled || (showEmailInput && !emailValid)}
-                className="ic-px-3 ic-py-2 ic-text-white ic-rounded-lg ic-transition-colors disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-opacity-90 ic-flex ic-items-center ic-gap-1 ic-text-xs ic-whitespace-nowrap ic-flex-shrink-0"
-                style={{ backgroundColor: '#4CAF50' }}
+                className="ic-w-12 ic-h-12 ic-text-white ic-rounded-full ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-lg ic-transform hover:ic-scale-110 ic-flex ic-items-center ic-justify-center ic-flex-shrink-0 ic-relative"
+                style={{ background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%)' }}
                 title="Submit LOG request"
+                aria-label="Submit LOG request"
               >
-                <FileText className="ic-w-4 ic-h-4" strokeWidth={2} />
-                <span>Submit LOG</span>
+                <Send className="ic-w-5 ic-h-5" strokeWidth={2.5} />
                 {attachments.length > 0 && (
-                  <span className="ic-bg-white ic-text-green-600 ic-rounded-full ic-px-1.5 ic-text-xs ic-font-semibold">
+                  <span className="ic-absolute ic--top-1 ic--right-1 ic-bg-white ic-text-red-600 ic-rounded-full ic-w-5 ic-h-5 ic-flex ic-items-center ic-justify-center ic-text-xs ic-font-bold ic-shadow">
                     {attachments.length}
                   </span>
                 )}

@@ -48,7 +48,9 @@
       "Bash(do gh api -X DELETE \"repos/BenefitsCare25/aibot666/actions/artifacts/$id\")",
       "Bash(node:*)",
       "WebFetch(domain:app-aibot-api.azurewebsites.net)",
-      "Bash(npm run build-widget:*)"
+      "Bash(npm run build-widget:*)",
+      "Bash(gh run:*)",
+      "Bash(gh workflow:*)"
     ],
     "deny": [],
     "ask": []
