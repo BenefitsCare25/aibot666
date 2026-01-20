@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useChatStore } from './store/chatStore';
 import ChatButton from './components/ChatButton';
 import ChatWindow from './components/ChatWindow';
@@ -8,6 +8,8 @@ import { Toaster } from 'react-hot-toast';
 
 export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryColor = '#3b82f6', domain = null }) {
   const [isOpen, setIsOpen] = useState(false);
+  // Ref to track if we should send resize messages (prevents stale closure issues)
+  const shouldSendResizeRef = useRef(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { initialize } = useChatStore();
 
@@ -130,6 +132,10 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     if (window.parent === window) return; // Not in iframe
 
     if (!isOpen) {
+      // Mark that we should NOT send resize messages for open state
+      // This prevents stale closures in observers from sending wrong messages
+      shouldSendResizeRef.current = false;
+
       // Closed state: accommodate tooltip bubble + button + shadows/hover effects
       // Tooltip (~190px) + gap (12px) + button (64px) + padding (24px) = ~290px
       // Height: button (64px) + shadow/indicator overlap + padding = 88px
@@ -141,6 +147,9 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
       }, '*');
       return;
     }
+
+    // Mark that we CAN send resize messages for open state
+    shouldSendResizeRef.current = true;
 
     // Mobile fullscreen
     if (isMobile) {
@@ -158,6 +167,10 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     if (!widgetRoot) return;
 
     const sendSize = () => {
+      // Check if we should still send resize messages (prevents stale closure issues)
+      // This handles the case where MutationObserver fires during logout transition
+      if (!shouldSendResizeRef.current) return;
+
       // Find the actual content container (LoginForm or ChatWindow)
       const contentContainer = widgetRoot.querySelector('[data-chat-content]');
 
