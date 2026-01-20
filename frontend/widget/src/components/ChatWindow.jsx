@@ -228,9 +228,9 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
       </div>
 
       {/* Content Area - Toggle between Messages and Quick Questions */}
-      {/* In iframe mode, wrap with style override to prevent flex collapse */}
+      {/* In iframe mode: maxHeight allows scrolling when content exceeds widget bounds */}
       {showQuickQuestions ? (
-        <div style={isInIframe ? { flex: 'none' } : undefined}>
+        <div style={isInIframe ? { flex: 'none', maxHeight: 550, overflowY: 'auto' } : { flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <QuickQuestions
             onQuestionSelect={handleQuestionSelect}
             primaryColor={primaryColor}
@@ -238,7 +238,7 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
           />
         </div>
       ) : (
-        <div style={isInIframe ? { flex: 'none' } : undefined}>
+        <div style={isInIframe ? { flex: 'none', maxHeight: 550, overflowY: 'auto' } : { flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <MessageList
             messages={messages}
             isLoading={isLoading}
