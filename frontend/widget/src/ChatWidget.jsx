@@ -314,6 +314,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
                 primaryColor={primaryColor}
                 isEmbedded={false}
                 isMobileFullScreen={isMobileFullScreen}
+                isInIframe={isInIframe}
               />
             ) : (
               <LoginForm
@@ -322,6 +323,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
                 primaryColor={primaryColor}
                 isEmbedded={false}
                 isMobileFullScreen={isMobileFullScreen}
+                isInIframe={isInIframe}
               />
             )}
           </div>

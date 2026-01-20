@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { MessageCircle, X, Mail, Phone, Loader2, FileText, ArrowRight, Paperclip, Upload, ChevronDown } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 
-export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded = false, isMobileFullScreen = false }) {
+export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded = false, isMobileFullScreen = false, isInIframe = false }) {
   // Container styles - inline for reliability
   const containerStyle = isMobileFullScreen
     ? {
@@ -22,16 +22,29 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
           flexDirection: 'column',
           overflow: 'hidden'
         }
-      : {
-          width: '100%',
-          maxWidth: 450,
-          borderRadius: 16,
-          boxShadow: '0 8px 24px rgba(231, 76, 94, 0.16)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          backgroundColor: '#ffffff'
-        };
+      : isInIframe
+        ? {
+            // In iframe: let content flow naturally for proper height measurement
+            // The iframe itself handles sizing via postMessage resize
+            width: '100%',
+            maxWidth: 380,
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: '#ffffff',
+            borderRadius: 16,
+            boxShadow: '0 8px 24px rgba(231, 76, 94, 0.16)'
+            // Note: NO overflow:hidden - allows scrollHeight measurement
+          }
+        : {
+            width: '100%',
+            maxWidth: 450,
+            borderRadius: 16,
+            boxShadow: '0 8px 24px rgba(231, 76, 94, 0.16)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            backgroundColor: '#ffffff'
+          };
   const [identifier, setIdentifier] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [error, setError] = useState('');

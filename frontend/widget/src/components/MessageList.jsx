@@ -1,9 +1,14 @@
 import Message from './Message';
 import TypingIndicator from './TypingIndicator';
 
-export default function MessageList({ messages, isLoading, messagesEndRef }) {
+export default function MessageList({ messages, isLoading, messagesEndRef, isInIframe = false }) {
+  // In iframe mode, don't use flex-1 to allow natural height for measurement
+  const containerClass = isInIframe
+    ? "ic-p-4 ic-space-y-2 ic-scrollbar ic-bg-white"
+    : "ic-flex-1 ic-overflow-y-auto ic-p-4 ic-space-y-2 ic-scrollbar ic-bg-white";
+
   return (
-    <div className="ic-flex-1 ic-overflow-y-auto ic-p-4 ic-space-y-2 ic-scrollbar ic-bg-white">
+    <div className={containerClass}>
       {messages.length === 0 && !isLoading && (
         <div className="ic-text-center ic-py-8">
           <div className="ic-w-16 ic-h-16 ic-bg-red-50 ic-rounded-full ic-flex ic-items-center ic-justify-center ic-mx-auto ic-mb-4 ic-shadow-sm">

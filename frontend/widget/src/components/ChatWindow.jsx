@@ -7,7 +7,7 @@ import MessageInput from './MessageInput';
 import QuickQuestions from './QuickQuestions';
 import { isLogCategory } from '../utils/logDetection';
 
-export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded = false, isMobileFullScreen = false }) {
+export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded = false, isMobileFullScreen = false, isInIframe = false }) {
   const {
     employeeName,
     messages,
@@ -135,19 +135,33 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
           overflow: 'hidden',
           backgroundColor: '#ffffff'
         }
-      : {
-          width: '100%',
-          maxWidth: 450,
-          maxHeight: '85vh',
-          minHeight: 400,
-          borderRadius: 16,
-          boxShadow: '0 8px 24px rgba(231, 76, 94, 0.16)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          backgroundColor: '#ffffff',
-          border: '1px solid #e5e5e5'
-        };
+      : isInIframe
+        ? {
+            // In iframe: let content flow naturally for proper height measurement
+            // The iframe itself handles sizing via postMessage resize
+            width: '100%',
+            maxWidth: 380,
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: '#ffffff',
+            borderRadius: 16,
+            boxShadow: '0 8px 24px rgba(231, 76, 94, 0.16)',
+            border: '1px solid #e5e5e5'
+            // Note: NO maxHeight, NO overflow:hidden - allows scrollHeight measurement
+          }
+        : {
+            width: '100%',
+            maxWidth: 450,
+            maxHeight: '85vh',
+            minHeight: 400,
+            borderRadius: 16,
+            boxShadow: '0 8px 24px rgba(231, 76, 94, 0.16)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            backgroundColor: '#ffffff',
+            border: '1px solid #e5e5e5'
+          };
 
   return (
     <div style={containerStyle} data-chat-content>
@@ -214,17 +228,24 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
       </div>
 
       {/* Content Area - Toggle between Messages and Quick Questions */}
+      {/* In iframe mode, wrap with style override to prevent flex collapse */}
       {showQuickQuestions ? (
-        <QuickQuestions
-          onQuestionSelect={handleQuestionSelect}
-          primaryColor={primaryColor}
-        />
+        <div style={isInIframe ? { flex: 'none' } : undefined}>
+          <QuickQuestions
+            onQuestionSelect={handleQuestionSelect}
+            primaryColor={primaryColor}
+            isInIframe={isInIframe}
+          />
+        </div>
       ) : (
-        <MessageList
-          messages={messages}
-          isLoading={isLoading}
-          messagesEndRef={messagesEndRef}
-        />
+        <div style={isInIframe ? { flex: 'none' } : undefined}>
+          <MessageList
+            messages={messages}
+            isLoading={isLoading}
+            messagesEndRef={messagesEndRef}
+            isInIframe={isInIframe}
+          />
+        </div>
       )}
 
       {/* Input - Enhanced with attachments and email */}

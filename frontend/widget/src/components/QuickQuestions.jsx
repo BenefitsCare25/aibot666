@@ -12,7 +12,7 @@ const ICON_MAP = {
   info: <Info className="ic-w-5 ic-h-5" strokeWidth={2} />
 };
 
-export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
+export default function QuickQuestions({ onQuestionSelect, primaryColor, isInIframe = false }) {
   const [quickQuestions, setQuickQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedCategory, setExpandedCategory] = useState(null);
@@ -65,10 +65,19 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
     onQuestionSelect(questionData, categoryTitle);
   };
 
+  // In iframe mode, don't use flex-1 to allow natural height for measurement
+  const containerClass = isInIframe
+    ? "ic-p-4"
+    : "ic-flex-1 ic-overflow-y-auto ic-p-4";
+
+  const mainContainerClass = isInIframe
+    ? "ic-p-5 ic-space-y-3"
+    : "ic-flex-1 ic-overflow-y-auto ic-p-5 ic-space-y-3 ic-min-h-0";
+
   if (loading) {
     return (
       <div
-        className="ic-flex-1 ic-overflow-y-auto ic-p-4"
+        className={containerClass}
         style={{ backgroundColor: 'var(--color-bg-primary)' }}
       >
         <div className="ic-text-center ic-py-8" style={{ color: 'var(--color-text-secondary)' }}>
@@ -81,7 +90,7 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
   if (quickQuestions.length === 0) {
     return (
       <div
-        className="ic-flex-1 ic-overflow-y-auto ic-p-4"
+        className={containerClass}
         style={{ backgroundColor: 'var(--color-bg-primary)' }}
       >
         <div className="ic-text-center ic-py-8" style={{ color: 'var(--color-text-secondary)' }}>
@@ -93,7 +102,7 @@ export default function QuickQuestions({ onQuestionSelect, primaryColor }) {
 
   return (
     <div
-      className="ic-flex-1 ic-overflow-y-auto ic-p-5 ic-space-y-3 ic-min-h-0"
+      className={mainContainerClass}
       style={{ backgroundColor: 'var(--color-bg-primary)' }}
     >
       {/* Header */}
