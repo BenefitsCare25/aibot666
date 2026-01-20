@@ -170,9 +170,9 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         contentHeight = widgetRoot.scrollHeight;
       }
 
-      // Add padding for button below and ensure min/max bounds
+      // Small padding for visual breathing room (button is hidden when open)
       // Min 280 for teaser, max 850 for longer forms (LOG request)
-      const height = Math.min(Math.max(contentHeight + 80, 280), 850);
+      const height = Math.min(Math.max(contentHeight + 8, 280), 850);
 
       window.parent.postMessage({
         type: 'chatWidgetResize',
