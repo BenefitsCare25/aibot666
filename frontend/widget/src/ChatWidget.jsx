@@ -130,10 +130,11 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     if (window.parent === window) return; // Not in iframe
 
     if (!isOpen) {
-      // Closed state: small fixed size for button only
+      // Closed state: wider to accommodate tooltip bubble + button
+      // Tooltip (~190px) + gap (12px) + button (64px) + margin
       window.parent.postMessage({
         type: 'chatWidgetResize',
-        width: 80,
+        width: 280,
         height: 80,
         state: 'closed'
       }, '*');
@@ -255,7 +256,10 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
           // In iframe: let content determine height naturally
           // The iframe itself handles the positioning on the parent page
           position: 'relative',
-          width: '100%'
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: isOpen ? 'stretch' : 'flex-end' // Button to right when closed
         }
       : {
           // Not in iframe: fixed positioning at bottom-right corner
