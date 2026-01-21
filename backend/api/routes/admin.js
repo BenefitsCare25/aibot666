@@ -20,7 +20,7 @@ import {
   deactivateEmployeesBulk
 } from '../services/vectorDB.js';
 import supabase from '../../config/supabase.js';
-import { getAllCompanies, getCompanyById } from '../services/companySchema.js';
+import { getAllCompanies, getCompanyById, normalizeDomain } from '../services/companySchema.js';
 import { companyContextMiddleware, adminContextMiddleware, invalidateCompanyCache } from '../middleware/companyContext.js';
 import {
   createCompanySchema,
@@ -1440,9 +1440,11 @@ router.get('/companies/:id/embed-code', async (req, res) => {
     // Get API URL from environment or construct from request
     const apiUrl = process.env.API_URL || process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
 
-    // Encode domain for URL (handles paths like benefits-staging.inspro.com.sg/cbre)
+    // Normalize and encode domain for URL (handles paths like benefits-staging.inspro.com.sg/cbre)
+    // Normalization strips https://, www., etc. so embed code is clean
     // Domain must be explicitly passed because cross-origin referrer policy strips the path
-    const encodedDomain = encodeURIComponent(company.domain);
+    const normalizedDomain = normalizeDomain(company.domain);
+    const encodedDomain = encodeURIComponent(normalizedDomain);
 
     // Iframe embed code (sandboxed for maximum security)
     // Uses hosted embed-helper.js for automatic updates and mobile fullscreen support
