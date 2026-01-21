@@ -22,7 +22,7 @@ Clients embed this code on their website (get from Admin Portal → Company Mana
 <!-- Company Name AI Chatbot Widget -->
 <iframe
   id="chat-widget-iframe"
-  src="https://app-aibot-api.azurewebsites.net/chat?company=COMPANY_ID&color=%233b82f6"
+  src="https://app-aibot-api.azurewebsites.net/chat?company=COMPANY_ID&domain=ENCODED_DOMAIN&color=%233b82f6"
   style="position: fixed; bottom: 16px; right: 16px; width: 200px; height: 80px; border: none; background: transparent; z-index: 9999; transition: all 0.3s ease;"
   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
   allow="clipboard-write"
@@ -35,6 +35,8 @@ Clients embed this code on their website (get from Admin Portal → Company Mana
 ```
 
 **Note:** Only iframe embed is supported. Auto-initialize and manual-initialize methods have been removed.
+
+**Important:** The `domain` parameter is required for multi-tenant domains (see below).
 
 ### Files That Auto-Update on Client Sites
 
@@ -256,7 +258,63 @@ URL: `https://app-aibot-api.azurewebsites.net/test-iframe-mobile.html`
 
 Click through different states (teaser → form → back) and verify iframe resizes smoothly.
 
+## Multi-Tenant Domain Routing
+
+### How Domain Detection Works
+
+The widget identifies which company to load based on domain. The `/chat` page tries to detect the domain in this order:
+1. `domain` URL parameter (explicit, most reliable)
+2. `document.referrer` (parent page URL)
+3. `window.location.hostname` (fallback)
+
+### Why the `domain` Parameter is Required for Multi-Tenant Sites
+
+**Problem:** For multi-tenant sites like `benefits-staging.inspro.com.sg/cbre`, the company is registered with a path (`/cbre`). However, the browser's `Referrer-Policy: strict-origin-when-cross-origin` strips the path from cross-origin referrers.
+
+| Domain Type | Example | Referrer Sends | Works? |
+|-------------|---------|----------------|--------|
+| Simple (no path) | `excel-transformer-rg.azurewebsites.net` | `excel-transformer-rg.azurewebsites.net` | ✅ Yes |
+| Multi-tenant (with path) | `benefits-staging.inspro.com.sg/cbre` | `benefits-staging.inspro.com.sg` (path stripped!) | ❌ No |
+
+**Solution:** The embed code must explicitly include the `domain` parameter:
+```
+src="...?company=ID&domain=benefits-staging.inspro.com.sg%2Fcbre&color=..."
+```
+
+Note: `%2F` is the URL-encoded `/`.
+
+### Domain Registration
+
+Companies are registered in the `companies` table with:
+- `domain`: Primary domain (e.g., `benefits-staging.inspro.com.sg/cbre`)
+- `additional_domains`: Array of alternate domains
+
+The `normalizeDomain()` function in `backend/api/services/companySchema.js`:
+- Removes protocol (`https://`)
+- Removes `www.`
+- **Preserves path** for multi-tenant routing
+- Removes trailing slash
+
+### Debugging Domain Issues
+
+If chatbot doesn't appear, test the domain:
+```bash
+curl -s "https://app-aibot-api.azurewebsites.net/api/chat/session" \
+  -H "X-Widget-Domain: YOUR_DOMAIN_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{"identifier":"test"}'
+```
+
+- `"Employee not found"` = Domain works, company found
+- `"Company not found for this domain"` = Domain mismatch, check registration
+
 ## Common Issues & Fixes
+
+### Chatbot not appearing on client site
+Most likely a domain mismatch. See "Multi-Tenant Domain Routing" section above.
+- Verify the `domain` parameter is in the embed code URL
+- Check the company's registered domain includes the path if multi-tenant
+- Test with curl to confirm domain works
 
 ### Mobile input area cut off
 - Add `paddingBottom: env(safe-area-inset-bottom)` to input container
