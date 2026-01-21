@@ -1440,12 +1440,16 @@ router.get('/companies/:id/embed-code', async (req, res) => {
     // Get API URL from environment or construct from request
     const apiUrl = process.env.API_URL || process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
 
+    // Encode domain for URL (handles paths like benefits-staging.inspro.com.sg/cbre)
+    // Domain must be explicitly passed because cross-origin referrer policy strips the path
+    const encodedDomain = encodeURIComponent(company.domain);
+
     // Iframe embed code (sandboxed for maximum security)
     // Uses hosted embed-helper.js for automatic updates and mobile fullscreen support
     const embedCodeIframe = `<!-- ${company.name} AI Chatbot Widget -->
 <iframe
   id="chat-widget-iframe"
-  src="${apiUrl}/chat?company=${company.id}&color=%233b82f6"
+  src="${apiUrl}/chat?company=${company.id}&domain=${encodedDomain}&color=%233b82f6"
   style="position: fixed; bottom: 16px; right: 16px; width: 200px; height: 80px; border: none; background: transparent; z-index: 9999;"
   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
   allow="clipboard-write"
