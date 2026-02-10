@@ -60,18 +60,6 @@ export async function companyContextMiddleware(req, res, next) {
       }
     }
 
-    // Domain spoofing warning (log only, don't block)
-    const origin = req.headers.origin;
-    if (origin && company.domain) {
-      try {
-        const originHost = new URL(origin).hostname;
-        const companyHost = company.domain.split('/')[0];
-        if (originHost !== companyHost && originHost !== 'localhost') {
-          console.warn(`[Security] Origin mismatch: Origin=${originHost}, Company=${companyHost}, CompanyId=${company.id}`);
-        }
-      } catch (_) { /* ignore parse errors */ }
-    }
-
     // Check if company is active
     if (company.status !== 'active') {
       return res.status(403).json({
@@ -98,11 +86,6 @@ export async function companyContextMiddleware(req, res, next) {
       log_request_email_cc: company.log_request_email_cc || null,
       log_request_keywords: company.log_request_keywords || null
     };
-
-    // Log AI settings for debugging
-    if (company.ai_settings) {
-    } else {
-    }
 
     // Add schema name directly for easy access
     req.companySchema = company.schema_name;
