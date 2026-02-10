@@ -4,6 +4,7 @@
  */
 
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import {
   hashPassword,
@@ -15,6 +16,7 @@ import {
 } from '../utils/auth.js';
 import { supabase } from '../../config/supabase.js';
 import { authenticateToken, requireSuperAdmin } from '../middleware/authMiddleware.js';
+import { redis } from '../utils/redisClient.js';
 
 const router = express.Router();
 
@@ -37,6 +39,17 @@ router.post('/login', [
     }
 
     const { username, password } = req.body;
+
+    // Account lockout check
+    const lockoutKey = `login_lockout:${username}`;
+    const failCount = parseInt(await redis.get(lockoutKey)) || 0;
+    if (failCount >= 5) {
+      const ttl = await redis.ttl(lockoutKey);
+      return res.status(429).json({
+        error: 'Account locked',
+        message: `Too many failed attempts. Try again in ${Math.ceil(ttl / 60)} minute(s).`
+      });
+    }
 
     // Find user by username
     const { data: user, error } = await supabase
@@ -83,8 +96,12 @@ router.post('/login', [
     // Verify password
     const isPasswordValid = await comparePassword(password, user.password_hash);
     if (!isPasswordValid) {
+      // Increment lockout counter (15 min window)
+      const newCount = await redis.incr(lockoutKey);
+      if (newCount === 1) await redis.expire(lockoutKey, 900);
+
       await logAuditAction(user.id, 'LOGIN_FAILED', {
-        metadata: { username, reason: 'invalid_password' },
+        metadata: { username, reason: 'invalid_password', attemptCount: newCount },
         ip: req.ip,
         userAgent: req.get('user-agent')
       });
@@ -94,6 +111,9 @@ router.post('/login', [
         message: 'Username or password is incorrect'
       });
     }
+
+    // Clear lockout on successful login
+    await redis.del(lockoutKey);
 
     // Generate JWT token
     const tokenPayload = {
@@ -216,11 +236,23 @@ router.get('/me', authenticateToken, async (req, res) => {
  */
 router.post('/refresh', authenticateToken, async (req, res) => {
   try {
-    // Generate new token with same payload
+    // Decode original token to preserve sessionId
+    let originalSessionId = null;
+    try {
+      const authHeader = req.headers.authorization;
+      const token = req.cookies?.adminToken || (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null);
+      if (token) {
+        const decoded = jwt.decode(token);
+        originalSessionId = decoded?.sessionId;
+      }
+    } catch (_) { /* ignore decode errors */ }
+
+    // Generate new token with same payload including sessionId
     const tokenPayload = {
       userId: req.user.id,
       username: req.user.username,
-      role: req.user.role
+      role: req.user.role,
+      ...(originalSessionId && { sessionId: originalSessionId })
     };
     const newToken = generateToken(tokenPayload);
 

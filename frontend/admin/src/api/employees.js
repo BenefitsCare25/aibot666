@@ -61,31 +61,8 @@ export const employeeApi = {
 
   // Download Excel template
   downloadTemplate: async () => {
-    // Use axios directly to bypass response interceptor that unwraps response.data
-    const axios = (await import('axios')).default;
-    const response = await axios.get(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/employees/template`,
-      {
-        responseType: 'blob',
-        headers: {
-          'Authorization': localStorage.getItem('adminToken') ? `Bearer ${localStorage.getItem('adminToken')}` : '',
-          'X-Widget-Domain': localStorage.getItem('selected_company_domain') || ''
-        }
-      }
-    );
-
-    const blob = new Blob([response.data], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    });
-
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'employee_template.xlsx';
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    const { downloadFile } = await import('./client.js');
+    await downloadFile('/api/admin/employees/template', 'employee_template.xlsx');
   },
 
   // Deactivate employee (soft delete)

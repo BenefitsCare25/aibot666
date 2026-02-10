@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import axios from 'axios';
 
+// Shared helpers for domain resolution and headers
+const getDomain = (state) => state.domain || window.location.hostname;
+const getHeaders = (state, contentType = 'application/json') => ({
+  ...(contentType && { 'Content-Type': contentType }),
+  'X-Widget-Domain': getDomain(state)
+});
+
 export const useChatStore = create((set, get) => ({
   // State
   apiUrl: '',
@@ -20,6 +27,8 @@ export const useChatStore = create((set, get) => ({
   userEmail: '', // User's email for acknowledgment
   showEmailInput: false, // Whether to show email input field
   isLogMode: false, // Track if user is in LOG request mode
+  uploadError: null, // Error from file upload
+  logError: null, // Error from LOG request
 
   // Actions
   initialize: (apiUrl, domain = null) => {
@@ -39,7 +48,9 @@ export const useChatStore = create((set, get) => ({
       logRequested: false,
       userEmail: '',
       showEmailInput: false,
-      isLogMode: false
+      isLogMode: false,
+      uploadError: null,
+      logError: null
     });
   },
 
@@ -100,7 +111,7 @@ export const useChatStore = create((set, get) => ({
 
     // Add user message immediately
     const userMessage = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       role: 'user',
       content: message,
       timestamp: new Date().toISOString()
@@ -127,7 +138,7 @@ export const useChatStore = create((set, get) => ({
 
         // Add AI response
         const aiMessage = {
-          id: (Date.now() + 1).toString(),
+          id: crypto.randomUUID(),
           role: 'assistant',
           content: answer,
           confidence,
@@ -150,7 +161,7 @@ export const useChatStore = create((set, get) => ({
 
       // Add error message
       const errorMsg = {
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID(),
         role: 'assistant',
         content: `Sorry, I encountered an error: ${errorMessage}. Please try again.`,
         isError: true,
@@ -243,7 +254,7 @@ export const useChatStore = create((set, get) => ({
       }
     } catch (error) {
       console.error('Error uploading attachment:', error);
-      alert('Failed to upload file. Please try again.');
+      set({ uploadError: 'Failed to upload file. Please try again.' });
     } finally {
       set({ uploadingAttachment: false });
     }
@@ -291,7 +302,7 @@ Alternatively, you may provide the following information:
 - Medical Condition:`;
 
     const botMessage = {
-      id: `assistant-log-${Date.now()}`,
+      id: `assistant-log-${crypto.randomUUID()}`,
       role: 'assistant',
       content: botMessageContent,
       timestamp: new Date().toISOString(),
@@ -352,7 +363,7 @@ Alternatively, you may provide the following information:
 
     if (userMessageContent) {
       const userMessage = {
-        id: `user-log-${Date.now()}`,
+        id: `user-log-${crypto.randomUUID()}`,
         role: 'user',
         content: userMessageContent,
         timestamp: new Date().toISOString()
@@ -394,7 +405,7 @@ Alternatively, you may provide the following information:
 
         set(state => ({
           messages: [...state.messages, {
-            id: `assistant-log-confirm-${Date.now()}`,
+            id: `assistant-log-confirm-${crypto.randomUUID()}`,
             role: 'assistant',
             content: `✅ Your LOG request has been sent to our support team. They will review your conversation and get back to you shortly.${emailConfirmation}`,
             timestamp: new Date().toISOString()
@@ -404,7 +415,7 @@ Alternatively, you may provide the following information:
       }
     } catch (error) {
       console.error('Error requesting LOG:', error);
-      alert('Failed to send LOG request. Please try again.');
+      set({ logError: 'Failed to send LOG request. Please try again.' });
     } finally {
       set({ isLoading: false });
     }

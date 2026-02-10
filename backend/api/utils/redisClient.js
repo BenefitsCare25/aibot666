@@ -15,7 +15,7 @@ const redis = new Redis(REDIS_URL, {
   maxRetriesPerRequest: 3,
   enableReadyCheck: true,
   tls: REDIS_URL.startsWith('rediss://') ? {
-    rejectUnauthorized: false  // Required for Redis Cloud/Azure
+    rejectUnauthorized: process.env.REDIS_TLS_REJECT_UNAUTHORIZED !== 'false'
   } : undefined,
   retryStrategy(times) {
     const delay = Math.min(times * 50, 2000);

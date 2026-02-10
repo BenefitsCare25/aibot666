@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { MessageCircle, X, Mail, Phone, Loader2, FileText, ArrowRight, Paperclip, Upload, ChevronDown } from 'lucide-react';
+import { ChevronDown, Mail } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
+import OptionSelector from './login/OptionSelector';
+import ChatLoginForm from './login/ChatLoginForm';
+import LogRequestForm from './login/LogRequestForm';
+import CallbackForm from './login/CallbackForm';
+import SuccessScreen from './login/SuccessScreen';
 
 export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded = false, isMobileFullScreen = false, isInIframe = false }) {
-  // Container styles - inline for reliability
   const containerStyle = isMobileFullScreen
     ? {
         width: '100%',
@@ -24,8 +28,6 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
         }
       : isInIframe
         ? {
-            // In iframe: let content flow naturally for proper height measurement
-            // The iframe itself handles sizing via postMessage resize
             width: '100%',
             maxWidth: 380,
             display: 'flex',
@@ -33,7 +35,6 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
             backgroundColor: '#ffffff',
             borderRadius: 16,
             boxShadow: '0 8px 24px rgba(231, 76, 94, 0.16)'
-            // Note: NO overflow:hidden - allows scrollHeight measurement
           }
         : {
             width: '100%',
@@ -45,6 +46,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
             overflow: 'hidden',
             backgroundColor: '#ffffff'
           };
+
   const [identifier, setIdentifier] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [error, setError] = useState('');
@@ -58,6 +60,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
   const [uploadingFile, setUploadingFile] = useState(false);
   const [logSubmitted, setLogSubmitted] = useState(false);
   const { createSession, apiUrl, domain: companyDomain } = useChatStore();
+
+  const getDomain = () => companyDomain || window.location.hostname;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -76,9 +80,6 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
       onLogin(sessionData);
     } catch (err) {
       const errorMessage = err.message || 'Failed to start chat session';
-
-      // Show callback form for employee validation errors (not found OR deactivated)
-      // This includes: "Employee not found", "Failed to create session" (when employee is deactivated)
       const isEmployeeValidationError =
         errorMessage.includes('Employee not found') ||
         errorMessage.includes('employee not found') ||
@@ -86,9 +87,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
 
       if (isEmployeeValidationError) {
         setError('Invalid credentials, please contact helpdesk at 64487707');
-        setShowCallbackForm(true); // Show callback form for any employee validation failure
+        setShowCallbackForm(true);
       } else {
-        // Only server/network errors go here
         setError(errorMessage);
         setShowCallbackForm(false);
       }
@@ -107,7 +107,6 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
       return;
     }
 
-    // Basic phone number validation (at least 8 digits)
     const phoneRegex = /^\+?[\d\s\-()]{8,}$/;
     if (!phoneRegex.test(contactNumber.trim())) {
       setError('Please enter a valid contact number');
@@ -117,14 +116,11 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
     setIsLoading(true);
 
     try {
-      // Use domain from store (passed via init config), fallback to current hostname
-      const domain = companyDomain || window.location.hostname;
-
       const response = await fetch(`${apiUrl}/api/chat/callback-request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Widget-Domain': domain
+          'X-Widget-Domain': getDomain()
         },
         body: JSON.stringify({
           contactNumber: contactNumber.trim(),
@@ -132,10 +128,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
         })
       });
 
-      // Get response text first to handle potential parsing errors
       const responseText = await response.text();
-
-      // Try to parse as JSON
       let data;
       try {
         data = responseText ? JSON.parse(responseText) : {};
@@ -144,14 +137,12 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
         throw new Error(`Server returned invalid response: ${responseText || 'Empty response'}`);
       }
 
-      // Check if response is OK
       if (!response.ok) {
-        const errorMessage = data.error || `Server error: ${response.status} ${response.statusText}`;
-        throw new Error(errorMessage);
+        throw new Error(data.error || `Server error: ${response.status} ${response.statusText}`);
       }
 
       setSuccessMessage('Our team will contact you within the next working day');
-      setContactNumber(''); // Clear the input
+      setContactNumber('');
     } catch (err) {
       console.error('Error submitting callback request:', err);
       setError(err.message || 'Failed to submit contact number. Please try again.');
@@ -173,16 +164,14 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
 
     try {
       for (const file of files) {
-        // Check file size (max 10MB)
         if (file.size > 10 * 1024 * 1024) {
           setError(`File ${file.name} is too large. Maximum size is 10MB.`);
           continue;
         }
 
-        // Convert file to base64
         const reader = new FileReader();
         const base64Promise = new Promise((resolve, reject) => {
-          reader.onload = () => resolve(reader.result.split(',')[1]); // Remove data:mime;base64, prefix
+          reader.onload = () => resolve(reader.result.split(',')[1]);
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
@@ -202,7 +191,6 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
       setError('Failed to process file. Please try again.');
     } finally {
       setUploadingFile(false);
-      // Reset file input
       e.target.value = null;
     }
   };
@@ -221,7 +209,6 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
       return;
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(logEmail.trim())) {
       setError('Please enter a valid email address');
@@ -231,13 +218,11 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
     setIsLoading(true);
 
     try {
-      const domain = companyDomain || window.location.hostname;
-
       const response = await fetch(`${apiUrl}/api/chat/anonymous-log-request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Widget-Domain': domain
+          'X-Widget-Domain': getDomain()
         },
         body: JSON.stringify({
           email: logEmail.trim(),
@@ -248,7 +233,6 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
       });
 
       const responseText = await response.text();
-
       let data;
       try {
         data = responseText ? JSON.parse(responseText) : {};
@@ -258,13 +242,11 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
       }
 
       if (!response.ok) {
-        const errorMessage = data.error || `Server error: ${response.status} ${response.statusText}`;
-        throw new Error(errorMessage);
+        throw new Error(data.error || `Server error: ${response.status} ${response.statusText}`);
       }
 
       setSuccessMessage('Your LOG request has been submitted successfully. You will receive a confirmation email shortly.');
       setLogSubmitted(true);
-      // Don't clear form fields - keep them visible in success state
     } catch (err) {
       console.error('Error submitting LOG request:', err);
       setError(err.message || 'Failed to submit LOG request. Please try again.');
@@ -273,9 +255,19 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
     }
   };
 
+  const handleSubmitAnother = () => {
+    setLogSubmitted(false);
+    setLogEmail('');
+    setLogDescription('');
+    setLogAttachments([]);
+    setSuccessMessage('');
+    setError('');
+    setSelectedOption(null);
+  };
+
   return (
     <div style={containerStyle} data-chat-content>
-      {/* Header with Red Gradient - Mobile Optimized */}
+      {/* Header */}
       <div
         className="ic-p-4 sm:ic-p-6 ic-text-white ic-relative ic-flex-shrink-0"
         style={{
@@ -286,13 +278,12 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
         <div className="ic-flex ic-items-start ic-justify-between">
           <div className="ic-flex-1">
             <h3 className="ic-text-lg sm:ic-text-2xl ic-font-medium ic-mb-0.5 sm:ic-mb-1">
-              Hi there <span className="ic-inline-block ic-animate-wave">👋</span>
+              Hi there <span className="ic-inline-block ic-animate-wave">&#128075;</span>
             </h3>
             <h2 className="ic-text-2xl sm:ic-text-4xl ic-font-bold ic-leading-tight">
               How can we help?
             </h2>
           </div>
-          {/* Minimize/close button - chevron down */}
           <button
             onClick={onClose}
             className="ic-text-white hover:ic-bg-white/20 ic-rounded-full ic-p-2 ic-transition-all ic-duration-200 ic-ml-4 ic-min-w-[44px] ic-min-h-[44px] ic-flex ic-items-center ic-justify-center"
@@ -315,462 +306,61 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
           backgroundColor: '#ffffff'
         }}
       >
-        {/* Show option cards when no option is selected */}
         {selectedOption === null && (
-          <div className="ic-space-y-3">
-            {/* Chat Option Card */}
-            <motion.button
-              onClick={() => setSelectedOption('chat')}
-              className="ic-w-full ic-p-4 ic-rounded-xl ic-bg-white ic-shadow-soft hover:ic-shadow-soft-lg ic-transition-all ic-flex ic-items-center ic-justify-between ic-group"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <span className="ic-text-base ic-font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                Send us a message
-              </span>
-              <ArrowRight className="ic-w-5 ic-h-5 group-hover:ic-translate-x-1 ic-transition-transform" style={{ color: 'var(--color-text-secondary)' }} strokeWidth={2} />
-            </motion.button>
-
-            {/* LOG Request Option Card */}
-            <motion.button
-              onClick={() => setSelectedOption('log')}
-              className="ic-w-full ic-p-4 ic-rounded-xl ic-bg-white ic-shadow-soft hover:ic-shadow-soft-lg ic-transition-all ic-flex ic-items-center ic-justify-between ic-group"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className="ic-flex ic-items-center ic-gap-3">
-                <FileText className="ic-w-5 ic-h-5" style={{ color: 'var(--color-text-secondary)' }} strokeWidth={2} />
-                <span className="ic-text-base ic-font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                  Request Letter of Guarantee
-                </span>
-              </div>
-              <ArrowRight className="ic-w-5 ic-h-5 group-hover:ic-translate-x-1 ic-transition-transform" style={{ color: 'var(--color-text-secondary)' }} strokeWidth={2} />
-            </motion.button>
-          </div>
+          <OptionSelector
+            onSelectChat={() => setSelectedOption('chat')}
+            onSelectLog={() => setSelectedOption('log')}
+          />
         )}
 
-        {/* Chat Form */}
         {selectedOption === 'chat' && (
-          <form onSubmit={handleSubmit} className="ic-space-y-4">
-          <div>
-            <label
-              htmlFor="identifier"
-              className="ic-block ic-text-sm ic-font-semibold ic-mb-2"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              Employee ID / User ID / Email
-            </label>
-            <input
-              type="text"
-              id="identifier"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="e.g., EMP001 or user@example.com"
-              className="ic-w-full ic-px-4 ic-py-3 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 ic-shadow-soft ic-transition-all"
-              style={{
-                backgroundColor: '#ffffff',
-                border: 'none',
-                color: 'var(--color-text-primary)'
-              }}
-              disabled={isLoading}
-              autoFocus
-            />
-          </div>
-
-          <motion.button
-            type="submit"
-            disabled={isLoading}
-            className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-soft-lg"
-            style={{ background: 'var(--gradient-primary)' }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {isLoading ? (
-              <span className="ic-flex ic-items-center ic-justify-center ic-gap-2">
-                <Loader2 className="ic-animate-spin ic-h-4 ic-w-4" />
-                Starting...
-              </span>
-            ) : (
-              'Start Chat'
-            )}
-          </motion.button>
-
-          {/* Back button */}
-          <button
-            type="button"
-            onClick={() => setSelectedOption(null)}
-            className="ic-w-full ic-text-sm ic-py-2 ic-text-center ic-transition-colors"
-            style={{ color: 'var(--color-text-tertiary)' }}
-          >
-            ← Back to options
-          </button>
-        </form>
+          <ChatLoginForm
+            identifier={identifier}
+            setIdentifier={setIdentifier}
+            isLoading={isLoading}
+            onSubmit={handleSubmit}
+            onBack={() => setSelectedOption(null)}
+          />
         )}
 
-        {/* LOG Request Form */}
         {selectedOption === 'log' && !logSubmitted && (
-          <form onSubmit={handleLogRequestSubmit} className="ic-space-y-4">
-            <div>
-              <label
-                htmlFor="logEmail"
-                className="ic-block ic-text-sm ic-font-semibold ic-mb-2"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                Email Address *
-              </label>
-              <input
-                type="email"
-                id="logEmail"
-                value={logEmail}
-                onChange={(e) => setLogEmail(e.target.value)}
-                placeholder="your.email@example.com"
-                className="ic-w-full ic-px-4 ic-py-3 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 ic-shadow-soft ic-transition-all"
-                style={{
-                  backgroundColor: '#ffffff',
-                  border: 'none',
-                  color: 'var(--color-text-primary)'
-                }}
-                disabled={isLoading}
-                autoFocus
-                required
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="logDescription"
-                className="ic-block ic-text-sm ic-font-semibold ic-mb-2"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                Description / Additional Details
-              </label>
-              <textarea
-                id="logDescription"
-                value={logDescription}
-                onChange={(e) => setLogDescription(e.target.value)}
-                placeholder="Please provide details about your LOG request..."
-                rows={4}
-                className="ic-w-full ic-px-4 ic-py-3 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 ic-shadow-soft ic-transition-all ic-resize-none"
-                style={{
-                  backgroundColor: '#ffffff',
-                  border: 'none',
-                  color: 'var(--color-text-primary)'
-                }}
-                disabled={isLoading}
-              />
-              <p
-                className="ic-text-xs ic-mt-2 ic-italic"
-                style={{ color: 'var(--color-text-tertiary)' }}
-              >
-                Attach Financial Care Cost/Pre-admission Hospital Form
-              </p>
-            </div>
-
-            {/* File Upload Section */}
-            <div>
-              <label
-                className="ic-block ic-text-sm ic-font-semibold ic-mb-2"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                Attachments (Optional)
-              </label>
-
-              {/* File Upload Button */}
-              <label
-                htmlFor="logFileUpload"
-                className={`ic-flex ic-items-center ic-justify-center ic-gap-2 ic-w-full ic-px-4 ic-py-3 ic-rounded-xl ic-border-2 ic-border-dashed ic-transition-all ic-cursor-pointer ${
-                  uploadingFile || isLoading ? 'ic-opacity-50 ic-cursor-not-allowed' : 'hover:ic-border-red-400 hover:ic-bg-red-50'
-                }`}
-                style={{
-                  borderColor: 'var(--color-border)',
-                  backgroundColor: 'var(--color-bg-secondary)'
-                }}
-              >
-                {uploadingFile ? (
-                  <>
-                    <Loader2 className="ic-w-5 ic-h-5 ic-animate-spin" style={{ color: 'var(--color-text-secondary)' }} />
-                    <span className="ic-text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                      Processing...
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="ic-w-5 ic-h-5" style={{ color: 'var(--color-text-secondary)' }} />
-                    <span className="ic-text-sm ic-font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                      Click to upload files
-                    </span>
-                  </>
-                )}
-              </label>
-              <input
-                id="logFileUpload"
-                type="file"
-                multiple
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif"
-                onChange={handleFileUpload}
-                disabled={uploadingFile || isLoading || logAttachments.length >= 5}
-                className="ic-hidden"
-              />
-              <p
-                className="ic-text-xs ic-mt-2 ic-italic"
-                style={{ color: 'var(--color-text-tertiary)' }}
-              >
-                Max 5 files, 10MB each. Supported: PDF, DOC, XLS, Images
-              </p>
-
-              {/* Display uploaded files */}
-              {logAttachments.length > 0 && (
-                <div className="ic-mt-3 ic-space-y-2">
-                  {logAttachments.map((attachment) => (
-                    <div
-                      key={attachment.id}
-                      className="ic-flex ic-items-center ic-justify-between ic-p-2 ic-rounded-lg ic-bg-white ic-shadow-soft"
-                    >
-                      <div className="ic-flex ic-items-center ic-gap-2 ic-flex-1 ic-min-w-0">
-                        <Paperclip className="ic-w-4 ic-h-4 ic-flex-shrink-0" style={{ color: 'var(--color-text-secondary)' }} />
-                        <span
-                          className="ic-text-sm ic-truncate"
-                          style={{ color: 'var(--color-text-primary)' }}
-                          title={attachment.name}
-                        >
-                          {attachment.name}
-                        </span>
-                        <span
-                          className="ic-text-xs ic-flex-shrink-0"
-                          style={{ color: 'var(--color-text-tertiary)' }}
-                        >
-                          ({(attachment.size / 1024 / 1024).toFixed(2)} MB)
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeAttachment(attachment.id)}
-                        disabled={isLoading}
-                        className="ic-ml-2 ic-p-1 ic-rounded-full hover:ic-bg-red-50 ic-transition-colors disabled:ic-opacity-50"
-                        aria-label="Remove attachment"
-                      >
-                        <X className="ic-w-4 ic-h-4 ic-text-red-600" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <motion.button
-              type="submit"
-              disabled={isLoading || uploadingFile}
-              className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-soft-lg"
-              style={{ background: 'var(--gradient-primary)' }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {isLoading ? (
-                <span className="ic-flex ic-items-center ic-justify-center ic-gap-2">
-                  <Loader2 className="ic-animate-spin ic-h-4 ic-w-4" />
-                  Submitting...
-                </span>
-              ) : (
-                'Submit LOG Request'
-              )}
-            </motion.button>
-
-            {/* Back button */}
-            <button
-              type="button"
-              onClick={() => setSelectedOption(null)}
-              className="ic-w-full ic-text-sm ic-py-2 ic-text-center ic-transition-colors"
-              style={{ color: 'var(--color-text-tertiary)' }}
-            >
-              ← Back to options
-            </button>
-          </form>
+          <LogRequestForm
+            logEmail={logEmail}
+            setLogEmail={setLogEmail}
+            logDescription={logDescription}
+            setLogDescription={setLogDescription}
+            logAttachments={logAttachments}
+            uploadingFile={uploadingFile}
+            isLoading={isLoading}
+            onSubmit={handleLogRequestSubmit}
+            onFileUpload={handleFileUpload}
+            onRemoveAttachment={removeAttachment}
+            onBack={() => setSelectedOption(null)}
+          />
         )}
 
-        {/* LOG Request Success State */}
         {selectedOption === 'log' && logSubmitted && (
-          <motion.div
-            className="ic-space-y-4"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            {/* Success Icon and Message */}
-            <div className="ic-text-center ic-py-8">
-              <motion.div
-                className="ic-w-20 ic-h-20 ic-mx-auto ic-mb-4 ic-bg-green-100 ic-rounded-full ic-flex ic-items-center ic-justify-center"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", delay: 0.2 }}
-              >
-                <svg
-                  className="ic-w-10 ic-h-10 ic-text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </motion.div>
-
-              <h3
-                className="ic-text-2xl ic-font-bold ic-mb-2"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                Request Submitted!
-              </h3>
-
-              <p
-                className="ic-text-base"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                Your LOG request has been successfully submitted. You will receive a confirmation email at <strong>{logEmail}</strong> shortly.
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="ic-space-y-2">
-              <motion.button
-                type="button"
-                onClick={onClose}
-                className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all hover:ic-shadow-soft-lg"
-                style={{ background: 'var(--gradient-primary)' }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Close
-              </motion.button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setLogSubmitted(false);
-                  setLogEmail('');
-                  setLogDescription('');
-                  setLogAttachments([]);
-                  setSuccessMessage('');
-                  setError('');
-                  setSelectedOption(null);
-                }}
-                className="ic-w-full ic-text-sm ic-py-2 ic-text-center ic-transition-colors"
-                style={{ color: 'var(--color-text-tertiary)' }}
-              >
-                ← Submit Another Request
-              </button>
-            </div>
-          </motion.div>
+          <SuccessScreen
+            email={logEmail}
+            onClose={onClose}
+            onSubmitAnother={handleSubmitAnother}
+          />
         )}
 
-        {/* Show callback form only when employee ID validation fails */}
+        {/* Callback Form (shown after failed login) */}
         <AnimatePresence>
           {showCallbackForm && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              {/* Divider */}
-              <div className="ic-my-4 ic-flex ic-items-center">
-                <div
-                  className="ic-flex-1 ic-border-t"
-                  style={{ borderColor: 'var(--color-border)' }}
-                ></div>
-                <span
-                  className="ic-px-3 ic-text-xs"
-                  style={{ color: 'var(--color-text-tertiary)' }}
-                >
-                  OR
-                </span>
-                <div
-                  className="ic-flex-1 ic-border-t"
-                  style={{ borderColor: 'var(--color-border)' }}
-                ></div>
-              </div>
-
-              {/* Contact Number Form */}
-              <form onSubmit={handleContactSubmit} className="ic-space-y-4">
-                <div>
-                  <label
-                    htmlFor="contactNumber"
-                    className="ic-block ic-text-sm ic-font-semibold ic-mb-2"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                  >
-                    Request Callback
-                  </label>
-                  <div className="ic-relative">
-                    <div className="ic-absolute ic-left-3 ic-top-1/2 ic-transform ic--translate-y-1/2">
-                      <Phone
-                        className="ic-w-4 ic-h-4"
-                        style={{ color: 'var(--color-text-tertiary)' }}
-                        strokeWidth={2}
-                      />
-                    </div>
-                    <input
-                      type="tel"
-                      id="contactNumber"
-                      value={contactNumber}
-                      onChange={(e) => setContactNumber(e.target.value)}
-                      placeholder="e.g., +65 9123 4567"
-                      className="ic-w-full ic-pl-10 ic-pr-4 ic-py-3 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 ic-shadow-soft ic-transition-all"
-                      style={{
-                        backgroundColor: '#ffffff',
-                        border: 'none',
-                        color: 'var(--color-text-primary)'
-                      }}
-                      disabled={isLoading}
-                    />
-                  </div>
-                  <p
-                    className="ic-text-xs ic-mt-2 ic-italic"
-                    style={{ color: 'var(--color-text-tertiary)' }}
-                  >
-                    We'll call you back during office hours
-                  </p>
-                </div>
-
-                <motion.button
-                  type="submit"
-                  disabled={isLoading}
-                  className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-soft-lg"
-                  style={{ background: 'var(--gradient-primary)' }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  {isLoading ? (
-                    <span className="ic-flex ic-items-center ic-justify-center ic-gap-2">
-                      <Loader2 className="ic-animate-spin ic-h-4 ic-w-4" />
-                      Submitting...
-                    </span>
-                  ) : (
-                    'Submit Contact Number'
-                  )}
-                </motion.button>
-              </form>
-
-              {/* Success Message (inside callback form) */}
-              <AnimatePresence>
-                {successMessage && (
-                  <motion.div
-                    className="ic-mt-4 ic-p-4 ic-bg-green-50 ic-border-l-4 ic-border-green-500 ic-rounded-lg ic-shadow-soft"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                  >
-                    <p className="ic-text-sm ic-text-green-700 ic-font-medium">{successMessage}</p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
+            <CallbackForm
+              contactNumber={contactNumber}
+              setContactNumber={setContactNumber}
+              isLoading={isLoading}
+              successMessage={successMessage}
+              onSubmit={handleContactSubmit}
+            />
           )}
         </AnimatePresence>
 
-        {/* Error Message (outside callback form, always visible) */}
+        {/* Error Message */}
         <AnimatePresence>
           {error && (
             <motion.div

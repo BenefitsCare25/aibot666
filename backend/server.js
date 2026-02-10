@@ -9,7 +9,7 @@ import 'express-async-errors';
 
 // Import routes
 import chatRoutes from './api/routes/chat.js';
-import adminRoutes from './api/routes/admin.js';
+import adminRoutes from './api/routes/admin/index.js';
 import aiSettingsRoutes from './api/routes/aiSettings.js';
 import reembedRoutes from './api/routes/reembed.js';
 import authRoutes from './api/routes/auth.js';
@@ -23,6 +23,19 @@ import { redis, closeRedis } from './api/utils/session.js';
 
 dotenv.config();
 
+// Cache SRI hashes at module level (read once, not per request)
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
+let cachedSriHashes = { files: {} };
+try {
+  const sriPath = join(process.cwd(), 'public', 'sri-hashes.json');
+  if (existsSync(sriPath)) {
+    cachedSriHashes = JSON.parse(readFileSync(sriPath, 'utf8'));
+  }
+} catch (e) {
+  console.warn('SRI hashes not available:', e.message);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3001';
@@ -33,7 +46,16 @@ app.set('trust proxy', 1);
 
 // Security middleware - Relaxed for widget embedding
 app.use(helmet({
-  contentSecurityPolicy: false, // Disable CSP to allow widget embedding
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'"],
+      frameAncestors: ["*"],
+    }
+  },
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" },
   frameguard: false, // Disable - handled by custom middleware for /chat route
@@ -182,34 +204,18 @@ app.use('/api/chat', chatLimiter);
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    redis: redis.status === 'ready' ? 'connected' : 'disconnected'
+    timestamp: new Date().toISOString()
   });
 });
 
 // Standalone chat page for iframe embedding (with SRI protection)
-app.get('/chat', async (req, res) => {
+app.get('/chat', (req, res) => {
   // Allow referrer for parent domain detection in iframe
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   try {
-    const fs = await import('fs');
-    const path = await import('path');
-
-    // Load SRI hashes
-    let sriHashes = { files: {} };
-    try {
-      const sriPath = path.join(process.cwd(), 'public', 'sri-hashes.json');
-      if (fs.existsSync(sriPath)) {
-        sriHashes = JSON.parse(fs.readFileSync(sriPath, 'utf8'));
-      }
-    } catch (e) {
-      console.warn('SRI hashes not available for iframe:', e.message);
-    }
-
-    const jsIntegrity = sriHashes.files?.['widget.iife.js'] || '';
-    const cssIntegrity = sriHashes.files?.['widget.css'] || '';
+    const jsIntegrity = cachedSriHashes.files?.['widget.iife.js'] || '';
+    const cssIntegrity = cachedSriHashes.files?.['widget.css'] || '';
     const baseUrl = process.env.API_URL || process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
 
     // Generate HTML with SRI
@@ -260,18 +266,22 @@ app.get('/chat', async (req, res) => {
           const refUrl = new URL(document.referrer);
           const firstPathSegment = refUrl.pathname.split('/').filter(Boolean)[0];
           domain = firstPathSegment ? refUrl.hostname + '/' + firstPathSegment : refUrl.hostname;
-        } catch (e) {}
+        } catch (e) { console.debug('Referrer parse failed:', e.message); }
       }
       if (!domain) {
         const firstPathSegment = window.location.pathname.split('/').filter(Boolean)[0];
         domain = firstPathSegment ? window.location.hostname + '/' + firstPathSegment : window.location.hostname;
       }
 
+      // Validate color parameter to prevent XSS
+      var rawColor = decodeURIComponent(params.get('color') || '#3b82f6');
+      var safeColor = /^#[0-9a-fA-F]{3,8}$/.test(rawColor) ? rawColor : '#3b82f6';
+
       if (window.InsuranceChatWidget) {
         window.InsuranceChatWidget.init({
           companyId: companyId,
           apiUrl: '${baseUrl}',
-          primaryColor: decodeURIComponent(params.get('color') || '#3b82f6'),
+          primaryColor: safeColor,
           position: 'bottom-right',
           welcomeMessage: params.get('welcome') || undefined,
           domain: domain
@@ -379,11 +389,12 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Generic error response
+  // Generic error response - hide details in production
+  const isProduction = process.env.NODE_ENV === 'production';
   res.status(err.status || 500).json({
     success: false,
-    error: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    error: isProduction ? 'Internal server error' : (err.message || 'Internal server error'),
+    ...(!isProduction && { stack: err.stack })
   });
 });
 

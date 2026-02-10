@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function FileAttachment({ files, onAddFile, onRemoveFile, maxFiles = 5 }) {
+export default function FileAttachment({ files, onAddFile, onRemoveFile, onError, maxFiles = 5 }) {
   const [dragActive, setDragActive] = useState(false);
 
   const handleDrag = (e) => {
@@ -27,15 +27,17 @@ export default function FileAttachment({ files, onAddFile, onRemoveFile, maxFile
     const filesArray = Array.from(fileList);
 
     // Check max files limit
+    const reportError = (msg) => onError ? onError(msg) : console.warn(msg);
+
     if (files.length + filesArray.length > maxFiles) {
-      alert(`Maximum ${maxFiles} files allowed`);
+      reportError(`Maximum ${maxFiles} files allowed`);
       return;
     }
 
     filesArray.forEach(file => {
       // Validate file size (10MB)
       if (file.size > 10 * 1024 * 1024) {
-        alert(`File "${file.name}" is too large. Maximum size is 10MB`);
+        reportError(`File "${file.name}" is too large. Maximum size is 10MB`);
         return;
       }
 
@@ -52,7 +54,7 @@ export default function FileAttachment({ files, onAddFile, onRemoveFile, maxFile
       ];
 
       if (!allowedTypes.includes(file.type)) {
-        alert(`File type not supported for "${file.name}". Please use PDF, DOC, XLS, or images.`);
+        reportError(`File type not supported for "${file.name}". Please use PDF, DOC, XLS, or images.`);
         return;
       }
 

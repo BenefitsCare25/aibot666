@@ -61,4 +61,34 @@ apiClient.interceptors.response.use(
   }
 );
 
+/**
+ * Download a file from an API endpoint
+ * Bypasses the response interceptor that unwraps response.data
+ * @param {string} url - API endpoint path
+ * @param {string} filename - Download filename
+ * @param {string} mimeType - MIME type for the blob
+ */
+export async function downloadFile(url, filename, mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+  const response = await axios.get(
+    `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${url}`,
+    {
+      responseType: 'blob',
+      headers: {
+        'Authorization': localStorage.getItem('adminToken') ? `Bearer ${localStorage.getItem('adminToken')}` : '',
+        'X-Widget-Domain': localStorage.getItem('selected_company_domain') || ''
+      }
+    }
+  );
+
+  const blob = new Blob([response.data], { type: mimeType });
+  const blobUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(blobUrl);
+  document.body.removeChild(a);
+}
+
 export default apiClient;

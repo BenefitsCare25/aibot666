@@ -2,35 +2,10 @@ import { Worker } from 'bullmq';
 import { processDocument } from '../services/documentProcessor.js';
 import { addKnowledgeEntriesBatch } from '../services/vectorDB.js';
 import { getSchemaClient } from '../../config/supabase.js';
+import { parseRedisUrl } from '../../config/redis.js';
 import fs from 'fs/promises';
-import dotenv from 'dotenv';
 
-dotenv.config();
-
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-
-// Parse Redis URL for BullMQ connection (with Azure TLS support)
-const parseRedisUrl = (url) => {
-  try {
-    const urlObj = new URL(url);
-    const isTls = urlObj.protocol === 'rediss:';
-    return {
-      host: urlObj.hostname,
-      port: parseInt(urlObj.port) || (isTls ? 6380 : 6379),
-      password: urlObj.password ? decodeURIComponent(urlObj.password) : undefined,
-      username: urlObj.username || undefined,
-      tls: isTls ? { rejectUnauthorized: false } : undefined,
-    };
-  } catch (error) {
-    console.error('Error parsing Redis URL:', error);
-    return {
-      host: 'localhost',
-      port: 6379
-    };
-  }
-};
-
-const redisConnection = parseRedisUrl(REDIS_URL);
+const redisConnection = parseRedisUrl();
 
 /**
  * Update document upload status in database

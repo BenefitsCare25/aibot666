@@ -5,6 +5,20 @@ import { redis } from '../utils/session.js';
 // Cache TTL for company lookups (5 minutes)
 const COMPANY_CACHE_TTL = 300;
 
+// In-memory company cache (checked before Redis for hot-path optimization)
+const memoryCache = new Map();
+const MEMORY_CACHE_TTL = 60000; // 60 seconds
+
+// Periodic cleanup of expired in-memory entries
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of memoryCache) {
+    if (now - entry.timestamp > MEMORY_CACHE_TTL) {
+      memoryCache.delete(key);
+    }
+  }
+}, 300000); // Every 5 minutes
+
 /**
  * Middleware to extract domain and set company context
  * Adds company info and schema-specific Supabase client to req object
@@ -44,6 +58,18 @@ export async function companyContextMiddleware(req, res, next) {
           hint: 'Please ensure a company is registered with this domain in the admin panel. Check the Company Selector to verify the correct domain is selected.'
         });
       }
+    }
+
+    // Domain spoofing warning (log only, don't block)
+    const origin = req.headers.origin;
+    if (origin && company.domain) {
+      try {
+        const originHost = new URL(origin).hostname;
+        const companyHost = company.domain.split('/')[0];
+        if (originHost !== companyHost && originHost !== 'localhost') {
+          console.warn(`[Security] Origin mismatch: Origin=${originHost}, Company=${companyHost}, CompanyId=${company.id}`);
+        }
+      } catch (_) { /* ignore parse errors */ }
     }
 
     // Check if company is active
@@ -153,11 +179,20 @@ function extractDomainFromRequest(req) {
  */
 async function getCachedCompany(domain) {
   try {
+    // Check in-memory cache first (avoid Redis round-trip)
+    const memEntry = memoryCache.get(domain);
+    if (memEntry && (Date.now() - memEntry.timestamp) < MEMORY_CACHE_TTL) {
+      return memEntry.data;
+    }
+
     const cacheKey = `company:domain:${domain}`;
     const cached = await redis.get(cacheKey);
 
     if (cached) {
-      return JSON.parse(cached);
+      const parsed = JSON.parse(cached);
+      // Backfill in-memory cache
+      memoryCache.set(domain, { data: parsed, timestamp: Date.now() });
+      return parsed;
     }
 
     return null;
@@ -175,6 +210,9 @@ async function getCachedCompany(domain) {
  */
 async function cacheCompany(domain, company) {
   try {
+    // Write to in-memory cache
+    memoryCache.set(domain, { data: company, timestamp: Date.now() });
+    // Write to Redis
     const cacheKey = `company:domain:${domain}`;
     await redis.setex(cacheKey, COMPANY_CACHE_TTL, JSON.stringify(company));
   } catch (error) {
@@ -191,6 +229,7 @@ async function cacheCompany(domain, company) {
 export async function invalidateCompanyCache(domain) {
   try {
     const normalizedDomain = normalizeDomain(domain);
+    memoryCache.delete(normalizedDomain);
     const cacheKey = `company:domain:${normalizedDomain}`;
     await redis.del(cacheKey);
   } catch (error) {

@@ -101,6 +101,17 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       });
     }
 
+    // Validate file magic bytes
+    const { validateFileMagicBytes } = await import('../utils/fileValidation.js');
+    const validation = await validateFileMagicBytes(req.file.path, req.file.mimetype);
+    if (!validation.valid) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        success: false,
+        error: validation.reason || 'Invalid file type'
+      });
+    }
+
     const { category } = req.body; // Optional pre-selected category
     const schemaName = req.companySchema;
     const adminUserId = req.user?.id; // From auth middleware

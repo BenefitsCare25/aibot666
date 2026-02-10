@@ -67,7 +67,7 @@ if (postgresUrl) {
     } else if (process.env.POSTGRES_SSL === 'false') {
       sslConfig = false;
     } else {
-      sslConfig = { rejectUnauthorized: false };
+      sslConfig = { rejectUnauthorized: process.env.PG_SSL_REJECT_UNAUTHORIZED !== 'false' };
     }
 
     pgPool = new Pool({
@@ -237,6 +237,7 @@ export async function executeInSchema(client, schemaName, queryFn) {
  * Get or create cached schema client
  * Maintains a pool of schema clients to avoid recreation
  */
+const SCHEMA_CACHE_MAX = 50;
 const schemaClientCache = new Map();
 
 export function getSchemaClient(schemaName) {
@@ -244,9 +245,18 @@ export function getSchemaClient(schemaName) {
     return supabase; // Return default client for public schema
   }
 
-  // Check cache first
+  // Check cache first — move to end on access (LRU behavior)
   if (schemaClientCache.has(schemaName)) {
-    return schemaClientCache.get(schemaName);
+    const client = schemaClientCache.get(schemaName);
+    schemaClientCache.delete(schemaName);
+    schemaClientCache.set(schemaName, client);
+    return client;
+  }
+
+  // Evict oldest entry if at capacity
+  if (schemaClientCache.size >= SCHEMA_CACHE_MAX) {
+    const oldestKey = schemaClientCache.keys().next().value;
+    schemaClientCache.delete(oldestKey);
   }
 
   // Create new schema client

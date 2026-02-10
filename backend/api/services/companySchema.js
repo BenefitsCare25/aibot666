@@ -181,46 +181,46 @@ export async function getCompanyByDomain(domain) {
     // Normalize domain (remove protocol, www, trailing slash)
     const normalizedDomain = normalizeDomain(domain);
 
-    // Fetch all active companies and normalize domains in JavaScript
-    // This is more reliable than trying to match with ILIKE when protocols differ
-    const { data: companies, error } = await supabase
+    // Step 1: Exact match on domain column (indexed, fastest)
+    let { data: company, error } = await supabase
       .from('companies')
       .select('*')
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .eq('domain', normalizedDomain)
+      .maybeSingle();
 
     if (error) {
-      console.error('Error fetching companies:', error);
+      console.error('Error fetching company by exact domain:', error);
       return null;
     }
 
-
-    // Find company by normalizing stored domain and comparing
-    let company = companies?.find(c => {
-      const normalizedStoredDomain = normalizeDomain(c.domain);
-      const matches = normalizedStoredDomain.toLowerCase() === normalizedDomain.toLowerCase();
-
-      if (matches) {
-      }
-
-      return matches;
-    }) || null;
-
-    // If not found in main domain, check additional_domains
+    // Step 2: Case-insensitive fallback
     if (!company) {
-      company = companies?.find(c =>
-        c.additional_domains?.some(d => {
-          const normalizedAdditionalDomain = normalizeDomain(d);
-          return normalizedAdditionalDomain.toLowerCase() === normalizedDomain.toLowerCase();
-        })
-      ) || null;
+      const { data: ilikeResult, error: iErr } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('status', 'active')
+        .ilike('domain', normalizedDomain)
+        .maybeSingle();
 
-      if (company) {
-      }
+      if (!iErr && ilikeResult) company = ilikeResult;
     }
 
+    // Step 3: Check additional_domains (requires loading active companies with that field)
     if (!company) {
-      companies?.forEach(c => {
-      });
+      const { data: companies, error: adErr } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('status', 'active')
+        .not('additional_domains', 'is', null);
+
+      if (!adErr && companies) {
+        company = companies.find(c =>
+          c.additional_domains?.some(d =>
+            normalizeDomain(d).toLowerCase() === normalizedDomain.toLowerCase()
+          )
+        ) || null;
+      }
     }
 
     return company;

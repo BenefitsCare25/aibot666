@@ -16,13 +16,16 @@ import {
 } from '../utils/session.js';
 import supabase from '../../config/supabase.js';
 import { createHash } from 'crypto';
-import { notifyTelegramEscalation, notifyContactProvided, notifyLogRequest } from '../services/telegram.js';
+import { notifyLogRequest } from '../services/telegram.js';
 import { companyContextMiddleware } from '../middleware/companyContext.js';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import { sendLogRequestEmail, sendAcknowledgmentEmail } from '../services/email.js';
 import path from 'path';
 import fs from 'fs/promises';
+import { groupQuestionsByCategory } from '../utils/quickQuestionUtils.js';
+import { isContactInformation, handleEscalation } from '../services/escalationService.js';
+import { sendCallbackNotificationEmail, sendCallbackTelegramNotification } from '../services/callbackService.js';
 
 const router = express.Router();
 
@@ -161,6 +164,17 @@ router.post('/upload-attachment', upload.single('file'), async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'No file uploaded'
+      });
+    }
+
+    // Validate file magic bytes
+    const { validateFileMagicBytes } = await import('../utils/fileValidation.js');
+    const fileValidation = await validateFileMagicBytes(req.file.path, req.file.mimetype);
+    if (!fileValidation.valid) {
+      await fs.unlink(req.file.path).catch(() => {});
+      return res.status(400).json({
+        success: false,
+        error: fileValidation.reason || 'Invalid file type'
       });
     }
 
@@ -772,12 +786,11 @@ router.post('/message', async (req, res) => {
 
     const hasEscalationPhrase = response.answer?.toLowerCase().includes('for such query, let us check back with the team');
 
-    // Save messages to Redis
+    // Save messages to Redis (sequential - order matters in Redis list)
     await addMessageToHistory(session.conversationId, {
       role: 'user',
       content: message
     });
-
     await addMessageToHistory(session.conversationId, {
       role: 'assistant',
       content: response.answer,
@@ -785,11 +798,11 @@ router.post('/message', async (req, res) => {
       sources: response.sources
     });
 
-    // Save to database for persistence (use company-specific client)
-    await saveMessageToDB(session, message, response, employee.id, req.supabase);
-
-    // Update session activity
-    await touchSession(sessionId);
+    // Parallelize post-response ops (DB save + session touch + cache are independent)
+    await Promise.all([
+      saveMessageToDB(session, message, response, employee.id, req.supabase),
+      touchSession(sessionId)
+    ]);
 
     // Check if escalation is needed based on configuration
     let escalated = false;
@@ -951,7 +964,26 @@ router.post('/instant-answer', async (req, res) => {
 router.get('/history/:conversationId', async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const { limit = 20 } = req.query;
+    const { limit = 20, sessionId } = req.query;
+
+    // Require sessionId for authentication
+    if (!sessionId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Session ID is required'
+      });
+    }
+
+    // Validate session owns this conversation
+    const session = await getSession(sessionId);
+    if (!session || session.conversationId !== conversationId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied to this conversation'
+      });
+    }
+
+    const cappedLimit = Math.min(parseInt(limit) || 20, 100);
 
     // Use company-specific client
     const { data, error } = await req.supabase
@@ -959,7 +991,7 @@ router.get('/history/:conversationId', async (req, res) => {
       .select('*')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
-      .limit(parseInt(limit));
+      .limit(cappedLimit);
 
     if (error) {
       throw error;
@@ -1011,6 +1043,23 @@ router.delete('/session/:sessionId', async (req, res) => {
       success: false,
       error: 'Failed to end session'
     });
+  }
+});
+
+/**
+ * GET /api/chat/validate-session
+ * Lightweight session validation (for widget reconnection)
+ */
+router.get('/validate-session', async (req, res) => {
+  try {
+    const { sessionId } = req.query;
+    if (!sessionId) {
+      return res.json({ success: true, valid: false });
+    }
+    const session = await getSession(sessionId);
+    res.json({ success: true, valid: !!session });
+  } catch (error) {
+    res.json({ success: true, valid: false });
   }
 });
 
@@ -1073,174 +1122,6 @@ async function saveMessageToDB(session, userMessage, aiResponse, employeeId, sup
     }
   } catch (error) {
     console.error('Error in saveMessageToDB:', error);
-  }
-}
-
-/**
- * Helper: Detect if message contains contact information
- */
-function isContactInformation(message) {
-  const text = message.toLowerCase().trim();
-
-  // Pattern: Email addresses
-  const emailPattern = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
-
-  // Pattern: Phone numbers (8+ digits, may include spaces, dashes, or parentheses)
-  const phonePattern = /(\+?\d{1,3}[-.\s]?)?(\(?\d{2,4}\)?[-.\s]?)?\d{6,}/;
-
-  // Pattern: Just digits (likely a phone number if 8+ digits)
-  const digitsOnly = text.replace(/[^\d]/g, '');
-  const isPhoneNumber = digitsOnly.length >= 8;
-
-  return emailPattern.test(text) || phonePattern.test(text) || isPhoneNumber;
-}
-
-/**
- * Helper: Check if there's a pending escalation for this conversation
- */
-async function getPendingEscalation(conversationId, supabaseClient) {
-  try {
-    const { data, error } = await supabaseClient
-      .from('escalations')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Error checking pending escalation:', error);
-    }
-
-    return data || null;
-  } catch (error) {
-    console.error('Error in getPendingEscalation:', error);
-    return null;
-  }
-}
-
-/**
- * Helper: Update existing escalation with contact information
- */
-async function updateEscalationWithContact(escalationId, contactInfo, employee, supabaseClient) {
-  try {
-    // First, fetch the current escalation to get the context
-    const { data: currentEscalation, error: fetchError } = await supabaseClient
-      .from('escalations')
-      .select('context')
-      .eq('id', escalationId)
-      .single();
-
-    if (fetchError || !currentEscalation) {
-      console.error('Error fetching escalation for update:', fetchError);
-      return;
-    }
-
-    // Update the context with contact information
-    const updatedContext = {
-      ...currentEscalation.context,
-      contactFromChat: contactInfo
-    };
-
-    const { error } = await supabaseClient
-      .from('escalations')
-      .update({
-        context: updatedContext,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', escalationId);
-
-    if (error) {
-      console.error('Error updating escalation with contact:', error);
-    } else {
-
-      // Notify Telegram that contact information was provided
-      await notifyContactProvided(escalationId, contactInfo, employee);
-    }
-  } catch (error) {
-    console.error('Error in updateEscalationWithContact:', error);
-  }
-}
-
-/**
- * Helper: Handle escalation to human support
- */
-async function handleEscalation(session, query, response, employee, reason, supabaseClient, schemaName = null) {
-  try {
-    // Check if user is providing contact information after previous escalation
-    const isContact = isContactInformation(query);
-    const pendingEscalation = await getPendingEscalation(session.conversationId, supabaseClient);
-
-    // If user is providing contact info and there's already a pending escalation,
-    // update the existing escalation instead of creating a new one
-    if (isContact && pendingEscalation) {
-      await updateEscalationWithContact(pendingEscalation.id, query, employee, supabaseClient);
-      return; // Don't create a new escalation
-    }
-
-    // Note: We removed the check that prevented new escalations when one is pending
-    // because it prevented Telegram notifications from being sent, making the workflow
-    // appear broken. Each question that needs escalation should be escalated independently.
-
-    // Find the last assistant message ID
-    const { data: lastMessage } = await supabaseClient
-      .from('chat_history')
-      .select('id')
-      .eq('conversation_id', session.conversationId)
-      .eq('role', 'assistant')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    // Get recent conversation history for contact extraction (last 20 messages)
-    const { data: recentMessages } = await supabaseClient
-      .from('chat_history')
-      .select('role, content')
-      .eq('conversation_id', session.conversationId)
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    // Create escalation record with enhanced context
-    const { data: escalation, error: escError } = await supabaseClient
-      .from('escalations')
-      .insert([{
-        conversation_id: session.conversationId,
-        message_id: lastMessage?.id,
-        employee_id: employee.id,
-        query,
-        context: {
-          reason,
-          aiResponse: response.answer,
-          confidence: response.confidence,
-          knowledgeMatch: response.knowledgeMatch,
-          sources: response.sources,
-          employee: {
-            name: employee.name
-          }
-        },
-        status: 'pending'
-      }])
-      .select()
-      .single();
-
-    if (escError) {
-      console.error('Error creating escalation:', escError);
-      return;
-    }
-
-    // Notify via Telegram with AI response, conversation history, and schema name for multi-tenant routing
-    await notifyTelegramEscalation(escalation, query, employee, response, recentMessages || [], schemaName);
-
-    // Mark message as escalated
-    if (lastMessage) {
-      await supabaseClient
-        .from('chat_history')
-        .update({ was_escalated: true })
-        .eq('id', lastMessage.id);
-    }
-  } catch (error) {
-    console.error('Error in handleEscalation:', error);
   }
 }
 
@@ -1375,89 +1256,6 @@ router.post('/callback-request', async (req, res) => {
 });
 
 /**
- * Send callback notification email to support team
- */
-async function sendCallbackNotificationEmail(data) {
-  const { callbackRequest, contactNumber, employeeId, identifierType, company } = data;
-
-  // Import at function level to avoid circular dependencies
-  const { sendLogRequestEmail } = await import('../services/email.js');
-
-  const companyConfig = {
-    log_request_email_to: company?.callback_email_to || company?.log_request_email_to,
-    log_request_email_cc: company?.callback_email_cc || company?.log_request_email_cc
-  };
-
-  // Format identifier label based on type
-  const identifierLabel = identifierType === 'employee_id' ? 'Employee ID' :
-                         identifierType === 'user_id' ? 'User ID' :
-                         identifierType === 'email' ? 'Email' : 'Identifier';
-
-  // Format as if it's a LOG request but for callback
-  const emailData = {
-    employee: {
-      name: 'Callback Request',
-      employee_id: `${identifierLabel}: ${employeeId}`,
-      email: identifierType === 'email' ? employeeId : 'Not available'
-    },
-    conversationHistory: [{
-      role: 'user',
-      content: `User requested a callback at: ${contactNumber}\n${identifierLabel}: ${employeeId}`,
-      created_at: new Date().toISOString()
-    }],
-    conversationId: callbackRequest.id,
-    requestType: 'button',
-    requestMessage: `Callback requested - Contact number: ${contactNumber}, ${identifierLabel}: ${employeeId}`,
-    attachments: [],
-    companyConfig,
-    customSubject: '📞 Invalid ID, Callback Request',
-    customHeader: '📞 Callback Request Received'
-  };
-
-  return await sendLogRequestEmail(emailData);
-}
-
-/**
- * Send callback notification to Telegram
- */
-async function sendCallbackTelegramNotification(data) {
-  const { callbackRequest, contactNumber, employeeId, identifierType, company, schemaName } = data;
-
-  // Check if bot is configured
-  if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_CHAT_ID) {
-    console.warn('Telegram not configured - callback notification not sent');
-    return;
-  }
-
-  const { Telegraf } = await import('telegraf');
-  const telegramBot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
-
-  // Format identifier label based on type
-  const identifierLabel = identifierType === 'employee_id' ? 'Employee ID' :
-                         identifierType === 'user_id' ? 'User ID' :
-                         identifierType === 'email' ? 'Email' : 'Identifier';
-
-  const message = `
-🔔 <b>Callback Request</b>
-
-<b>Contact Number:</b> ${contactNumber}
-<b>${identifierLabel}:</b> ${employeeId}
-<b>Company:</b> ${company?.name || 'Unknown'}
-<b>Status:</b> 🟡 Pending Callback
-
-<b>Request Time:</b> ${new Date().toLocaleString('en-SG', { timeZone: 'Asia/Singapore' })}
-
-<i>[Callback Request: ${callbackRequest.id}${schemaName ? `|Schema: ${schemaName}` : ''}]</i>
-
-📞 Please contact the user within the next working day.
-  `.trim();
-
-  await telegramBot.telegram.sendMessage(process.env.TELEGRAM_CHAT_ID, message, {
-    parse_mode: 'HTML'
-  });
-}
-
-/**
  * GET /api/chat/quick-questions
  * Get active quick questions for chatbot widget (public, no auth required)
  */
@@ -1483,28 +1281,9 @@ router.get('/quick-questions', async (req, res) => {
     }
 
 
-    // Group by category
-    const categorized = {};
-    questions?.forEach(q => {
-      if (!categorized[q.category_id]) {
-        categorized[q.category_id] = {
-          id: q.category_id,
-          title: q.category_title,
-          icon: q.category_icon,
-          questions: []
-        };
-      }
-      categorized[q.category_id].questions.push({
-        id: q.id,
-        q: q.question,
-        a: q.answer,
-        display_order: q.display_order
-      });
-    });
-
     res.json({
       success: true,
-      data: Object.values(categorized)
+      data: groupQuestionsByCategory(questions)
     });
   } catch (error) {
     console.error('[Quick Questions] Error:', error);

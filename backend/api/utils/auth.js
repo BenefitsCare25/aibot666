@@ -11,7 +11,10 @@ import { redis } from './redisClient.js';
 
 // Configuration
 const SALT_ROUNDS = 10;
-export const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
+if (!process.env.JWT_SECRET) {
+  throw new Error('FATAL: JWT_SECRET environment variable is not set. Server cannot start without it.');
+}
+export const JWT_SECRET = process.env.JWT_SECRET;
 export const JWT_EXPIRY = process.env.JWT_EXPIRY || '24h';
 export const SESSION_TIMEOUT = parseInt(process.env.SESSION_TIMEOUT_MINUTES) || 30; // minutes
 

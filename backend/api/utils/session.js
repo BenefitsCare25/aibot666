@@ -30,6 +30,9 @@ export async function createSession(employeeId, metadata = {}) {
     const key = `session:${sessionId}`;
     await redis.setex(key, SESSION_TTL, JSON.stringify(sessionData));
 
+    // Create reverse lookup: conversationId → sessionId (for ownership validation)
+    await redis.setex(`conv:${conversationId}`, SESSION_TTL, sessionId);
+
     // Create conversation history key
     const historyKey = `history:${conversationId}`;
     await redis.expire(historyKey, SESSION_TTL);
@@ -97,11 +100,13 @@ export async function touchSession(sessionId) {
     session.messageCount = (session.messageCount || 0) + 1;
 
     const key = `session:${sessionId}`;
-    await redis.setex(key, SESSION_TTL, JSON.stringify(session));
-
-    // Also extend conversation history TTL
     const historyKey = `history:${session.conversationId}`;
-    await redis.expire(historyKey, SESSION_TTL);
+
+    // Pipeline: batch SETEX + EXPIRE into single round-trip
+    const pipeline = redis.pipeline();
+    pipeline.setex(key, SESSION_TTL, JSON.stringify(session));
+    pipeline.expire(historyKey, SESSION_TTL);
+    await pipeline.exec();
 
     return true;
   } catch (error) {
@@ -149,11 +154,15 @@ export async function addMessageToHistory(conversationId, message) {
       timestamp: message.timestamp || new Date().toISOString()
     };
 
-    await redis.rpush(historyKey, JSON.stringify(messageData));
-    await redis.expire(historyKey, SESSION_TTL);
+    // Pipeline: batch RPUSH + EXPIRE + LLEN into single round-trip
+    const pipeline = redis.pipeline();
+    pipeline.rpush(historyKey, JSON.stringify(messageData));
+    pipeline.expire(historyKey, SESSION_TTL);
+    pipeline.llen(historyKey);
+    const results = await pipeline.exec();
 
-    // Keep only last 20 messages in Redis for performance
-    const length = await redis.llen(historyKey);
+    // Conditional LTRIM only if length > 20
+    const length = results[2]?.[1];
     if (length > 20) {
       await redis.ltrim(historyKey, -20, -1);
     }
@@ -176,25 +185,14 @@ export async function getConversationHistory(conversationId, limit = 10, employe
   try {
     // SECURITY: If employeeId is provided, validate conversation belongs to this employee
     if (employeeId) {
-      // Find session that owns this conversationId
-      const sessionKeys = await redis.keys('session:*');
-      let conversationOwner = null;
-
-      for (const key of sessionKeys) {
-        const sessionData = await redis.get(key);
-        if (sessionData) {
-          const session = JSON.parse(sessionData);
-          if (session.conversationId === conversationId) {
-            conversationOwner = session.employeeId;
-            break;
-          }
+      // Use reverse lookup key instead of scanning all sessions
+      const ownerSessionId = await redis.get(`conv:${conversationId}`);
+      if (ownerSessionId) {
+        const ownerSession = await getSession(ownerSessionId);
+        if (ownerSession && ownerSession.employeeId !== employeeId) {
+          console.warn(`Security: Employee ${employeeId} attempted to access conversation ${conversationId} owned by ${ownerSession.employeeId}`);
+          return []; // Return empty history to prevent data leakage
         }
-      }
-
-      // If conversation has an owner and it doesn't match the requesting employee, deny access
-      if (conversationOwner && conversationOwner !== employeeId) {
-        console.warn(`Security: Employee ${employeeId} attempted to access conversation ${conversationId} owned by ${conversationOwner}`);
-        return []; // Return empty history to prevent data leakage
       }
     }
 
@@ -230,7 +228,13 @@ export async function clearConversationHistory(conversationId) {
  */
 export async function getActiveSessions() {
   try {
-    const keys = await redis.keys('session:*');
+    const keys = [];
+    let cursor = '0';
+    do {
+      const [nextCursor, batch] = await redis.scan(cursor, 'MATCH', 'session:*', 'COUNT', 100);
+      cursor = nextCursor;
+      keys.push(...batch);
+    } while (cursor !== '0');
     return keys.map(key => key.replace('session:', ''));
   } catch (error) {
     console.error('Error getting active sessions:', error);
@@ -244,8 +248,14 @@ export async function getActiveSessions() {
  */
 export async function getSessionCount() {
   try {
-    const keys = await redis.keys('session:*');
-    return keys.length;
+    let count = 0;
+    let cursor = '0';
+    do {
+      const [nextCursor, batch] = await redis.scan(cursor, 'MATCH', 'session:*', 'COUNT', 100);
+      cursor = nextCursor;
+      count += batch.length;
+    } while (cursor !== '0');
+    return count;
   } catch (error) {
     console.error('Error getting session count:', error);
     return 0;
