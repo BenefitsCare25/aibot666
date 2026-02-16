@@ -183,8 +183,16 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
               <User className="ic-w-5 ic-h-5" strokeWidth={2} />
             </motion.div>
             <div>
-              <h3 className="ic-text-sm ic-font-semibold ic-tracking-wide">
+              <h3 className="ic-text-sm ic-font-semibold ic-tracking-wide ic-flex ic-items-center ic-gap-2">
                 Welcome, {employeeName}
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  backgroundColor: 'rgba(255,255,255,0.25)',
+                  padding: '1px 6px',
+                  borderRadius: 6,
+                  letterSpacing: '0.5px'
+                }}>BETA</span>
               </h3>
             </div>
           </div>

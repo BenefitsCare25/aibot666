@@ -108,6 +108,16 @@ export default function ChatButton({ isOpen, onClick, primaryColor }) {
       {showTooltip && !isOpen && (
         <div style={tooltipStyle}>
           <span>Hi. Need any help?</span>
+          <span style={{
+            fontSize: 10,
+            fontWeight: 700,
+            backgroundColor: '#fef3c7',
+            color: '#92400e',
+            padding: '2px 6px',
+            borderRadius: 8,
+            marginLeft: 4,
+            letterSpacing: '0.5px'
+          }}>BETA</span>
           <button
             onClick={handleDismissTooltip}
             style={dismissButtonStyle}

@@ -283,6 +283,16 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
             <h2 className="ic-text-2xl sm:ic-text-4xl ic-font-bold ic-leading-tight">
               How can we help?
             </h2>
+            <span className="ic-inline-flex ic-items-center ic-gap-1.5 ic-mt-2"
+              style={{ fontSize: 12, fontWeight: 600, opacity: 0.85 }}>
+              <span style={{
+                backgroundColor: 'rgba(255,255,255,0.25)',
+                padding: '2px 8px',
+                borderRadius: 8,
+                letterSpacing: '0.5px'
+              }}>BETA</span>
+              AI Assistant
+            </span>
           </div>
           <button
             onClick={onClose}
