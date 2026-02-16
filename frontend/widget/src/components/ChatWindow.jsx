@@ -5,6 +5,7 @@ import { useChatStore } from '../store/chatStore';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import QuickQuestions from './QuickQuestions';
+import PrivacyPolicyModal from './PrivacyPolicyModal';
 import { isLogCategory } from '../utils/logDetection';
 
 export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded = false, isMobileFullScreen = false, isInIframe = false }) {
@@ -29,6 +30,7 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
   } = useChatStore();
   const [inputValue, setInputValue] = useState('');
   const [showQuickQuestions, setShowQuickQuestions] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -276,6 +278,25 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
         isLogMode={isLogMode}
         onEnterLogMode={enterLogMode}
         onExitLogMode={exitLogMode}
+      />
+
+      {/* Privacy Policy Footer */}
+      <div
+        className="ic-flex-shrink-0 ic-text-center ic-py-1.5"
+        style={{ borderTop: '1px solid var(--color-border)' }}
+      >
+        <button
+          onClick={() => setShowPrivacyPolicy(true)}
+          className="ic-text-xs hover:ic-underline"
+          style={{ color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+        >
+          Privacy Policy
+        </button>
+      </div>
+
+      <PrivacyPolicyModal
+        isOpen={showPrivacyPolicy}
+        onClose={() => setShowPrivacyPolicy(false)}
       />
     </div>
   );

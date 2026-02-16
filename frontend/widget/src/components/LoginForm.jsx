@@ -7,6 +7,8 @@ import ChatLoginForm from './login/ChatLoginForm';
 import LogRequestForm from './login/LogRequestForm';
 import CallbackForm from './login/CallbackForm';
 import SuccessScreen from './login/SuccessScreen';
+import ConsentBanner from './ConsentBanner';
+import PrivacyPolicyModal from './PrivacyPolicyModal';
 
 export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded = false, isMobileFullScreen = false, isInIframe = false }) {
   const containerStyle = isMobileFullScreen
@@ -59,6 +61,13 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
   const [logAttachments, setLogAttachments] = useState([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [logSubmitted, setLogSubmitted] = useState(false);
+  const [consentGiven, setConsentGiven] = useState(() => {
+    try {
+      const stored = localStorage.getItem('pdpa_consent');
+      return stored ? JSON.parse(stored).accepted === true : false;
+    } catch { return false; }
+  });
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const { createSession, apiUrl, domain: companyDomain } = useChatStore();
 
   const getDomain = () => companyDomain || window.location.hostname;
@@ -316,45 +325,54 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
           backgroundColor: '#ffffff'
         }}
       >
-        {selectedOption === null && (
-          <OptionSelector
-            onSelectChat={() => setSelectedOption('chat')}
-            onSelectLog={() => setSelectedOption('log')}
+        {!consentGiven ? (
+          <ConsentBanner
+            onConsent={() => setConsentGiven(true)}
+            onShowPrivacyPolicy={() => setShowPrivacyPolicy(true)}
           />
-        )}
+        ) : (
+          <>
+            {selectedOption === null && (
+              <OptionSelector
+                onSelectChat={() => setSelectedOption('chat')}
+                onSelectLog={() => setSelectedOption('log')}
+              />
+            )}
 
-        {selectedOption === 'chat' && (
-          <ChatLoginForm
-            identifier={identifier}
-            setIdentifier={setIdentifier}
-            isLoading={isLoading}
-            onSubmit={handleSubmit}
-            onBack={() => setSelectedOption(null)}
-          />
-        )}
+            {selectedOption === 'chat' && (
+              <ChatLoginForm
+                identifier={identifier}
+                setIdentifier={setIdentifier}
+                isLoading={isLoading}
+                onSubmit={handleSubmit}
+                onBack={() => setSelectedOption(null)}
+              />
+            )}
 
-        {selectedOption === 'log' && !logSubmitted && (
-          <LogRequestForm
-            logEmail={logEmail}
-            setLogEmail={setLogEmail}
-            logDescription={logDescription}
-            setLogDescription={setLogDescription}
-            logAttachments={logAttachments}
-            uploadingFile={uploadingFile}
-            isLoading={isLoading}
-            onSubmit={handleLogRequestSubmit}
-            onFileUpload={handleFileUpload}
-            onRemoveAttachment={removeAttachment}
-            onBack={() => setSelectedOption(null)}
-          />
-        )}
+            {selectedOption === 'log' && !logSubmitted && (
+              <LogRequestForm
+                logEmail={logEmail}
+                setLogEmail={setLogEmail}
+                logDescription={logDescription}
+                setLogDescription={setLogDescription}
+                logAttachments={logAttachments}
+                uploadingFile={uploadingFile}
+                isLoading={isLoading}
+                onSubmit={handleLogRequestSubmit}
+                onFileUpload={handleFileUpload}
+                onRemoveAttachment={removeAttachment}
+                onBack={() => setSelectedOption(null)}
+              />
+            )}
 
-        {selectedOption === 'log' && logSubmitted && (
-          <SuccessScreen
-            email={logEmail}
-            onClose={onClose}
-            onSubmitAnother={handleSubmitAnother}
-          />
+            {selectedOption === 'log' && logSubmitted && (
+              <SuccessScreen
+                email={logEmail}
+                onClose={onClose}
+                onSubmitAnother={handleSubmitAnother}
+              />
+            )}
+          </>
         )}
 
         {/* Callback Form (shown after failed login) */}
@@ -394,9 +412,22 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
           >
             <Mail className="ic-w-4 ic-h-4" strokeWidth={2} />
             helpdesk@inspro.com.sg
+            <span style={{ margin: '0 4px' }}>|</span>
+            <button
+              onClick={() => setShowPrivacyPolicy(true)}
+              className="hover:ic-underline"
+              style={{ color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 'inherit' }}
+            >
+              Privacy Policy
+            </button>
           </p>
         </div>
       </div>
+
+      <PrivacyPolicyModal
+        isOpen={showPrivacyPolicy}
+        onClose={() => setShowPrivacyPolicy(false)}
+      />
     </div>
   );
 }
