@@ -9,6 +9,7 @@ on:
       - main
     paths:
       - 'backend/**'
+      - 'frontend/widget/**'
       - '.github/workflows/main_app-aibot-api.yml'
   workflow_dispatch:
 
@@ -26,7 +27,15 @@ jobs:
         with:
           node-version: '24.x'
 
-      - name: npm install
+      - name: Install widget dependencies
+        working-directory: ./frontend/widget
+        run: npm ci
+
+      - name: Build widget and generate SRI hashes
+        working-directory: ./backend
+        run: node scripts/build-widget.js
+
+      - name: Install backend dependencies
         working-directory: ./backend
         run: npm ci --omit=dev
 

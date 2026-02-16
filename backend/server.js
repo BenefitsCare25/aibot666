@@ -23,18 +23,53 @@ import { redis, closeRedis } from './api/utils/session.js';
 
 dotenv.config();
 
-// Cache SRI hashes at module level (read once, not per request)
+// SRI hashes with TTL cache (re-reads from disk every 60s to survive deploys without restart)
 import { readFileSync, existsSync } from 'fs';
+import { createHash } from 'crypto';
 import { join } from 'path';
+
+const SRI_CACHE_TTL_MS = 60_000;
+const sriHashPath = join(process.cwd(), 'public', 'sri-hashes.json');
 let cachedSriHashes = { files: {} };
-try {
-  const sriPath = join(process.cwd(), 'public', 'sri-hashes.json');
-  if (existsSync(sriPath)) {
-    cachedSriHashes = JSON.parse(readFileSync(sriPath, 'utf8'));
+let sriCacheTimestamp = 0;
+
+function loadSriHashes() {
+  const now = Date.now();
+  if (now - sriCacheTimestamp < SRI_CACHE_TTL_MS) return cachedSriHashes;
+
+  try {
+    if (existsSync(sriHashPath)) {
+      cachedSriHashes = JSON.parse(readFileSync(sriHashPath, 'utf8'));
+      sriCacheTimestamp = now;
+    }
+  } catch (e) {
+    console.warn('SRI hashes not available:', e.message);
   }
-} catch (e) {
-  console.warn('SRI hashes not available:', e.message);
+  return cachedSriHashes;
 }
+
+// Validate SRI hashes match actual widget files on startup
+function validateSriHashes() {
+  const hashes = loadSriHashes();
+  const publicDir = join(process.cwd(), 'public');
+
+  for (const [filename, expectedHash] of Object.entries(hashes.files || {})) {
+    const filePath = join(publicDir, filename);
+    if (!existsSync(filePath)) {
+      console.error(`[SRI] MISSING: ${filename} referenced in sri-hashes.json but file not found`);
+      continue;
+    }
+    const content = readFileSync(filePath);
+    const actualHash = `sha384-${createHash('sha384').update(content).digest('base64')}`;
+    if (actualHash !== expectedHash) {
+      console.error(`[SRI] MISMATCH: ${filename} — hash in sri-hashes.json does not match file on disk. Run: npm run build-widget`);
+    }
+  }
+}
+
+// Initial load + validation
+loadSriHashes();
+validateSriHashes();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -214,8 +249,9 @@ app.get('/chat', (req, res) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   try {
-    const jsIntegrity = cachedSriHashes.files?.['widget.iife.js'] || '';
-    const cssIntegrity = cachedSriHashes.files?.['widget.css'] || '';
+    const sriHashes = loadSriHashes();
+    const jsIntegrity = sriHashes.files?.['widget.iife.js'] || '';
+    const cssIntegrity = sriHashes.files?.['widget.css'] || '';
     const baseUrl = process.env.API_URL || process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
 
     // Generate HTML with SRI
