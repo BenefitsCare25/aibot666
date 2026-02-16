@@ -7,7 +7,6 @@ import ChatLoginForm from './login/ChatLoginForm';
 import LogRequestForm from './login/LogRequestForm';
 import CallbackForm from './login/CallbackForm';
 import SuccessScreen from './login/SuccessScreen';
-import ConsentBanner from './ConsentBanner';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 
 export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded = false, isMobileFullScreen = false, isInIframe = false }) {
@@ -61,12 +60,6 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
   const [logAttachments, setLogAttachments] = useState([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [logSubmitted, setLogSubmitted] = useState(false);
-  const [consentGiven, setConsentGiven] = useState(() => {
-    try {
-      const stored = localStorage.getItem('pdpa_consent');
-      return stored ? JSON.parse(stored).accepted === true : false;
-    } catch { return false; }
-  });
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const { createSession, apiUrl, domain: companyDomain } = useChatStore();
 
@@ -325,54 +318,64 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
           backgroundColor: '#ffffff'
         }}
       >
-        {!consentGiven ? (
-          <ConsentBanner
-            onConsent={() => setConsentGiven(true)}
-            onShowPrivacyPolicy={() => setShowPrivacyPolicy(true)}
+        {/* Non-blocking disclaimer notice */}
+        <div
+          className="ic-rounded-lg ic-p-3 ic-mb-4"
+          style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+        >
+          <p className="ic-text-xs ic-leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+            All conversations are recorded for quality assurance. This assistant provides
+            general information only and should not be considered professional insurance advice.
+            By using this assistant, you agree to our{' '}
+            <button
+              onClick={() => setShowPrivacyPolicy(true)}
+              className="ic-font-medium hover:ic-underline"
+              style={{ color: 'var(--color-primary-500)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 'inherit' }}
+            >
+              Terms of Use
+            </button>.
+          </p>
+        </div>
+
+        {selectedOption === null && (
+          <OptionSelector
+            onSelectChat={() => setSelectedOption('chat')}
+            onSelectLog={() => setSelectedOption('log')}
           />
-        ) : (
-          <>
-            {selectedOption === null && (
-              <OptionSelector
-                onSelectChat={() => setSelectedOption('chat')}
-                onSelectLog={() => setSelectedOption('log')}
-              />
-            )}
+        )}
 
-            {selectedOption === 'chat' && (
-              <ChatLoginForm
-                identifier={identifier}
-                setIdentifier={setIdentifier}
-                isLoading={isLoading}
-                onSubmit={handleSubmit}
-                onBack={() => setSelectedOption(null)}
-              />
-            )}
+        {selectedOption === 'chat' && (
+          <ChatLoginForm
+            identifier={identifier}
+            setIdentifier={setIdentifier}
+            isLoading={isLoading}
+            onSubmit={handleSubmit}
+            onBack={() => setSelectedOption(null)}
+          />
+        )}
 
-            {selectedOption === 'log' && !logSubmitted && (
-              <LogRequestForm
-                logEmail={logEmail}
-                setLogEmail={setLogEmail}
-                logDescription={logDescription}
-                setLogDescription={setLogDescription}
-                logAttachments={logAttachments}
-                uploadingFile={uploadingFile}
-                isLoading={isLoading}
-                onSubmit={handleLogRequestSubmit}
-                onFileUpload={handleFileUpload}
-                onRemoveAttachment={removeAttachment}
-                onBack={() => setSelectedOption(null)}
-              />
-            )}
+        {selectedOption === 'log' && !logSubmitted && (
+          <LogRequestForm
+            logEmail={logEmail}
+            setLogEmail={setLogEmail}
+            logDescription={logDescription}
+            setLogDescription={setLogDescription}
+            logAttachments={logAttachments}
+            uploadingFile={uploadingFile}
+            isLoading={isLoading}
+            onSubmit={handleLogRequestSubmit}
+            onFileUpload={handleFileUpload}
+            onRemoveAttachment={removeAttachment}
+            onBack={() => setSelectedOption(null)}
+          />
+        )}
 
-            {selectedOption === 'log' && logSubmitted && (
-              <SuccessScreen
-                email={logEmail}
-                onClose={onClose}
-                onSubmitAnother={handleSubmitAnother}
-              />
-            )}
-          </>
+        {selectedOption === 'log' && logSubmitted && (
+          <SuccessScreen
+            email={logEmail}
+            onClose={onClose}
+            onSubmitAnother={handleSubmitAnother}
+          />
         )}
 
         {/* Callback Form (shown after failed login) */}
@@ -418,7 +421,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
               className="hover:ic-underline"
               style={{ color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 'inherit' }}
             >
-              Privacy Policy
+              Terms of Use
             </button>
           </p>
         </div>

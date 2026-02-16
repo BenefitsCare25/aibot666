@@ -290,7 +290,7 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
           className="ic-text-xs hover:ic-underline"
           style={{ color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
         >
-          Privacy Policy
+          Terms of Use
         </button>
       </div>
 
