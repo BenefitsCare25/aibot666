@@ -12,7 +12,7 @@ This is a multi-tenant AI chatbot widget embedded via iframe on client websites 
 
 ```
 backend/
-├── server.js                          # Express app, CSP headers, SRI hash caching, /chat page
+├── server.js                          # Express app, CSP headers, SRI hash TTL cache (60s), /chat page
 ├── config/
 │   ├── supabase.js                    # Supabase clients, LRU schema cache (max 50)
 │   └── redis.js                       # Shared parseRedisUrl(), Redis connection config
@@ -89,7 +89,7 @@ All other admin routes get `companyContextMiddleware` (tenant schema).
 
 - **Session lookup**: `conv:{conversationId}` reverse key instead of `redis.keys()` scan
 - **Redis pipelines**: `touchSession` and `addMessageToHistory` batch commands
-- **SRI hashes**: Cached at module level (read once on startup, not per request)
+- **SRI hashes**: TTL cache (re-reads from disk every 60s) — survives deploys without restart. Startup validation logs `[SRI] MISMATCH` if hashes don't match files
 - **Company lookup**: Indexed query (exact → ilike → additional_domains) instead of loading all
 - **Schema client cache**: LRU bounded at 50 entries
 - **Company cache**: Two-tier (in-memory 60s TTL → Redis) with periodic cleanup
@@ -155,7 +155,7 @@ Get from Admin Portal → Company Management → Embed Code:
 cd backend && npm run build-widget    # Build + copy + regenerate SRI hashes
 ```
 
-**IMPORTANT:** Always use `npm run build-widget`. If SRI hashes are not regenerated after a build, the widget will silently fail to load on client sites.
+Widget is also built automatically in CI/CD (GitHub Actions) on every push to `main` that touches `backend/**` or `frontend/widget/**`. SRI hashes are regenerated as part of the CI build, so even if you forget to build locally, the deployed version will always have matching hashes.
 
 ### Embed Code Generator Location
 
@@ -238,7 +238,8 @@ curl -s "https://app-aibot-api.azurewebsites.net/api/chat/session" \
 
 - **Backend**: Azure Web App (`app-aibot-api.azurewebsites.net`)
 - **Admin Portal**: Azure Static Web Apps
-- **Auto-deploy**: Push to `main` triggers GitHub Actions
+- **Auto-deploy**: Push to `main` triggers GitHub Actions (triggers on `backend/**` or `frontend/widget/**` changes)
+- **CI/CD pipeline**: Install widget deps → build widget + SRI hashes → install backend deps → deploy to Azure
 - **GitHub account**: `BenefitsCare25` (switch with `gh auth switch --user BenefitsCare25`)
 
 ## Testing
@@ -249,7 +250,8 @@ curl -s "https://app-aibot-api.azurewebsites.net/api/chat/session" \
 ## Common Issues & Fixes
 
 ### Chatbot not appearing on client site
-Domain mismatch. Verify `domain` param in embed URL, check company's registered domain.
+1. **SRI hash mismatch**: Check Azure logs for `[SRI] MISMATCH` errors. Fix: rebuild widget (`npm run build-widget`) or wait 60s for TTL cache to refresh after deploy.
+2. **Domain mismatch**: Verify `domain` param in embed URL, check company's registered domain.
 
 ### Mobile input area cut off
 Add `paddingBottom: env(safe-area-inset-bottom)` to input container.
