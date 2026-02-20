@@ -455,6 +455,12 @@ router.post('/request-log', async (req, res) => {
       console.error('Error saving LOG request:', logError);
     }
 
+    // Clear uploaded attachments from session (free Redis memory after email sent)
+    if (attachmentIds.length > 0 && session.attachments) {
+      session.attachments = session.attachments.filter(att => !attachmentIds.includes(att.id));
+      await saveSession(sessionId, session);
+    }
+
     // Send Telegram notification
     if (logRequest?.id) {
       await notifyLogRequest({
