@@ -80,8 +80,8 @@ router.post('/', async (req, res) => {
       .from('companies')
       .insert({
         name,
-        domain,
-        additional_domains: additional_domains || [],
+        domain: normalizeDomain(domain),
+        additional_domains: (additional_domains || []).map(d => normalizeDomain(d)),
         schema_name,
         settings: settings || {},
         status: 'active'
@@ -157,8 +157,8 @@ router.put('/:id', async (req, res) => {
 
     const updates = {};
     if (name !== undefined) updates.name = name;
-    if (domain !== undefined) updates.domain = domain;
-    if (additional_domains !== undefined) updates.additional_domains = additional_domains;
+    if (domain !== undefined) updates.domain = normalizeDomain(domain);
+    if (additional_domains !== undefined) updates.additional_domains = additional_domains.map(d => normalizeDomain(d));
     if (settings !== undefined) updates.settings = settings;
     if (status !== undefined) updates.status = status;
 
