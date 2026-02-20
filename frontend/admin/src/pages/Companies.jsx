@@ -555,6 +555,7 @@ export default function Companies() {
       {showEmbedCode && (
         <EmbedCodeModal
           company={showEmbedCode}
+          allCompanies={companies}
           onClose={() => setShowEmbedCode(null)}
         />
       )}
