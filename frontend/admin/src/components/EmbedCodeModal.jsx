@@ -10,8 +10,9 @@ const normalizeAndSplit = (domain) => {
     : { host: clean.substring(0, idx), path: clean.substring(idx) };
 };
 
+// Build host groups for the Dynamic tab
 function buildHostGroups(companies) {
-  const hostMap = {}; // host → { entries: [...], allAdditional: bool }
+  const hostMap = {};
 
   companies.forEach(company => {
     const domains = [
@@ -24,7 +25,6 @@ function buildHostGroups(companies) {
       if (!host) return;
       if (!hostMap[host]) hostMap[host] = { entries: [], allAdditional: true };
       if (isPrimary) hostMap[host].allAdditional = false;
-      // One entry per company per host
       if (!hostMap[host].entries.find(e => e.companyId === company.id)) {
         hostMap[host].entries.push({ path, companyId: company.id, companyName: company.name, isPrimary });
       }
@@ -34,16 +34,32 @@ function buildHostGroups(companies) {
   return Object.entries(hostMap)
     .map(([host, data]) => ({
       host,
-      isStaging: data.allAdditional, // staging if no company has it as primary
+      isStaging: data.allAdditional,
       entries: data.entries,
       isSPA: data.entries.some(e => e.path !== null),
     }))
-    .sort((a, b) => Number(a.isStaging) - Number(b.isStaging)); // production hosts first
+    .sort((a, b) => Number(a.isStaging) - Number(b.isStaging));
 }
 
-function generateIframe(host, entry) {
-  const domain = entry.path ? `${host}${entry.path}` : host;
-  const encoded = encodeURIComponent(domain);
+// Build per-company static entries (primary domain + each additional domain)
+function buildStaticEntries(companies) {
+  return companies.flatMap(company => {
+    const allDomains = [
+      { domain: company.domain, label: 'Production' },
+      ...(company.additional_domains || []).map((d, i) => ({
+        domain: d,
+        label: (company.additional_domains.length > 1) ? `Staging ${i + 1}` : 'Staging',
+      }))
+    ];
+    return allDomains.map(({ domain, label }) => {
+      const { host, path } = normalizeAndSplit(domain);
+      return { companyId: company.id, companyName: company.name, host, path, domain: `${host}${path || ''}`, label };
+    });
+  });
+}
+
+function generateStaticIframe(entry) {
+  const encoded = encodeURIComponent(entry.domain);
   return `<!-- ${entry.companyName} AI Chatbot Widget -->
 <iframe
   id="chat-widget-iframe"
@@ -106,6 +122,7 @@ function CodeBlock({ code, copyKey, copiedKey, onCopy }) {
 }
 
 export default function EmbedCodeModal({ companies = [], onClose }) {
+  const [activeTab, setActiveTab] = useState('dynamic');
   const [copiedKey, setCopiedKey] = useState(null);
 
   const copyToClipboard = async (text, key) => {
@@ -117,13 +134,27 @@ export default function EmbedCodeModal({ companies = [], onClose }) {
   };
 
   const hostGroups = buildHostGroups(companies);
+  const staticEntries = buildStaticEntries(companies);
+
+  const tabs = [
+    {
+      id: 'dynamic',
+      label: 'Dynamic',
+      description: 'For SPAs or multi-company hosts — one snippet auto-selects the company from the URL path',
+    },
+    {
+      id: 'static',
+      label: 'Static',
+      description: 'For standalone pages — one dedicated iframe per company per domain',
+    },
+  ];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
 
         {/* Header */}
-        <div className="flex justify-between items-start mb-2">
+        <div className="flex justify-between items-start mb-4">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Embed Codes</h2>
             <p className="text-gray-600 mt-1">
@@ -133,86 +164,157 @@ export default function EmbedCodeModal({ companies = [], onClose }) {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
         </div>
 
-        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <p className="text-sm text-blue-800">
-            Each snippet below covers all companies registered on that host.
-            Dynamic snippets read <code className="bg-blue-100 px-1 rounded">window.location.pathname</code> to select the correct company automatically.
-          </p>
+        {/* Tabs */}
+        <div className="flex gap-0 border border-gray-200 rounded-lg overflow-hidden mb-5">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 px-4 py-3 text-sm text-left transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <div className="font-semibold">{tab.label}</div>
+              <div className={`text-xs mt-0.5 ${activeTab === tab.id ? 'text-gray-300' : 'text-gray-400'}`}>
+                {tab.description}
+              </div>
+            </button>
+          ))}
         </div>
 
         {companies.length === 0 && (
           <div className="text-center text-gray-500 py-8">No companies found.</div>
         )}
 
-        {/* One card per host */}
-        <div className="space-y-5">
-          {hostGroups.map((group, idx) => {
-            const code = group.isSPA
-              ? generateDynamicSnippet(group.host, group.entries)
-              : generateIframe(group.host, group.entries[0]);
+        {/* ── Dynamic Tab ── */}
+        {activeTab === 'dynamic' && (
+          <div className="space-y-5">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+              Each snippet covers all companies on the same host. Place it once on the site —
+              it reads <code className="bg-blue-100 px-1 rounded">window.location.pathname</code> to
+              load the correct company automatically.
+            </div>
 
-            return (
-              <div key={group.host} className="border border-gray-200 rounded-lg overflow-hidden">
-                {/* Card header */}
-                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex flex-wrap items-center gap-2">
-                  <code className="text-sm font-semibold text-gray-900">{group.host}</code>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    group.isStaging
-                      ? 'bg-orange-100 text-orange-700'
-                      : 'bg-green-100 text-green-700'
-                  }`}>
-                    {group.isStaging ? 'Staging' : 'Production'}
-                  </span>
-                  {group.isSPA ? (
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                      Dynamic · {group.entries.length} {group.entries.length === 1 ? 'company' : 'companies'}
-                    </span>
-                  ) : (
-                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
-                      Iframe · {group.entries[0].companyName}
-                    </span>
-                  )}
-                </div>
+            {hostGroups.map((group, idx) => {
+              const code = group.isSPA
+                ? generateDynamicSnippet(group.host, group.entries)
+                : generateStaticIframe(group.entries[0]);
 
-                {/* Company path breakdown (SPA only) */}
-                {group.isSPA && (
-                  <div className="px-4 pt-3 flex flex-wrap gap-2">
-                    {group.entries.map(e => (
-                      <span
-                        key={e.companyId}
-                        className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded"
-                      >
-                        <code className="text-gray-500">{e.path}</code>
-                        <span className="text-gray-300">→</span>
-                        <span className="font-medium">{e.companyName}</span>
+              return (
+                <div key={group.host} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex flex-wrap items-center gap-2">
+                    <code className="text-sm font-semibold text-gray-900">{group.host}</code>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      group.isStaging ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+                    }`}>
+                      {group.isStaging ? 'Staging' : 'Production'}
+                    </span>
+                    {group.isSPA ? (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                        Dynamic · {group.entries.length} {group.entries.length === 1 ? 'company' : 'companies'}
                       </span>
+                    ) : (
+                      <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                        Single company
+                      </span>
+                    )}
+                  </div>
+
+                  {group.isSPA && (
+                    <div className="px-4 pt-3 flex flex-wrap gap-2">
+                      {group.entries.map(e => (
+                        <span key={e.companyId} className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                          <code className="text-gray-500">{e.path}</code>
+                          <span className="text-gray-300">→</span>
+                          <span className="font-medium">{e.companyName}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="p-4">
+                    <CodeBlock
+                      code={code}
+                      copyKey={`dyn-${idx}`}
+                      copiedKey={copiedKey}
+                      onCopy={copyToClipboard}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Static Tab ── */}
+        {activeTab === 'static' && (
+          <div className="space-y-5">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+              Each snippet is hardcoded for one company on one domain. Paste it on the specific
+              page where that company's widget should appear.
+            </div>
+
+            {companies.map((company) => {
+              const entries = staticEntries.filter(e => e.companyId === company.id);
+              return (
+                <div key={company.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-gray-900">{company.name}</span>
+                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                      {entries.length} {entries.length === 1 ? 'domain' : 'domains'}
+                    </span>
+                  </div>
+
+                  <div className="divide-y divide-gray-100">
+                    {entries.map((entry, idx) => (
+                      <div key={idx} className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            entry.label === 'Production'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-orange-100 text-orange-700'
+                          }`}>
+                            {entry.label}
+                          </span>
+                          <code className="text-xs text-gray-500">{entry.domain}</code>
+                        </div>
+                        <CodeBlock
+                          code={generateStaticIframe(entry)}
+                          copyKey={`static-${company.id}-${idx}`}
+                          copiedKey={copiedKey}
+                          onCopy={copyToClipboard}
+                        />
+                      </div>
                     ))}
                   </div>
-                )}
-
-                {/* Code block */}
-                <div className="p-4">
-                  <CodeBlock
-                    code={code}
-                    copyKey={`host-${idx}`}
-                    copiedKey={copiedKey}
-                    onCopy={copyToClipboard}
-                  />
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Instructions */}
-        <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <h4 className="font-medium text-gray-900 mb-2 text-sm">Instructions</h4>
-          <ol className="text-xs text-gray-700 space-y-1 list-decimal list-inside">
-            <li>Paste the correct environment snippet just before <code className="bg-white px-1">&lt;/body&gt;</code></li>
-            <li>Dynamic snippets auto-select the right company from the URL path — no changes needed when adding companies</li>
-            <li>Simple iframe snippets are for standalone single-company sites</li>
-            <li>Customize accent color by changing <code className="bg-white px-1">color=%233b82f6</code></li>
-          </ol>
+        <div className="mt-5 bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h4 className="font-medium text-gray-900 mb-2 text-sm">
+            {activeTab === 'dynamic' ? 'Dynamic — When to use' : 'Static — When to use'}
+          </h4>
+          {activeTab === 'dynamic' ? (
+            <ul className="text-xs text-gray-700 space-y-1 list-disc list-inside">
+              <li>Single-page applications (SPA) where multiple companies share the same host</li>
+              <li>The snippet is placed once and auto-selects the company from the URL path</li>
+              <li>Adding new companies only requires updating the <code className="bg-white px-1">companyMap</code></li>
+              <li>Use for hosts like <code className="bg-white px-1">benefits.inspro.com.sg</code> that serve multiple companies via path</li>
+            </ul>
+          ) : (
+            <ul className="text-xs text-gray-700 space-y-1 list-disc list-inside">
+              <li>Static websites or standalone pages with one company per page</li>
+              <li>Each snippet is tied to a specific company and domain</li>
+              <li>Paste the Production snippet on the live site, Staging snippet on the test site</li>
+              <li>Customize <code className="bg-white px-1">color=%233b82f6</code> to change the widget accent color</li>
+            </ul>
+          )}
         </div>
 
         <div className="flex justify-end mt-4">
