@@ -103,13 +103,14 @@ frontend/widget/src/
 ├── ChatWidget.jsx                     # Main component, iframe resize via postMessage
 ├── index.css                          # Tailwind + custom styles
 ├── components/
-│   ├── LoginForm.jsx                  # State machine coordinator (~390 lines)
+│   ├── LoginForm.jsx                  # State machine coordinator (~437 lines), non-blocking disclaimer
 │   ├── login/
 │   │   ├── OptionSelector.jsx         # Chat vs LOG option cards
 │   │   ├── ChatLoginForm.jsx          # Employee ID login form
 │   │   ├── LogRequestForm.jsx         # LOG request with file upload
 │   │   ├── CallbackForm.jsx           # Contact number callback
 │   │   └── SuccessScreen.jsx          # Confirmation message
+│   ├── PrivacyPolicyModal.jsx         # Terms of Use modal (13 sections, Inspro-specific)
 │   ├── ChatWindow.jsx                 # Chat interface
 │   ├── ChatButton.jsx                 # Floating button
 │   ├── MessageInput.jsx               # Input area
@@ -132,12 +133,52 @@ Clients use an **iframe embed** approach. Only iframe embed is supported.
 
 ### Client Embed Code
 
-Get from Admin Portal → Company Management → Embed Code:
+Get from **Admin Portal → Company Management → `</> Embed Codes` button** (top-right of page).
+
+Two implementation types are available:
+
+#### Dynamic (SPA / multi-company hosts)
+For sites where multiple companies share the same host, distinguished by URL path (e.g. Inspro vendor portal). Uses `window.location.hostname` at runtime — **one snippet works on both production and staging automatically**. No hardcoded host in the snippet.
+
+```html
+<script>
+  (function() {
+    var companyMap = {
+      "/cbre": { id: "<CBRE_UUID>", color: "%233b82f6" },
+      "/stm":  { id: "<STM_UUID>",  color: "%233b82f6" }
+    };
+    var path = window.location.pathname.replace(/\/$/, "");
+    var company = companyMap[path];
+    if (!company) return;
+    var domain = encodeURIComponent(window.location.hostname + path);
+    var src = "https://app-aibot-api.azurewebsites.net/chat"
+      + "?company=" + company.id + "&domain=" + domain + "&color=" + company.color;
+    var iframe = document.createElement("iframe");
+    iframe.id = "chat-widget-iframe";
+    iframe.src = src;
+    iframe.style.cssText = "position:fixed;bottom:16px;right:16px;width:200px;height:80px;border:none;background:transparent;z-index:9999;transition:all 0.3s ease;";
+    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups");
+    iframe.setAttribute("allow", "clipboard-write");
+    iframe.setAttribute("allowtransparency", "true");
+    iframe.title = "Chat Widget";
+    document.body.appendChild(iframe);
+  })();
+</script>
+<script src="https://app-aibot-api.azurewebsites.net/embed-helper.js"></script>
+```
+
+- **`companyMap`** is auto-generated with real UUIDs and paths from all registered companies
+- **`window.location.hostname`** resolves to the actual host at runtime (production or staging)
+- Backend matches the domain against primary domain or additional domains to find the company
+- Paste the same snippet on both production and staging — no separate versions needed
+
+#### Static (standalone pages)
+For sites with one company per page. Hardcoded company ID and domain. One snippet per company per domain (production and staging shown separately in the modal).
 
 ```html
 <iframe
   id="chat-widget-iframe"
-  src="https://app-aibot-api.azurewebsites.net/chat?company=COMPANY_ID&domain=ENCODED_DOMAIN&color=%233b82f6"
+  src="https://app-aibot-api.azurewebsites.net/chat?company=<UUID>&domain=<ENCODED_DOMAIN>&color=%233b82f6"
   style="position: fixed; bottom: 16px; right: 16px; width: 200px; height: 80px; border: none; background: transparent; z-index: 9999; transition: all 0.3s ease;"
   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
   allow="clipboard-write"
@@ -147,7 +188,13 @@ Get from Admin Portal → Company Management → Embed Code:
 <script src="https://app-aibot-api.azurewebsites.net/embed-helper.js"></script>
 ```
 
-**Important:** The `domain` parameter is required for multi-tenant domains (see Domain Routing below).
+### Embed Code UI (`EmbedCodeModal.jsx`)
+
+- **Single global button** (`</> Embed Codes`) in Company Management header — not per-row
+- **Dynamic tab**: groups companies by shared hosts using union-find (companies sharing any host → one snippet). Only SPA companies (path-based domains) appear here.
+- **Static tab**: one card per company, one code block per domain (primary = Production, additional = Staging)
+- All UUIDs, paths, and domains are populated from live DB data — ready to copy-paste
+- `VITE_API_URL` env var sets the API base URL in generated snippets
 
 ### How to Update the Widget
 
@@ -157,9 +204,9 @@ cd backend && npm run build-widget    # Build + copy + regenerate SRI hashes
 
 Widget is also built automatically in CI/CD (GitHub Actions) on every push to `main` that touches `backend/**` or `frontend/widget/**`. SRI hashes are regenerated as part of the CI build, so even if you forget to build locally, the deployed version will always have matching hashes.
 
-### Embed Code Generator Location
+### Embed Code Backend Endpoint
 
-`backend/api/routes/admin/companies.js` — generates the embed code shown in Admin Portal.
+`GET /api/admin/companies/:id/embed-code` — used only to retrieve `apiUrl` for the modal. All snippet generation is done client-side in `EmbedCodeModal.jsx` from the companies list.
 
 ## Admin Portal
 
@@ -226,6 +273,30 @@ curl -s "https://app-aibot-api.azurewebsites.net/api/chat/session" \
 - `"Employee not found"` = Domain works, company found
 - `"Company not found for this domain"` = Domain mismatch
 
+### Inspro Vendor Portal (SPA — confirmed 2026-02-20)
+
+Both `benefits.inspro.com.sg` and `benefits-staging.inspro.com.sg` are **SPAs** — confirmed by curl:
+- Single `<div id="app">` with no server-rendered content
+- Same JS bundle hash served for all company paths (`/cbre`, `/STM`, etc.)
+- Staging is ahead of prod: `env.js v4.4` vs `v4.3`, staging has service worker + PWA manifest
+
+**Implication:** Static per-company embed code won't work. Use the **Dynamic** snippet from Admin Portal → Embed Codes.
+
+**Company domain registration in Admin Portal:**
+- Primary Domain → production path (e.g., `benefits.inspro.com.sg/cbre`)
+- Additional Domains → staging path (e.g., `benefits-staging.inspro.com.sg/cbre`)
+
+**Dynamic snippet** (get from Admin Portal → `</> Embed Codes` → Dynamic tab):
+- Uses `window.location.hostname` — **one snippet works on both production and staging**
+- `companyMap` is auto-generated with all registered companies' real UUIDs and paths
+- Paste the same snippet on both `benefits.inspro.com.sg` and `benefits-staging.inspro.com.sg`
+
+**How the domain resolves at runtime:**
+- On production: `window.location.hostname` = `benefits.inspro.com.sg` → backend matches primary domain
+- On staging: `window.location.hostname` = `benefits-staging.inspro.com.sg` → backend matches additional domain
+
+**Adding a new company:** Register it in Admin Portal with correct primary + additional domains → open Embed Codes modal → copy updated Dynamic snippet → send to vendor to replace the old one (single re-paste on each environment).
+
 ## Environment Variables (Required)
 
 - `JWT_SECRET` — **Required**, server crashes on startup if unset
@@ -270,3 +341,5 @@ Check height calculation — button is hidden when open, use `contentHeight + 8`
 **Clients do NOT need to update their code for:** Bug fixes, UI improvements, mobile optimizations, new features (without new parameters).
 
 **Clients NEED to update their code for:** API URL changes, new required parameters, breaking changes to iframe ID.
+
+**Inspro vendor needs to re-paste the Dynamic snippet** when a new company is onboarded. Generate the updated snippet from Admin Portal → `</> Embed Codes` → Dynamic tab — it already includes all companies with real UUIDs. The same snippet is pasted on both production and staging (no separate versions needed).
