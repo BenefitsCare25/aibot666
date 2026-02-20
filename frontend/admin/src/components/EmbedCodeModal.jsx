@@ -10,31 +10,57 @@ const normalizeAndSplit = (domain) => {
     : { host: clean.substring(0, idx), path: clean.substring(idx) };
 };
 
-// Group companies by their primary host (one card per site, covers all environments)
+// Group companies by shared hosts using union-find.
+// If two companies share ANY host (primary or additional), they belong to the same site group
+// and get ONE combined snippet — regardless of which domain is primary vs staging.
 function buildSiteGroups(companies) {
-  const groupMap = {}; // primaryHost → { entries, stagingHosts }
-
-  companies.forEach(company => {
-    const { host: primaryHost, path } = normalizeAndSplit(company.domain);
-    if (!primaryHost) return;
-
-    if (!groupMap[primaryHost]) groupMap[primaryHost] = { entries: [], stagingHosts: new Set() };
-
-    groupMap[primaryHost].entries.push({ path, companyId: company.id, companyName: company.name });
-
-    // Collect all additional/staging hosts for this group
-    (company.additional_domains || []).forEach(d => {
-      const { host: addHost } = normalizeAndSplit(d);
-      if (addHost && addHost !== primaryHost) groupMap[primaryHost].stagingHosts.add(addHost);
-    });
+  // Map each company to all its base hosts
+  const companyHostSets = companies.map(company => {
+    const allDomains = [company.domain, ...(company.additional_domains || [])];
+    const hosts = new Set(allDomains.map(d => normalizeAndSplit(d).host).filter(Boolean));
+    return { company, hosts };
   });
 
-  return Object.entries(groupMap).map(([primaryHost, data]) => ({
-    primaryHost,
-    stagingHosts: [...data.stagingHosts],
-    entries: data.entries,
-    isSPA: data.entries.some(e => e.path !== null),
-  }));
+  // Union-find: merge companies that share any host into the same group
+  const groups = []; // [{ hosts: Set, companies: [] }]
+
+  companyHostSets.forEach(({ company, hosts }) => {
+    const overlapping = groups.filter(g => [...hosts].some(h => g.hosts.has(h)));
+
+    if (overlapping.length === 0) {
+      groups.push({ hosts: new Set(hosts), companies: [company] });
+    } else {
+      // Merge all overlapping groups into the first one
+      const primary = overlapping[0];
+      hosts.forEach(h => primary.hosts.add(h));
+      primary.companies.push(company);
+      for (let i = 1; i < overlapping.length; i++) {
+        overlapping[i].hosts.forEach(h => primary.hosts.add(h));
+        overlapping[i].companies.forEach(c => primary.companies.push(c));
+        groups.splice(groups.indexOf(overlapping[i]), 1);
+      }
+    }
+  });
+
+  // Build output: one entry per group
+  return groups.map(g => {
+    const primaryHostSet = new Set(
+      g.companies.map(c => normalizeAndSplit(c.domain).host).filter(Boolean)
+    );
+    const allHosts = [...g.hosts];
+
+    const entries = g.companies
+      .map(c => ({ path: normalizeAndSplit(c.domain).path, companyId: c.id, companyName: c.name }))
+      .filter(e => e.path !== null); // only path-based (SPA) companies
+
+    return {
+      allHosts,
+      productionHosts: allHosts.filter(h => primaryHostSet.has(h)),
+      stagingHosts: allHosts.filter(h => !primaryHostSet.has(h)),
+      entries,
+      isSPA: entries.length > 0,
+    };
+  }).filter(g => g.isSPA); // dynamic tab only shows SPA groups
 }
 
 // Build per-company static entries (primary domain + each additional domain)
@@ -195,8 +221,8 @@ export default function EmbedCodeModal({ companies = [], onClose }) {
               Place it once on each environment and it automatically sends the correct domain to the backend.
             </div>
 
-            {siteGroups.filter(g => g.isSPA).map((group, idx) => (
-              <div key={group.primaryHost} className="border border-gray-200 rounded-lg overflow-hidden">
+            {siteGroups.map((group, idx) => (
+              <div key={idx} className="border border-gray-200 rounded-lg overflow-hidden">
                 {/* Card header */}
                 <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
                   <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -207,18 +233,20 @@ export default function EmbedCodeModal({ companies = [], onClose }) {
                       Dynamic snippet
                     </span>
                   </div>
-                  {/* Environments this snippet covers */}
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
-                      <span className="text-gray-600">Production:</span>
-                      <code className="text-gray-800">{group.primaryHost}</code>
-                    </span>
+                  {/* All environments this ONE snippet covers */}
+                  <div className="flex flex-wrap gap-3 text-xs">
+                    {group.productionHosts.map(h => (
+                      <span key={h} className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+                        <span className="text-gray-500">Production:</span>
+                        <code className="text-gray-800 font-medium">{h}</code>
+                      </span>
+                    ))}
                     {group.stagingHosts.map(h => (
                       <span key={h} className="flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full bg-orange-400 inline-block"></span>
-                        <span className="text-gray-600">Staging:</span>
-                        <code className="text-gray-800">{h}</code>
+                        <span className="text-gray-500">Staging:</span>
+                        <code className="text-gray-800 font-medium">{h}</code>
                       </span>
                     ))}
                   </div>
@@ -246,7 +274,7 @@ export default function EmbedCodeModal({ companies = [], onClose }) {
               </div>
             ))}
 
-            {siteGroups.filter(g => g.isSPA).length === 0 && (
+            {siteGroups.length === 0 && (
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center text-gray-500 text-sm">
                 No path-based (SPA) companies found. Dynamic snippets require companies with a path in their domain
                 (e.g. <code className="bg-white px-1">benefits.inspro.com.sg/cbre</code>).
