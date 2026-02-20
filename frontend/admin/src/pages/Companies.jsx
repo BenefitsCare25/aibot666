@@ -11,7 +11,7 @@ export default function Companies() {
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingCompany, setEditingCompany] = useState(null);
-  const [showEmbedCode, setShowEmbedCode] = useState(null);
+  const [showEmbedCode, setShowEmbedCode] = useState(false);
   const [showEmailConfig, setShowEmailConfig] = useState(null);
   const [creatingSchema, setCreatingSchema] = useState(false); // New state for schema creation
   const [successMessage, setSuccessMessage] = useState(''); // New state for success messages
@@ -209,14 +209,25 @@ export default function Companies() {
           <h1 className="text-2xl font-bold text-gray-900">Company Management</h1>
           <p className="text-gray-600 mt-1">Manage multi-tenant company configurations</p>
         </div>
-        {can('companies.create') && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            + Add Company
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {can('companies.manage_schema') && (
+            <button
+              onClick={() => setShowEmbedCode(true)}
+              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-colors font-mono text-sm"
+              title="View embed codes for all companies"
+            >
+              &lt;/&gt; Embed Codes
+            </button>
+          )}
+          {can('companies.create') && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              + Add Company
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -444,15 +455,6 @@ export default function Companies() {
                     {new Date(company.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {can('companies.manage_schema') && (
-                      <button
-                        onClick={() => setShowEmbedCode(company)}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
-                        title="View embed code"
-                      >
-                        &lt;/&gt;
-                      </button>
-                    )}
                     {can('companies.edit') && (
                       <button
                         onClick={() => setShowEmailConfig(company)}
@@ -493,7 +495,7 @@ export default function Companies() {
                         Delete
                       </button>
                     )}
-                    {!can('companies.edit') && !can('companies.delete') && !can('companies.manage_schema') && (
+                    {!can('companies.edit') && !can('companies.delete') && (
                       <span className="text-gray-400 text-sm">No actions available</span>
                     )}
                   </td>
@@ -554,9 +556,8 @@ export default function Companies() {
       {/* Embed Code Modal */}
       {showEmbedCode && (
         <EmbedCodeModal
-          company={showEmbedCode}
-          allCompanies={companies}
-          onClose={() => setShowEmbedCode(null)}
+          companies={companies}
+          onClose={() => setShowEmbedCode(false)}
         />
       )}
     </div>
