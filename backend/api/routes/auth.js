@@ -40,9 +40,18 @@ router.post('/login', [
 
     const { username, password } = req.body;
 
-    // Account lockout check
+    // Account lockout check (fail-open with timeout to avoid blocking on Redis cold start)
     const lockoutKey = `login_lockout:${username}`;
-    const failCount = parseInt(await redis.get(lockoutKey)) || 0;
+    let failCount = 0;
+    try {
+      const lockoutResult = await Promise.race([
+        redis.get(lockoutKey),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Redis timeout')), 3000))
+      ]);
+      failCount = parseInt(lockoutResult) || 0;
+    } catch (e) {
+      console.warn('[auth] Redis lockout check skipped (Redis not ready):', e.message);
+    }
     if (failCount >= 5) {
       const ttl = await redis.ttl(lockoutKey);
       return res.status(429).json({
