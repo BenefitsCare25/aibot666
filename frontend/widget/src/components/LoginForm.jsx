@@ -325,32 +325,34 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
           backgroundColor: '#ffffff'
         }}
       >
-        {/* Non-blocking disclaimer notice */}
-        <div
-          className="ic-rounded-lg ic-p-3 ic-mb-4"
-          style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
-        >
-          <p className="ic-text-xs ic-leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-            All conversations are recorded for quality assurance. This assistant provides
-            general information only and should not be considered professional insurance advice.
-            By using this assistant, you agree to our{' '}
-            <button
-              onClick={() => setShowPrivacyPolicy(true)}
-              className="ic-font-medium hover:ic-underline"
-              style={{ color: 'var(--color-primary-500)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 'inherit' }}
-            >
-              Terms of Use
-            </button>.
-          </p>
-        </div>
-
         {selectedOption === null && (companyFeatures.showChat || companyFeatures.showLog) && (
-          <OptionSelector
-            onSelectChat={() => setSelectedOption('chat')}
-            onSelectLog={() => setSelectedOption('log')}
-            showChat={companyFeatures.showChat}
-            showLog={companyFeatures.showLog}
-          />
+          <>
+            <OptionSelector
+              onSelectChat={() => setSelectedOption('chat')}
+              onSelectLog={() => setSelectedOption('log')}
+              showChat={companyFeatures.showChat}
+              showLog={companyFeatures.showLog}
+            />
+
+            {/* Non-blocking disclaimer notice */}
+            <div
+              className="ic-rounded-lg ic-p-3 ic-mt-4"
+              style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+            >
+              <p className="ic-text-xs ic-leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                All conversations are recorded for quality assurance. This assistant provides
+                general information only and should not be considered professional insurance advice.
+                By using this assistant, you agree to our{' '}
+                <button
+                  onClick={() => setShowPrivacyPolicy(true)}
+                  className="ic-font-medium hover:ic-underline"
+                  style={{ color: 'var(--color-primary-500)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 'inherit' }}
+                >
+                  Terms of Use
+                </button>.
+              </p>
+            </div>
+          </>
         )}
 
         {selectedOption === 'chat' && (
