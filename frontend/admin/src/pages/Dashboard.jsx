@@ -286,7 +286,24 @@ export default function Dashboard() {
 
       {/* Frequent Categories & Questions */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Top Categories & Questions</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-900">Top Categories & Questions</h2>
+          <button
+            onClick={async () => {
+              if (!window.confirm('Reset all usage counts to 0?')) return;
+              try {
+                await analyticsApi.resetUsageCounts();
+                toast.success('Usage counts reset');
+                loadDashboardData();
+              } catch {
+                toast.error('Failed to reset counts');
+              }
+            }}
+            className="text-xs text-gray-500 hover:text-red-600 border border-gray-300 hover:border-red-400 rounded px-2 py-1 transition-colors"
+          >
+            Reset Counts
+          </button>
+        </div>
         {frequentCategories?.topCategories?.length > 0 ? (
           <div className="space-y-6">
             {frequentCategories.topCategories.map((category, index) => (

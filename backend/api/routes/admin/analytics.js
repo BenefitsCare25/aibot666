@@ -240,6 +240,26 @@ router.get('/frequent-categories', async (req, res) => {
 });
 
 /**
+ * POST /api/admin/analytics/reset-usage
+ * Reset all knowledge_base usage_count to 0
+ */
+router.post('/reset-usage', async (req, res) => {
+  try {
+    const { error } = await req.supabase
+      .from('knowledge_base')
+      .update({ usage_count: 0, last_used_at: null })
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // match all rows
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Usage counts reset successfully' });
+  } catch (error) {
+    console.error('Error resetting usage counts:', error);
+    res.status(500).json({ success: false, error: 'Failed to reset usage counts' });
+  }
+});
+
+/**
  * GET /api/admin/analytics/query-trends
  * Get daily query trends for the last 7 days
  */

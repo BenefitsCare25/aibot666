@@ -25,6 +25,11 @@ export const analyticsApi = {
     return apiClient.get('/api/admin/analytics/query-trends', { params: { days } });
   },
 
+  // Reset knowledge base usage counts
+  resetUsageCounts: async () => {
+    return apiClient.post('/api/admin/analytics/reset-usage');
+  },
+
   // Get escalations
   getEscalations: async (params = {}) => {
     const { status = '', page = 1, limit = 50 } = params;
