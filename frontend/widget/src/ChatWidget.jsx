@@ -11,11 +11,12 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
   // Ref to track if we should send resize messages (prevents stale closure issues)
   const shouldSendResizeRef = useRef(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const { initialize } = useChatStore();
+  const { initialize, fetchConfig, companyFeatures } = useChatStore();
 
   useEffect(() => {
     // Initialize store with API URL and optional domain override
     initialize(apiUrl, domain);
+    fetchConfig();
 
     // Check if user has existing session in localStorage
     const storedSession = localStorage.getItem('chat_session');
@@ -35,7 +36,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         localStorage.removeItem('chat_session');
       }
     }
-  }, [apiUrl, domain, initialize]);
+  }, [apiUrl, domain, initialize, fetchConfig]);
 
   // Check if we're in an iframe
   const isInIframe = typeof window !== 'undefined' && window.parent !== window;
@@ -324,6 +325,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
                 isEmbedded={false}
                 isMobileFullScreen={isMobileFullScreen}
                 isInIframe={isInIframe}
+                companyFeatures={companyFeatures}
               />
             )}
           </div>

@@ -34,6 +34,20 @@ router.use(companyContextMiddleware);
 
 const ESCALATE_ON_NO_KNOWLEDGE = process.env.ESCALATE_ON_NO_KNOWLEDGE !== 'false';
 
+// GET /api/chat/config - Return company widget feature flags
+router.get('/config', (req, res) => {
+  const settings = req.company?.settings || {};
+  res.json({
+    success: true,
+    data: {
+      features: {
+        showChat: settings.showChat !== false,
+        showLog: settings.showLog !== false
+      }
+    }
+  });
+});
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {

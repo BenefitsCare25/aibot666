@@ -20,6 +20,9 @@ export const useChatStore = create((set, get) => ({
   isLoading: false,
   error: null,
 
+  // Company widget feature flags
+  companyFeatures: { showChat: true, showLog: true },
+
   // New state for LOG request feature
   attachments: [],
   logRequested: false,
@@ -50,8 +53,23 @@ export const useChatStore = create((set, get) => ({
       showEmailInput: false,
       isLogMode: false,
       uploadError: null,
-      logError: null
+      logError: null,
+      companyFeatures: { showChat: true, showLog: true }
     });
+  },
+
+  fetchConfig: async () => {
+    const state = get();
+    try {
+      const response = await axios.get(`${state.apiUrl}/api/chat/config`, {
+        headers: getHeaders(state)
+      });
+      if (response.data.success) {
+        set({ companyFeatures: response.data.data.features });
+      }
+    } catch (e) {
+      // Keep defaults on network error
+    }
   },
 
   createSession: async (identifier) => {

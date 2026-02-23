@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, Mail } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
@@ -9,7 +9,7 @@ import CallbackForm from './login/CallbackForm';
 import SuccessScreen from './login/SuccessScreen';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 
-export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded = false, isMobileFullScreen = false, isInIframe = false }) {
+export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded = false, isMobileFullScreen = false, isInIframe = false, companyFeatures = { showChat: true, showLog: true } }) {
   const containerStyle = isMobileFullScreen
     ? {
         width: '100%',
@@ -62,6 +62,13 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
   const [logSubmitted, setLogSubmitted] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const { createSession, apiUrl, domain: companyDomain } = useChatStore();
+
+  // Auto-select when only one option is available
+  useEffect(() => {
+    if (selectedOption !== null) return;
+    if (!companyFeatures.showChat && companyFeatures.showLog) setSelectedOption('log');
+    else if (companyFeatures.showChat && !companyFeatures.showLog) setSelectedOption('chat');
+  }, [companyFeatures]);
 
   const getDomain = () => companyDomain || window.location.hostname;
 
@@ -337,10 +344,12 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
           </p>
         </div>
 
-        {selectedOption === null && (
+        {selectedOption === null && (companyFeatures.showChat || companyFeatures.showLog) && (
           <OptionSelector
             onSelectChat={() => setSelectedOption('chat')}
             onSelectLog={() => setSelectedOption('log')}
+            showChat={companyFeatures.showChat}
+            showLog={companyFeatures.showLog}
           />
         )}
 

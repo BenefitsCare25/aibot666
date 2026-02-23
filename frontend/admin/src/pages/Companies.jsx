@@ -21,7 +21,9 @@ export default function Companies() {
     additional_domains: '',
     schema_name: '',
     status: 'active',
-    settings: '{}'
+    settings: '{}',
+    showChat: true,
+    showLog: true
   });
 
   useEffect(() => {
@@ -48,12 +50,17 @@ export default function Companies() {
     setSuccessMessage('');
 
     try {
+      const baseSettings = formData.settings ? JSON.parse(formData.settings) : {};
       const submitData = {
         ...formData,
         additional_domains: formData.additional_domains
           ? formData.additional_domains.split(',').map(d => d.trim()).filter(Boolean)
           : [],
-        settings: formData.settings ? JSON.parse(formData.settings) : {}
+        settings: {
+          ...baseSettings,
+          showChat: formData.showChat,
+          showLog: formData.showLog
+        }
       };
 
       if (editingCompany) {
@@ -96,13 +103,16 @@ export default function Companies() {
 
   const handleEdit = (company) => {
     setEditingCompany(company);
+    const parsedSettings = company.settings || {};
     setFormData({
       name: company.name,
       domain: company.domain,
       additional_domains: company.additional_domains?.join(', ') || '',
       schema_name: company.schema_name,
       status: company.status || 'active',
-      settings: JSON.stringify(company.settings || {}, null, 2)
+      settings: JSON.stringify(parsedSettings, null, 2),
+      showChat: parsedSettings.showChat !== false,
+      showLog: parsedSettings.showLog !== false
     });
     setShowForm(true);
   };
@@ -183,7 +193,9 @@ export default function Companies() {
       additional_domains: '',
       schema_name: '',
       status: 'active',
-      settings: '{}'
+      settings: '{}',
+      showChat: true,
+      showLog: true
     });
   };
 
@@ -329,6 +341,30 @@ export default function Companies() {
                   <option value="inactive">Inactive</option>
                   <option value="suspended">Suspended</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Widget Options</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.showChat}
+                      onChange={(e) => setFormData({ ...formData, showChat: e.target.checked })}
+                      className="w-4 h-4 rounded border-gray-300 text-primary-600"
+                    />
+                    <span className="text-sm text-gray-700">Show "Send us a message" option</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.showLog}
+                      onChange={(e) => setFormData({ ...formData, showLog: e.target.checked })}
+                      className="w-4 h-4 rounded border-gray-300 text-primary-600"
+                    />
+                    <span className="text-sm text-gray-700">Show "Request Letter of Guarantee" option</span>
+                  </label>
+                </div>
               </div>
 
               <div>
