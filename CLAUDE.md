@@ -31,7 +31,7 @@ backend/
 │   │   │   ├── analytics.js          # Usage analytics, trends, frequent categories
 │   │   │   ├── quickQuestions.js      # Quick questions CRUD, bulk import, Excel
 │   │   │   └── debug.js              # Diagnostics (requireSuperAdmin protected)
-│   │   ├── chat.js                    # Chat session, messages, RAG flow, callbacks
+│   │   ├── chat.js                    # Chat session, messages, RAG flow, callbacks, /config endpoint
 │   │   ├── auth.js                    # Login (with lockout), token refresh
 │   │   ├── documents.js              # PDF upload, processing status
 │   │   └── adminUsers.js             # Admin user management
@@ -103,9 +103,9 @@ frontend/widget/src/
 ├── ChatWidget.jsx                     # Main component, iframe resize via postMessage
 ├── index.css                          # Tailwind + custom styles
 ├── components/
-│   ├── LoginForm.jsx                  # State machine coordinator (~437 lines), non-blocking disclaimer
+│   ├── LoginForm.jsx                  # State machine coordinator, non-blocking disclaimer, feature-flag auto-select
 │   ├── login/
-│   │   ├── OptionSelector.jsx         # Chat vs LOG option cards
+│   │   ├── OptionSelector.jsx         # Chat vs LOG option cards (conditional per companyFeatures)
 │   │   ├── ChatLoginForm.jsx          # Employee ID login form
 │   │   ├── LogRequestForm.jsx         # LOG request with file upload
 │   │   ├── CallbackForm.jsx           # Contact number callback
@@ -118,7 +118,7 @@ frontend/widget/src/
 │   ├── QuickQuestions.jsx             # Quick question cards
 │   └── FileAttachment.jsx            # File upload (uses onError callback, no alert())
 └── store/
-    └── chatStore.js                   # Zustand state (crypto.randomUUID IDs, error state)
+    └── chatStore.js                   # Zustand state (crypto.randomUUID IDs, error state, companyFeatures)
 ```
 
 ## Widget Deployment
@@ -317,6 +317,28 @@ Both `benefits.inspro.com.sg` and `benefits-staging.inspro.com.sg` are **SPAs** 
 
 - **Widget test page**: `https://app-aibot-api.azurewebsites.net/test-iframe-mobile.html`
 - **Admin portal**: `https://gray-flower-0e68c8a00-preview.eastasia.6.azurestaticapps.net/`
+
+## Company Widget Feature Flags
+
+Per-company toggles stored in `company.settings` JSONB. Controlled via Admin Portal → Company Management → Edit → **Widget Options** checkboxes.
+
+| Setting key | Default | Effect |
+|-------------|---------|--------|
+| `showChat` | `true` | Shows "Send us a message" option in OptionSelector |
+| `showLog` | `true` | Shows "Request Letter of Guarantee" option in OptionSelector |
+
+**How it works:**
+1. `GET /api/chat/config` reads `req.company.settings` and returns `{ features: { showChat, showLog } }` (both default `true`)
+2. `ChatWidget.jsx` calls `fetchConfig()` on mount; result stored in `companyFeatures` Zustand state
+3. `LoginForm.jsx` receives `companyFeatures` prop; auto-selects the sole available option if one is disabled (skips OptionSelector entirely)
+4. `OptionSelector.jsx` conditionally renders each button based on `showChat`/`showLog` props
+5. Admin saves flags into the `settings` JSON — existing settings keys are preserved (merge, not replace)
+
+**Edge cases:**
+- Both disabled → OptionSelector not rendered (neither option shown)
+- Only Chat enabled → auto-selects chat form, skips option screen
+- Only LOG enabled → auto-selects LOG form, skips option screen
+- Network error on `/config` → defaults to both enabled
 
 ## Common Issues & Fixes
 
