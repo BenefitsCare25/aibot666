@@ -216,8 +216,13 @@ frontend/admin/src/
 │   ├── client.js                      # Axios client + downloadFile() helper
 │   ├── employees.js                   # Employee API
 │   ├── knowledge.js                   # Knowledge base + document upload API
-│   └── quickQuestions.js              # Quick questions API
+│   ├── quickQuestions.js              # Quick questions API
+│   └── companies.js                   # Company API (CRUD, status, email-config, embed-code)
+├── components/
+│   ├── EmailConfigModal.jsx            # LOG + callback email config per company
+│   └── EmbedCodeModal.jsx             # Dynamic + static embed snippet generator
 └── pages/
+    ├── Companies.jsx                  # Company management (CRUD, status toggle, email config)
     ├── KnowledgeBase.jsx              # Knowledge base management
     ├── Employees.jsx                  # Employee management
     └── QuickQuestions.jsx             # Quick questions management
@@ -318,6 +323,24 @@ Both `benefits.inspro.com.sg` and `benefits-staging.inspro.com.sg` are **SPAs** 
 - **Widget test page**: `https://app-aibot-api.azurewebsites.net/test-iframe-mobile.html`
 - **Admin portal**: `https://gray-flower-0e68c8a00-preview.eastasia.6.azurestaticapps.net/`
 
+## Company Email Configuration
+
+Per-company email settings stored as **top-level columns** on the `companies` table (not in the `settings` JSONB). Managed via Admin Portal → Company Management → 📧 button → **Email Configuration modal**.
+
+| Column | Purpose |
+|--------|---------|
+| `log_request_email_to` | TO recipients for LOG request notifications (required) |
+| `log_request_email_cc` | CC recipients for LOG request notifications (optional) |
+| `log_request_keywords` | Keywords that trigger a LOG email (array) |
+| `callback_email_to` | TO recipients for callback request notifications (optional, falls back to `log_request_email_to`) |
+| `callback_email_cc` | CC recipients for callback notifications (optional, falls back to `log_request_email_cc`) |
+
+**Backend endpoint**: `PATCH /api/admin/companies/:id/email-config` — saves all five fields, validates email format, invalidates company cache.
+
+**Callback email fallback** (`callbackService.js`): if `callback_email_to` is null, falls back to `log_request_email_to`. Same for CC. So LOG email is the minimum required config for both flows.
+
+**Email sending**: Microsoft Graph API (ROPC flow) via `email.js`. Requires `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`, `AZURE_SERVICE_ACCOUNT_USERNAME`, `AZURE_SERVICE_ACCOUNT_PASSWORD`, `LOG_REQUEST_EMAIL_FROM`.
+
 ## Company Widget Feature Flags
 
 Per-company toggles stored in `company.settings` JSONB. Controlled via Admin Portal → Company Management → Edit → **Widget Options** checkboxes.
@@ -332,7 +355,7 @@ Per-company toggles stored in `company.settings` JSONB. Controlled via Admin Por
 2. `ChatWidget.jsx` calls `fetchConfig()` on mount; result stored in `companyFeatures` Zustand state
 3. `LoginForm.jsx` receives `companyFeatures` prop; auto-selects the sole available option if one is disabled (skips OptionSelector entirely)
 4. `OptionSelector.jsx` conditionally renders each button based on `showChat`/`showLog` props
-5. Admin saves flags into the `settings` JSON — existing settings keys are preserved (merge, not replace)
+5. Admin saves flags via Edit form — checkboxes are authoritative and override any `showChat`/`showLog` values in the raw Settings JSON textarea. Toggling a checkbox immediately syncs the textarea.
 
 **Edge cases:**
 - Both disabled → OptionSelector not rendered (neither option shown)
