@@ -50,7 +50,15 @@ export default function Companies() {
     setSuccessMessage('');
 
     try {
-      const baseSettings = formData.settings ? JSON.parse(formData.settings) : {};
+      let baseSettings = {};
+      if (formData.settings && formData.settings.trim() !== '{}' && formData.settings.trim() !== '') {
+        try {
+          baseSettings = JSON.parse(formData.settings);
+        } catch {
+          setError('Settings field contains invalid JSON. Please fix it before saving.');
+          return;
+        }
+      }
       const submitData = {
         ...formData,
         additional_domains: formData.additional_domains
@@ -350,7 +358,12 @@ export default function Companies() {
                     <input
                       type="checkbox"
                       checked={formData.showChat}
-                      onChange={(e) => setFormData({ ...formData, showChat: e.target.checked })}
+                      onChange={(e) => {
+                        const newVal = e.target.checked;
+                        let base = {};
+                        try { base = JSON.parse(formData.settings); } catch { base = {}; }
+                        setFormData({ ...formData, showChat: newVal, settings: JSON.stringify({ ...base, showChat: newVal, showLog: formData.showLog }, null, 2) });
+                      }}
                       className="w-4 h-4 rounded border-gray-300 text-primary-600"
                     />
                     <span className="text-sm text-gray-700">Show "Send us a message" option</span>
@@ -359,7 +372,12 @@ export default function Companies() {
                     <input
                       type="checkbox"
                       checked={formData.showLog}
-                      onChange={(e) => setFormData({ ...formData, showLog: e.target.checked })}
+                      onChange={(e) => {
+                        const newVal = e.target.checked;
+                        let base = {};
+                        try { base = JSON.parse(formData.settings); } catch { base = {}; }
+                        setFormData({ ...formData, showLog: newVal, settings: JSON.stringify({ ...base, showChat: formData.showChat, showLog: newVal }, null, 2) });
+                      }}
                       className="w-4 h-4 rounded border-gray-300 text-primary-600"
                     />
                     <span className="text-sm text-gray-700">Show "Request Letter of Guarantee" option</span>
