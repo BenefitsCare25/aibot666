@@ -175,13 +175,30 @@ export const useChatStore = create((set, get) => ({
         throw new Error(response.data.error || 'Failed to send message');
       }
     } catch (error) {
+      const statusCode = error.response?.status;
       const errorMessage = error.response?.data?.error || error.message || 'Failed to send message';
 
-      // Add error message
+      // Session expired — reset to login so user can start fresh
+      if (statusCode === 404 || errorMessage.toLowerCase().includes('session not found') || errorMessage.toLowerCase().includes('session')) {
+        set({ isLoading: false });
+        get().reset();
+        return;
+      }
+
+      // Map error codes to user-friendly messages
+      let displayMessage;
+      if (statusCode === 429) {
+        displayMessage = "You're sending messages too quickly. Please wait a moment and try again.";
+      } else if (statusCode >= 500) {
+        displayMessage = "Something went wrong on our end. Please try again in a moment.";
+      } else {
+        displayMessage = "Unable to send your message. Please try again.";
+      }
+
       const errorMsg = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `Sorry, I encountered an error: ${errorMessage}. Please try again.`,
+        content: displayMessage,
         isError: true,
         timestamp: new Date().toISOString()
       };
