@@ -240,6 +240,18 @@ export async function exposeSchemaToAPI(schemaName) {
     // Reload PostgREST schema cache
     await postgres.query(`NOTIFY pgrst, 'reload schema';`);
 
+    // Add schema to PostgREST in-database config (auto-exposes to API)
+    try {
+      await postgres.query(
+        `INSERT INTO pgrst_config.db_schemas (schema_name) VALUES ($1) ON CONFLICT DO NOTHING`,
+        [schemaName]
+      );
+      await postgres.query(`NOTIFY pgrst, 'reload config';`);
+    } catch (configError) {
+      console.warn('[SchemaAutomation] Could not update PostgREST in-database config:', configError.message);
+      console.warn('[SchemaAutomation] Run backend/config/pgrst-config-setup.sql in Supabase Studio first');
+    }
+
   } catch (error) {
     console.error('[SchemaAutomation] Error exposing schema to API:', error);
     throw error;
@@ -525,6 +537,17 @@ export async function dropCompanySchema(schemaName) {
 
     // Reset statement timeout to default
     await postgres.query('RESET statement_timeout');
+
+    // Remove schema from PostgREST in-database config
+    try {
+      await postgres.query(
+        `DELETE FROM pgrst_config.db_schemas WHERE schema_name = $1`,
+        [schemaName]
+      );
+      await postgres.query(`NOTIFY pgrst, 'reload config';`);
+    } catch (configError) {
+      console.warn('[SchemaAutomation] Could not remove schema from PostgREST config:', configError.message);
+    }
   } catch (error) {
     console.error('[SchemaAutomation] Schema drop error:', error);
 
