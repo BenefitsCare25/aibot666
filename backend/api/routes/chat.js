@@ -737,15 +737,20 @@ router.post('/message', async (req, res) => {
     // Get company AI settings (will be null/undefined if not configured)
     const companyAISettings = req.company?.ai_settings || null;
 
+    // Classify intent to determine if KB search is needed
+    const messageIntent = classifyMessageIntent(message);
+    const needsKBSearch = messageIntent === 'domain_question';
 
-    // Search knowledge base (use company-specific client and settings)
-    const contexts = await searchKnowledgeBase(
-      message,
-      req.supabase,
-      companyAISettings?.top_k_results || 5,           // topK from company settings
-      companyAISettings?.similarity_threshold || 0.7,  // threshold from company settings
-      null        // category
-    );
+    // Search knowledge base only for domain questions
+    const contexts = needsKBSearch
+      ? await searchKnowledgeBase(
+          message,
+          req.supabase,
+          companyAISettings?.top_k_results || 5,
+          companyAISettings?.similarity_threshold || 0.7,
+          null
+        )
+      : [];
 
     // Additional context logging after search
     if (contexts && contexts.length > 0) {
@@ -802,7 +807,10 @@ router.post('/message', async (req, res) => {
       companyAISettings  // Pass company AI settings
     );
 
-    // Enhanced AI response logging
+    // Greetings/conversational messages are always handled correctly — override low base confidence
+    if (messageIntent !== 'domain_question') {
+      response.confidence = 0.9;
+    }
 
     const hasEscalationPhrase = response.answer?.toLowerCase().includes('for such query, let us check back with the team');
 
@@ -829,21 +837,21 @@ router.post('/message', async (req, res) => {
     let escalationReason = null;
 
 
-    // Get escalation threshold from company settings (default 0.5)
-    const escalationThreshold = companyAISettings?.escalation_threshold ?? 0.5;
+    // Get escalation threshold from company settings (default 0.3)
+    const escalationThreshold = companyAISettings?.escalation_threshold ?? 0.3;
 
     // Check if AI explicitly says it cannot answer (uses the exact template phrase)
     // Strip markdown formatting (**, *, _, etc.) before checking
     const cleanAnswer = response.answer ? response.answer.replace(/[*_]/g, '') : '';
     const aiSaysNoKnowledge = cleanAnswer.toLowerCase().includes('for such query, let us check back with the team');
 
-    // Check if confidence is at or below threshold
-    const lowConfidence = response.confidence <= escalationThreshold;
+    // Check if confidence is strictly below threshold (< not <=, to avoid escalating on-threshold responses)
+    const lowConfidence = response.confidence < escalationThreshold;
 
     // Escalate if:
-    // 1. AI explicitly cannot answer (uses escalation phrase), OR
-    // 2. Confidence is at or below the escalation threshold
-    if (ESCALATE_ON_NO_KNOWLEDGE && (aiSaysNoKnowledge || lowConfidence)) {
+    // 1. This is a domain question (not a greeting/conversational message), AND
+    // 2. AI explicitly cannot answer (uses escalation phrase), OR confidence is below threshold
+    if (needsKBSearch && ESCALATE_ON_NO_KNOWLEDGE && (aiSaysNoKnowledge || lowConfidence)) {
       escalated = true;
       escalationReason = aiSaysNoKnowledge ? 'ai_unable_to_answer' : 'low_confidence';
 
@@ -1105,6 +1113,20 @@ router.get('/status', async (req, res) => {
     });
   }
 });
+
+/**
+ * Helper: Classify message intent to determine if KB search is needed
+ * Returns 'greeting' | 'conversational' | 'domain_question'
+ */
+function classifyMessageIntent(message) {
+  const msg = message.trim();
+  const greetingPattern = /^(hi+|hello+|hey+|good (morning|afternoon|evening|day)|howdy|greetings|sup|yo|what'?s up|how are you|how r u|你好|早上好|下午好|晚上好|嗨|喂)\W*$/i;
+  const conversationalPattern = /^(ok|okay|got it|i see|sure|alright|understood|noted|cool|great|sounds good|perfect|thanks|thank you|ty|thx|no problem|np|bye|goodbye|see you|take care|谢谢|好的|明白)\W*$/i;
+
+  if (greetingPattern.test(msg)) return 'greeting';
+  if (conversationalPattern.test(msg)) return 'conversational';
+  return 'domain_question';
+}
 
 /**
  * Helper: Save message to database

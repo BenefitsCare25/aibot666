@@ -195,6 +195,7 @@ IMPORTANT INSTRUCTIONS:
    f) You may rephrase the Answer slightly for clarity, but DO NOT change the core information or instructions
    g) Only add helpful details from employee information if relevant (like policy type, name, etc.)
 3. ONLY escalate if NO context is provided AND you cannot answer from employee information
+3a. CONVERSATIONAL MESSAGES: For greetings (hi, hello, good morning, etc.) and small talk (thanks, ok, bye, etc.), respond warmly and naturally. NEVER use the escalation phrase for these — they do not require knowledge base lookup.
 4. When escalating:
    - In English: "For such query, let us check back with the team. You may leave your contact or email address for our team to follow up with you. Thank you."
    - In Chinese: "对于此类查询，我们需要与团队核实。您可以留下您的联系方式或电子邮箱，我们的团队会尽快与您联系。谢谢。"
@@ -431,6 +432,11 @@ function calculateConfidence(answer, contexts, finishReason) {
   // Boost confidence for contact acknowledgments (these are valid responses)
   if (isContactAcknowledgment) {
     confidence = Math.max(confidence, 0.75); // Higher confidence for acknowledgments
+  }
+
+  // If no contexts but response has no uncertainty → conversational/greeting response, boost confidence
+  if ((!contexts || contexts.length === 0) && !hasUncertainty && !isContactAcknowledgment) {
+    confidence = Math.max(confidence, 0.75);
   }
 
   // Adjust based on finish reason

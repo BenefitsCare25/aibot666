@@ -31,7 +31,7 @@ backend/
 │   │   │   ├── analytics.js          # Usage analytics, trends, frequent categories
 │   │   │   ├── quickQuestions.js      # Quick questions CRUD, bulk import, Excel
 │   │   │   └── debug.js              # Diagnostics (requireSuperAdmin protected)
-│   │   ├── chat.js                    # Chat session, messages, RAG flow, callbacks, /config endpoint
+│   │   ├── chat.js                    # Chat session, messages, intent-aware RAG flow, callbacks, /config endpoint
 │   │   ├── auth.js                    # Login (with lockout), token refresh
 │   │   ├── documents.js              # PDF upload, processing status
 │   │   └── adminUsers.js             # Admin user management
@@ -95,6 +95,7 @@ All other admin routes get `companyContextMiddleware` (tenant schema).
 - **Company cache**: Two-tier (in-memory 60s TTL → Redis) with periodic cleanup
 - **Post-response ops**: `Promise.all` for DB save + session touch after OpenAI response
 - **Employee lookup**: Single `.or()` query instead of 3 sequential queries
+- **Intent classification**: Greetings/conversational messages skip KB search entirely (no embedding + pgvector cost)
 
 ## Widget Architecture
 
@@ -405,6 +406,31 @@ docker compose restart rest
 - Key file: `supabase-vm-key.pem` (in local `azurevm/` folder)
 - NSG rule: SSH port 22 restricted to specific source IP — update NSG if your IP changes
 - Default user: `azureuser`
+
+## Chat Pipeline Architecture
+
+### Intent-Aware Routing (chat.js)
+
+Messages are classified before the KB search to avoid wasteful RAG calls and false escalations:
+
+```
+User Message
+     ↓
+classifyMessageIntent() → greeting | conversational | domain_question
+     ↓
+greeting/conversational → skip KB search, respond warmly, confidence=0.9, no escalation
+     ↓
+domain_question → full KB search → RAG → escalate only if truly no knowledge
+```
+
+**`classifyMessageIntent(message)`** (helper in `chat.js`):
+- `greeting`: hi, hello, good morning, 你好, 嗨, etc.
+- `conversational`: ok, thanks, got it, bye, 谢谢, 好的, etc.
+- `domain_question`: everything else → full RAG pipeline
+
+**`calculateConfidence()`** safety net (`openai.js`): empty-context + no uncertainty markers → `confidence = Math.max(confidence, 0.75)` (prevents flat 0.5 base for clean conversational replies).
+
+**Escalation guard**: `needsKBSearch && ESCALATE_ON_NO_KNOWLEDGE && (aiSaysNoKnowledge || lowConfidence)` — greetings and small talk can never trigger escalation.
 
 ## Common Issues & Fixes
 
