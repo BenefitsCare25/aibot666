@@ -317,48 +317,38 @@ router.patch('/:id/status', async (req, res) => {
 router.patch('/:id/email-config', async (req, res) => {
   try {
     const { id } = req.params;
-    const { log_request_email_to, log_request_email_cc, log_request_keywords } = req.body;
+    const { log_request_email_to, log_request_email_cc, log_request_keywords, callback_email_to, callback_email_cc } = req.body;
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    // Validate TO email format if provided
-    if (log_request_email_to !== undefined && log_request_email_to !== null && log_request_email_to.trim() !== '') {
-      const emails = log_request_email_to.split(',').map(e => e.trim());
-
-      for (const email of emails) {
-        if (!emailRegex.test(email)) {
-          return res.status(400).json({
-            success: false,
-            error: `Invalid TO email format: ${email}`
-          });
+    const validateEmails = (field, value) => {
+      if (value !== undefined && value !== null && value.trim() !== '') {
+        for (const email of value.split(',').map(e => e.trim())) {
+          if (!emailRegex.test(email)) {
+            return `Invalid ${field} email format: ${email}`;
+          }
         }
       }
-    }
+      return null;
+    };
 
-    // Validate CC email format if provided
-    if (log_request_email_cc !== undefined && log_request_email_cc !== null && log_request_email_cc.trim() !== '') {
-      const emails = log_request_email_cc.split(',').map(e => e.trim());
+    const errors = [
+      validateEmails('TO', log_request_email_to),
+      validateEmails('CC', log_request_email_cc),
+      validateEmails('callback TO', callback_email_to),
+      validateEmails('callback CC', callback_email_cc)
+    ].filter(Boolean);
 
-      for (const email of emails) {
-        if (!emailRegex.test(email)) {
-          return res.status(400).json({
-            success: false,
-            error: `Invalid CC email format: ${email}`
-          });
-        }
-      }
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, error: errors[0] });
     }
 
     const updates = {};
-    if (log_request_email_to !== undefined) {
-      updates.log_request_email_to = log_request_email_to;
-    }
-    if (log_request_email_cc !== undefined) {
-      updates.log_request_email_cc = log_request_email_cc;
-    }
-    if (log_request_keywords !== undefined) {
-      updates.log_request_keywords = log_request_keywords;
-    }
+    if (log_request_email_to !== undefined) updates.log_request_email_to = log_request_email_to;
+    if (log_request_email_cc !== undefined) updates.log_request_email_cc = log_request_email_cc;
+    if (log_request_keywords !== undefined) updates.log_request_keywords = log_request_keywords;
+    if (callback_email_to !== undefined) updates.callback_email_to = callback_email_to;
+    if (callback_email_cc !== undefined) updates.callback_email_cc = callback_email_cc;
 
     const { data: company, error } = await supabase
       .from('companies')
