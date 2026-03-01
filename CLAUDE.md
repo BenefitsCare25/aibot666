@@ -428,7 +428,9 @@ domain_question → full KB search → RAG → escalate only if truly no knowled
 - `conversational`: ok, thanks, got it, bye, 谢谢, 好的, etc.
 - `domain_question`: everything else → full RAG pipeline
 
-**`calculateConfidence()`** safety net (`openai.js`): empty-context + no uncertainty markers → `confidence = Math.max(confidence, 0.75)` (prevents flat 0.5 base for clean conversational replies).
+**`calculateConfidence()`** (`openai.js`): No safety net for empty-context responses. Base 0.5 + similarity boost if contexts exist. Capped at 0.5 if uncertainty phrases detected. Boosted to ≥0.75 only for contact acknowledgments.
+
+**Anti-hallucination (openai.js — 2026-03-01)**: When KB returns no results, the context section is replaced with an explicit `[NO KNOWLEDGE BASE DATA AVAILABLE FOR THIS QUERY — You MUST use the escalation phrase]` marker. System prompt instruction #3 explicitly forbids answering benefits/coverage/policy questions from GPT training knowledge. The previous `Math.max(confidence, 0.75)` safety net for empty-context was removed — it was incorrectly boosting confidence on hallucinated answers.
 
 **Escalation guard**: `needsKBSearch && ESCALATE_ON_NO_KNOWLEDGE && (aiSaysNoKnowledge || lowConfidence)` — greetings and small talk can never trigger escalation.
 

@@ -182,6 +182,10 @@ Employee Information:
 Note: For your specific policy details and coverage limits, please refer to your employee portal.
 ` : '';
 
+  const contextSection = contextText.trim()
+    ? `CONTEXT FROM KNOWLEDGE BASE:\n${contextText}`
+    : `CONTEXT FROM KNOWLEDGE BASE:\n[NO KNOWLEDGE BASE DATA AVAILABLE FOR THIS QUERY — You MUST use the escalation phrase and cannot answer this question]`;
+
   return `You are an AI assistant for an employee insurance benefits portal. Your role is to help employees understand their insurance coverage, benefits, and claims procedures.
 
 IMPORTANT INSTRUCTIONS:
@@ -194,7 +198,7 @@ IMPORTANT INSTRUCTIONS:
    e) Even if the Answer says "login to portal" or "contact support", that IS the correct answer - provide it exactly as given
    f) You may rephrase the Answer slightly for clarity, but DO NOT change the core information or instructions
    g) Only add helpful details from employee information if relevant (like policy type, name, etc.)
-3. ONLY escalate if NO context is provided AND you cannot answer from employee information
+3. KNOWLEDGE BASE IS YOUR ONLY SOURCE FOR BENEFITS/COVERAGE/POLICY QUESTIONS: Your training knowledge about insurance is GENERIC and does NOT reflect this company's specific plans, limits, or procedures. If the CONTEXT FROM KNOWLEDGE BASE section below is empty (marked [NO KNOWLEDGE BASE DATA]), you DO NOT have the answer — use the escalation phrase. NEVER answer coverage, benefits, claims, or policy questions from your own training knowledge.
 3a. CONVERSATIONAL MESSAGES: For greetings (hi, hello, good morning, etc.) and small talk (thanks, ok, bye, etc.), respond warmly and naturally. NEVER use the escalation phrase for these — they do not require knowledge base lookup.
 4. When escalating:
    - In English: "For such query, let us check back with the team. You may leave your contact or email address for our team to follow up with you. Thank you."
@@ -237,8 +241,7 @@ FORMATTING GUIDELINES:
 
 ${employeeInfo}
 
-CONTEXT FROM KNOWLEDGE BASE:
-${contextText}
+${contextSection}
 
 USER QUESTION:
 ${query}
@@ -432,11 +435,6 @@ function calculateConfidence(answer, contexts, finishReason) {
   // Boost confidence for contact acknowledgments (these are valid responses)
   if (isContactAcknowledgment) {
     confidence = Math.max(confidence, 0.75); // Higher confidence for acknowledgments
-  }
-
-  // If no contexts but response has no uncertainty → conversational/greeting response, boost confidence
-  if ((!contexts || contexts.length === 0) && !hasUncertainty && !isContactAcknowledgment) {
-    confidence = Math.max(confidence, 0.75);
   }
 
   // Adjust based on finish reason
