@@ -434,6 +434,12 @@ domain_question → full KB search → RAG → escalate only if truly no knowled
 
 **Escalation guard**: `needsKBSearch && ESCALATE_ON_NO_KNOWLEDGE && (aiSaysNoKnowledge || lowConfidence)` — greetings and small talk can never trigger escalation.
 
+**Escalation threshold (chat.js — 2026-03-02)**: Default raised from `0.3` to `0.55`. Base confidence when KB has no results is always `0.5` — threshold must exceed `0.5` to catch no-context cases. Company-level override via `companyAISettings.escalation_threshold`.
+
+**`aiSaysNoKnowledge` detection (chat.js — 2026-03-02)**: Broadened beyond exact phrase match to also detect AI deviations: `("escalate" && "contact")` or `("specific details of your policy" && "contact")` patterns.
+
+**Greeting response (openai.js — 2026-03-02)**: System prompt instruction 3a updated to produce a short generic greeting ("Hello! How can I assist you today?") without mentioning insurance/benefits in the greeting itself.
+
 ## Common Issues & Fixes
 
 ### Employee upload fails for new company

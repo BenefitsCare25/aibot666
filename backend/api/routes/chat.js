@@ -837,13 +837,18 @@ router.post('/message', async (req, res) => {
     let escalationReason = null;
 
 
-    // Get escalation threshold from company settings (default 0.3)
-    const escalationThreshold = companyAISettings?.escalation_threshold ?? 0.3;
+    // Get escalation threshold from company settings (default 0.55)
+    // Base confidence when KB has no results is 0.5 — threshold must exceed 0.5 to catch no-context cases
+    const escalationThreshold = companyAISettings?.escalation_threshold ?? 0.55;
 
-    // Check if AI explicitly says it cannot answer (uses the exact template phrase)
-    // Strip markdown formatting (**, *, _, etc.) before checking
+    // Check if AI explicitly says it cannot answer — detect both the exact template phrase
+    // and common deviations where the AI improvises its own escalation wording
     const cleanAnswer = response.answer ? response.answer.replace(/[*_]/g, '') : '';
-    const aiSaysNoKnowledge = cleanAnswer.toLowerCase().includes('for such query, let us check back with the team');
+    const cleanLower = cleanAnswer.toLowerCase();
+    const aiSaysNoKnowledge =
+      cleanLower.includes('for such query, let us check back with the team') ||
+      (cleanLower.includes('escalate') && cleanLower.includes('contact')) ||
+      (cleanLower.includes('specific details of your policy') && cleanLower.includes('contact'));
 
     // Check if confidence is strictly below threshold (< not <=, to avoid escalating on-threshold responses)
     const lowConfidence = response.confidence < escalationThreshold;
