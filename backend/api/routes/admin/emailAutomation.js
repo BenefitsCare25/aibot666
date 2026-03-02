@@ -194,6 +194,8 @@ router.post('/import', upload.single('file'), async (req, res) => {
       return String(cell.value).trim();
     };
 
+    console.log('[EmailAutomation] Detected headers:', JSON.stringify(headers));
+
     // Find column indexes by common header names
     const colRecipientEmail = headers['recipient email'] || headers['recipient_email'] || headers['email'];
     const colCcList = headers['cc list'] || headers['cc_list'] || headers['cc'];
@@ -235,17 +237,41 @@ router.post('/import', upload.single('file'), async (req, res) => {
       return res.status(400).json({ success: false, error: 'No valid records found in file' });
     }
 
-    // Upsert by portal_name
-    const { data, error } = await supabase
+    // Fetch existing records by portal_name to decide insert vs update
+    const portalNames = records.map(r => r.portal_name).filter(Boolean);
+    const { data: existing } = await supabase
       .from('email_automations')
-      .upsert(records, { onConflict: 'portal_name', ignoreDuplicates: false })
-      .select();
+      .select('id, portal_name')
+      .in('portal_name', portalNames);
 
-    if (error) {
-      return res.status(500).json({ success: false, error: 'Failed to import records', details: error.message });
+    const existingMap = new Map((existing || []).map(r => [r.portal_name, r.id]));
+    const toInsert = records.filter(r => !existingMap.has(r.portal_name));
+    const toUpdate = records.filter(r => existingMap.has(r.portal_name));
+
+    let inserted = 0, updated = 0;
+
+    if (toInsert.length > 0) {
+      const { error } = await supabase.from('email_automations').insert(toInsert);
+      if (error) {
+        return res.status(500).json({ success: false, error: 'Failed to insert records', details: error.message });
+      }
+      inserted = toInsert.length;
     }
 
-    res.json({ success: true, imported: data.length, data });
+    for (const record of toUpdate) {
+      const id = existingMap.get(record.portal_name);
+      const { error } = await supabase
+        .from('email_automations')
+        .update({ ...record, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) {
+        console.error(`[EmailAutomation] Failed to update ${record.portal_name}:`, error.message);
+      } else {
+        updated++;
+      }
+    }
+
+    res.json({ success: true, imported: inserted + updated, inserted, updated });
   } catch (err) {
     console.error('[EmailAutomation] Import error:', err);
     res.status(500).json({ success: false, error: 'Failed to parse Excel file', details: err.message });

@@ -158,7 +158,8 @@ export default function EmailAutomation() {
       setImportFile(null);
       loadRecords();
     } catch (err) {
-      setError(err.message || 'Failed to import file');
+      const detail = err.response?.data?.details;
+      setError(detail ? `${err.message}: ${detail}` : (err.message || 'Failed to import file'));
     } finally {
       setImporting(false);
     }
