@@ -121,18 +121,22 @@ export async function runScheduledCheck() {
   const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
 
   const due = (records || []).filter(r => {
-    // Already sent today?
-    if (r.last_sent_at) {
-      const sentDate = new Date(r.last_sent_at).toISOString().slice(0, 10);
-      if (sentDate >= todayStr) return false;
-    }
     // Match scheduled_date OR recurring_day
     const matchesDate = r.scheduled_date && r.scheduled_date.slice(0, 10) === todayStr;
     const matchesDay = r.recurring_day !== null && r.recurring_day !== undefined && r.recurring_day === todayDay;
     if (!matchesDate && !matchesDay) return false;
     // Match send_time (HH:MM SGT)
     const scheduledTime = r.send_time || '08:00';
-    return scheduledTime === currentTime;
+    if (scheduledTime !== currentTime) return false;
+    // Already sent today at or after the scheduled time? Skip to prevent duplicate sends.
+    // A manual "Send Now" before the scheduled time does NOT block the scheduled trigger.
+    if (r.last_sent_at) {
+      const lastSentSGT = new Date(new Date(r.last_sent_at).toLocaleString('en-US', { timeZone: 'Asia/Singapore' }));
+      const lastSentDay = lastSentSGT.toISOString().slice(0, 10);
+      const lastSentTime = lastSentSGT.getHours().toString().padStart(2, '0') + ':' + lastSentSGT.getMinutes().toString().padStart(2, '0');
+      if (lastSentDay >= todayStr && lastSentTime >= scheduledTime) return false;
+    }
+    return true;
   });
 
   console.log(`[EmailAutomation] ${due.length} record(s) due at ${currentTime} SGT`);
