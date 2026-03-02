@@ -467,8 +467,14 @@ try {
   console.warn('Continuing without Telegram integration...');
 }
 
-// Schedule daily email automation check at 8:00 AM SGT
-cron.schedule('0 8 * * *', runScheduledCheck, { timezone: 'Asia/Singapore' });
+// Check email automation every minute — matches records by send_time (HH:MM SGT)
+cron.schedule('* * * * *', async () => {
+  try {
+    await runScheduledCheck();
+  } catch (err) {
+    console.error('[EmailAutomation] Cron job failed unexpectedly:', err);
+  }
+}, { timezone: 'Asia/Singapore' });
 
 // Start server
 const server = app.listen(PORT, () => {

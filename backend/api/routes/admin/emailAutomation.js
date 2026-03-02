@@ -7,11 +7,9 @@ import { requireSuperAdmin } from '../../middleware/authMiddleware.js';
 import { sendAutomationEmail } from '../../services/emailAutomationService.js';
 
 const router = express.Router();
-
-// All routes in this router require super admin
 router.use(requireSuperAdmin);
 
-// Multer setup for Excel import
+// Multer setup
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = './uploads';
@@ -33,27 +31,109 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-/**
- * GET /api/admin/email-automation
- */
+// ─── Shared Excel parsing helper ────────────────────────────────────────────
+
+function getCellText(cell) {
+  if (!cell || cell.value == null) return '';
+  const v = cell.value;
+  if (typeof v === 'object' && v.text) return v.text.trim();
+  if (typeof v === 'object' && v.richText) return v.richText.map(r => r.text).join('').trim();
+  // Fallback: use hyperlink text if value is empty-ish object
+  if (typeof v === 'object' && cell.hyperlink) {
+    return cell.hyperlink.replace(/^mailto:/i, '').trim();
+  }
+  return String(v).trim();
+}
+
+async function parseExcelWorkbook(filePath) {
+  const ExcelJS = (await import('exceljs')).default;
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+
+  const sheetNames = workbook.worksheets.map(ws => ws.name);
+  const worksheet = workbook.getWorksheet('Email Automation') || workbook.worksheets[0];
+  if (!worksheet) throw new Error('No worksheet found in file');
+
+  // Build header map
+  const headers = {};
+  const rawHeaders = [];
+  worksheet.getRow(1).eachCell({ includeEmpty: true }, (cell, col) => {
+    const label = cell.value?.toString().trim() || '';
+    rawHeaders.push({ col, label });
+    headers[label.toLowerCase()] = col;
+  });
+
+  // Column mapping — includes common typos and aliases
+  const colMap = {
+    portalName:     headers['portal name']       || headers['portal_name']      || headers['portal'],
+    listingType:    headers['listing type']       || headers['listing_type']     || headers['type'],
+    recipientEmail: headers['recipient email']    || headers['recipent email']   || headers['recipient_email'] || headers['recipent_email'] || headers['email'] || headers['to'],
+    ccList:         headers['cc list']            || headers['cc_list']          || headers['cc'],
+    recipientName:  headers['recipient name']     || headers['recipient_name']   || headers['name'],
+    bodyContent:    headers['body email content'] || headers['body_content']     || headers['body content']    || headers['body'],
+    subject:        headers['email subject']      || headers['subject'],
+    recurringDay:   headers['recurring day']      || headers['recurring_day'],
+    scheduledDate:  headers['scheduled date']     || headers['scheduled_date'],
+    sendTime:       headers['send time']          || headers['send_time']        || headers['time'],
+  };
+
+  // Validation: required columns
+  const REQUIRED = ['recipientEmail', 'recipientName', 'bodyContent', 'subject'];
+  const errors = REQUIRED
+    .filter(k => !colMap[k])
+    .map(k => `Required column not found: "${k.replace(/([A-Z])/g, ' $1').trim()}"`);
+
+  const warnings = [];
+  if (!colMap.portalName) warnings.push('No "Portal Name" column found — portal_name will be empty');
+
+  // Parse rows
+  const records = [];
+  worksheet.eachRow((row, rowNum) => {
+    if (rowNum === 1) return;
+    const portalName     = colMap.portalName     ? getCellText(row.getCell(colMap.portalName))     : '';
+    const recipientEmail = colMap.recipientEmail ? getCellText(row.getCell(colMap.recipientEmail)) : '';
+    const recipientName  = colMap.recipientName  ? getCellText(row.getCell(colMap.recipientName))  : '';
+    const bodyContent    = colMap.bodyContent    ? getCellText(row.getCell(colMap.bodyContent))    : '';
+    const subject        = colMap.subject        ? getCellText(row.getCell(colMap.subject))        : '';
+
+    // Skip completely empty rows
+    if (!portalName && !recipientEmail && !recipientName && !subject) return;
+
+    const rawDay = colMap.recurringDay ? getCellText(row.getCell(colMap.recurringDay)) : '';
+    const rawTime = colMap.sendTime ? getCellText(row.getCell(colMap.sendTime)) : '';
+
+    records.push({
+      portal_name:     portalName  || null,
+      listing_type:    colMap.listingType   ? getCellText(row.getCell(colMap.listingType))  || null : null,
+      recipient_email: recipientEmail || null,
+      cc_list:         colMap.ccList        ? getCellText(row.getCell(colMap.ccList))       || null : null,
+      recipient_name:  recipientName || null,
+      body_content:    bodyContent   || null,
+      subject:         subject       || null,
+      recurring_day:   rawDay ? parseInt(rawDay) || null : null,
+      scheduled_date:  colMap.scheduledDate ? getCellText(row.getCell(colMap.scheduledDate)) || null : null,
+      send_time:       rawTime || '08:00',
+      is_active:       true,
+    });
+  });
+
+  return { sheetNames, usedSheet: worksheet.name, rawHeaders, colMap, errors, warnings, records };
+}
+
+// ─── CRUD ────────────────────────────────────────────────────────────────────
+
 router.get('/', async (req, res) => {
   const { data, error } = await supabase
     .from('email_automations')
     .select('*')
     .order('portal_name');
-
-  if (error) {
-    return res.status(500).json({ success: false, error: 'Failed to fetch records', details: error.message });
-  }
+  if (error) return res.status(500).json({ success: false, error: 'Failed to fetch records', details: error.message });
   res.json({ success: true, data });
 });
 
-/**
- * POST /api/admin/email-automation
- */
 router.post('/', async (req, res) => {
   const { portal_name, listing_type, recipient_email, cc_list, recipient_name,
-          body_content, subject, recurring_day, scheduled_date, is_active } = req.body;
+          body_content, subject, recurring_day, scheduled_date, send_time, is_active } = req.body;
 
   if (!portal_name || !recipient_email || !recipient_name || !body_content || !subject) {
     return res.status(400).json({ success: false, error: 'Missing required fields' });
@@ -66,24 +146,20 @@ router.post('/', async (req, res) => {
       body_content, subject,
       recurring_day: recurring_day || null,
       scheduled_date: scheduled_date || null,
+      send_time: send_time || '08:00',
       is_active: is_active !== false
     })
     .select()
     .single();
 
-  if (error) {
-    return res.status(500).json({ success: false, error: 'Failed to create record', details: error.message });
-  }
+  if (error) return res.status(500).json({ success: false, error: 'Failed to create record', details: error.message });
   res.status(201).json({ success: true, data });
 });
 
-/**
- * PUT /api/admin/email-automation/:id
- */
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const { portal_name, listing_type, recipient_email, cc_list, recipient_name,
-          body_content, subject, recurring_day, scheduled_date, is_active } = req.body;
+          body_content, subject, recurring_day, scheduled_date, send_time, is_active } = req.body;
 
   if (!portal_name || !recipient_email || !recipient_name || !body_content || !subject) {
     return res.status(400).json({ success: false, error: 'Missing required fields' });
@@ -96,6 +172,7 @@ router.put('/:id', async (req, res) => {
       body_content, subject,
       recurring_day: recurring_day || null,
       scheduled_date: scheduled_date || null,
+      send_time: send_time || '08:00',
       is_active: is_active !== false,
       updated_at: new Date().toISOString()
     })
@@ -103,47 +180,21 @@ router.put('/:id', async (req, res) => {
     .select()
     .single();
 
-  if (error) {
-    return res.status(500).json({ success: false, error: 'Failed to update record', details: error.message });
-  }
-  if (!data) {
-    return res.status(404).json({ success: false, error: 'Record not found' });
-  }
+  if (error) return res.status(500).json({ success: false, error: 'Failed to update record', details: error.message });
+  if (!data) return res.status(404).json({ success: false, error: 'Record not found' });
   res.json({ success: true, data });
 });
 
-/**
- * DELETE /api/admin/email-automation/:id
- */
 router.delete('/:id', async (req, res) => {
-  const { id } = req.params;
-  const { error } = await supabase
-    .from('email_automations')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    return res.status(500).json({ success: false, error: 'Failed to delete record', details: error.message });
-  }
+  const { error } = await supabase.from('email_automations').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ success: false, error: 'Failed to delete record', details: error.message });
   res.json({ success: true });
 });
 
-/**
- * POST /api/admin/email-automation/:id/send
- * Immediate send regardless of schedule
- */
 router.post('/:id/send', async (req, res) => {
-  const { id } = req.params;
   const { data: record, error } = await supabase
-    .from('email_automations')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error || !record) {
-    return res.status(404).json({ success: false, error: 'Record not found' });
-  }
-
+    .from('email_automations').select('*').eq('id', req.params.id).single();
+  if (error || !record) return res.status(404).json({ success: false, error: 'Record not found' });
   try {
     await sendAutomationEmail(record);
     res.json({ success: true, message: 'Email sent successfully' });
@@ -153,91 +204,62 @@ router.post('/:id/send', async (req, res) => {
   }
 });
 
-/**
- * POST /api/admin/email-automation/import
- * Parse uploaded Excel file and create/upsert records
- */
-router.post('/import', upload.single('file'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'No file uploaded' });
-  }
+// ─── Import: Preview (validate without inserting) ────────────────────────────
 
+router.post('/import/preview', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
   const filePath = req.file.path;
   try {
-    const ExcelJS = (await import('exceljs')).default;
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(filePath);
+    const { sheetNames, usedSheet, rawHeaders, colMap, errors, warnings, records } =
+      await parseExcelWorkbook(filePath);
 
-    // Try to find "Email Automation" sheet first, else use first sheet
-    const worksheet = workbook.getWorksheet('Email Automation') || workbook.worksheets[0];
-    if (!worksheet) {
-      return res.status(400).json({ success: false, error: 'No worksheet found in file' });
-    }
-
-    // Read header row to map column positions
-    const headerRow = worksheet.getRow(1);
-    const headers = {};
-    headerRow.eachCell((cell, colNumber) => {
-      const val = cell.value?.toString().trim().toLowerCase() || '';
-      headers[val] = colNumber;
-    });
-
-    // Helper to get cell text (handles hyperlink objects from ExcelJS)
-    const getCellText = (row, colNum) => {
-      if (!colNum) return '';
-      const cell = row.getCell(colNum);
-      if (!cell.value) return '';
-      if (typeof cell.value === 'object' && cell.value.text) return cell.value.text.trim();
-      if (typeof cell.value === 'object' && cell.value.richText) {
-        return cell.value.richText.map(r => r.text).join('').trim();
-      }
-      return String(cell.value).trim();
+    // Summarise which required/optional columns were detected
+    const columnStatus = {
+      portalName:     { found: !!colMap.portalName,     required: false },
+      recipientEmail: { found: !!colMap.recipientEmail, required: true  },
+      ccList:         { found: !!colMap.ccList,         required: false },
+      recipientName:  { found: !!colMap.recipientName,  required: true  },
+      bodyContent:    { found: !!colMap.bodyContent,    required: true  },
+      subject:        { found: !!colMap.subject,        required: true  },
+      recurringDay:   { found: !!colMap.recurringDay,   required: false },
+      scheduledDate:  { found: !!colMap.scheduledDate,  required: false },
+      sendTime:       { found: !!colMap.sendTime,       required: false },
     };
 
-    console.log('[EmailAutomation] Detected headers:', JSON.stringify(headers));
-
-    // Find column indexes by common header names
-    const colRecipientEmail = headers['recipient email'] || headers['recipient_email'] || headers['email'];
-    const colCcList = headers['cc list'] || headers['cc_list'] || headers['cc'];
-    const colRecipientName = headers['recipient name'] || headers['recipient_name'] || headers['name'];
-    const colBodyContent = headers['body email content'] || headers['body_content'] || headers['body content'] || headers['body'];
-    const colSubject = headers['email subject'] || headers['subject'];
-    const colPortalName = headers['portal name'] || headers['portal_name'] || headers['portal'];
-    const colListingType = headers['listing type'] || headers['listing_type'] || headers['type'];
-    const colRecurringDay = headers['recurring day'] || headers['recurring_day'];
-    const colScheduledDate = headers['scheduled date'] || headers['scheduled_date'];
-
-    const records = [];
-    worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return; // Skip header
-
-      const portalName = getCellText(row, colPortalName);
-      const recipientEmail = getCellText(row, colRecipientEmail);
-      const recipientName = getCellText(row, colRecipientName);
-      const bodyContent = getCellText(row, colBodyContent);
-      const subject = getCellText(row, colSubject);
-
-      if (!portalName && !recipientEmail) return; // Skip empty rows
-
-      records.push({
-        portal_name: portalName,
-        listing_type: getCellText(row, colListingType) || null,
-        recipient_email: recipientEmail,
-        cc_list: getCellText(row, colCcList) || null,
-        recipient_name: recipientName,
-        body_content: bodyContent,
-        subject,
-        recurring_day: colRecurringDay ? parseInt(getCellText(row, colRecurringDay)) || null : null,
-        scheduled_date: colScheduledDate ? getCellText(row, colScheduledDate) || null : null,
-        is_active: true
-      });
+    res.json({
+      success: true,
+      sheetNames,
+      usedSheet,
+      rawHeaders,
+      columnStatus,
+      errors,
+      warnings,
+      totalRows: records.length,
+      preview: records.slice(0, 3)
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    fs.unlink(filePath, () => {});
+  }
+});
 
+// ─── Import: Commit ──────────────────────────────────────────────────────────
+
+router.post('/import', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
+  const filePath = req.file.path;
+  try {
+    const { errors, records } = await parseExcelWorkbook(filePath);
+
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, error: 'Validation failed', details: errors.join('; ') });
+    }
     if (records.length === 0) {
       return res.status(400).json({ success: false, error: 'No valid records found in file' });
     }
 
-    // Fetch existing records by portal_name to decide insert vs update
+    // Fetch existing to decide insert vs update
     const portalNames = records.map(r => r.portal_name).filter(Boolean);
     const { data: existing } = await supabase
       .from('email_automations')
@@ -245,17 +267,18 @@ router.post('/import', upload.single('file'), async (req, res) => {
       .in('portal_name', portalNames);
 
     const existingMap = new Map((existing || []).map(r => [r.portal_name, r.id]));
-    const toInsert = records.filter(r => !existingMap.has(r.portal_name));
-    const toUpdate = records.filter(r => existingMap.has(r.portal_name));
+    const toInsert = records.filter(r => r.portal_name && !existingMap.has(r.portal_name));
+    const toUpdate = records.filter(r => r.portal_name &&  existingMap.has(r.portal_name));
+    // Records without portal_name always insert
+    const noName = records.filter(r => !r.portal_name);
 
     let inserted = 0, updated = 0;
 
-    if (toInsert.length > 0) {
-      const { error } = await supabase.from('email_automations').insert(toInsert);
-      if (error) {
-        return res.status(500).json({ success: false, error: 'Failed to insert records', details: error.message });
-      }
-      inserted = toInsert.length;
+    const allInserts = [...toInsert, ...noName];
+    if (allInserts.length > 0) {
+      const { error } = await supabase.from('email_automations').insert(allInserts);
+      if (error) return res.status(500).json({ success: false, error: 'Failed to insert records', details: error.message });
+      inserted = allInserts.length;
     }
 
     for (const record of toUpdate) {
@@ -264,11 +287,8 @@ router.post('/import', upload.single('file'), async (req, res) => {
         .from('email_automations')
         .update({ ...record, updated_at: new Date().toISOString() })
         .eq('id', id);
-      if (error) {
-        console.error(`[EmailAutomation] Failed to update ${record.portal_name}:`, error.message);
-      } else {
-        updated++;
-      }
+      if (!error) updated++;
+      else console.error(`[EmailAutomation] Failed to update ${record.portal_name}:`, error.message);
     }
 
     res.json({ success: true, imported: inserted + updated, inserted, updated });

@@ -42,14 +42,13 @@ export function buildAutomationEmail(record) {
 }
 
 function getGraphClient() {
-  const msalConfig = {
+  const cca = new ConfidentialClientApplication({
     auth: {
       clientId: process.env.AZURE_CLIENT_ID,
       clientSecret: process.env.AZURE_CLIENT_SECRET,
       authority: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}`
     }
-  };
-  const cca = new ConfidentialClientApplication(msalConfig);
+  });
   return Client.initWithMiddleware({
     authProvider: {
       getAccessToken: async () => {
@@ -66,15 +65,16 @@ function getGraphClient() {
 
 /**
  * Send one automation email and update last_sent_at in DB
+ * Accepts an optional pre-created Graph client to allow reuse across batch sends
  */
-export async function sendAutomationEmail(record) {
+export async function sendAutomationEmail(record, client = null) {
   const { to, cc, subject, htmlBody } = buildAutomationEmail(record);
 
   if (!LOG_REQUEST_EMAIL_FROM) {
     throw new Error('LOG_REQUEST_EMAIL_FROM env var not set');
   }
 
-  const client = getGraphClient();
+  const graphClient = client || getGraphClient();
   const message = {
     subject,
     body: { contentType: 'HTML', content: htmlBody },
@@ -82,7 +82,7 @@ export async function sendAutomationEmail(record) {
     ...(cc.length > 0 && { ccRecipients: cc })
   };
 
-  await client
+  await graphClient
     .api(`/users/${LOG_REQUEST_EMAIL_FROM}/sendMail`)
     .post({ message, saveToSentItems: true });
 
@@ -117,6 +117,9 @@ export async function runScheduledCheck() {
     return;
   }
 
+  // Current SGT time as HH:MM
+  const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
   const due = (records || []).filter(r => {
     // Already sent today?
     if (r.last_sent_at) {
@@ -126,14 +129,22 @@ export async function runScheduledCheck() {
     // Match scheduled_date OR recurring_day
     const matchesDate = r.scheduled_date && r.scheduled_date.slice(0, 10) === todayStr;
     const matchesDay = r.recurring_day !== null && r.recurring_day !== undefined && r.recurring_day === todayDay;
-    return matchesDate || matchesDay;
+    if (!matchesDate && !matchesDay) return false;
+    // Match send_time (HH:MM SGT)
+    const scheduledTime = r.send_time || '08:00';
+    return scheduledTime === currentTime;
   });
 
-  console.log(`[EmailAutomation] ${due.length} record(s) due today`);
+  console.log(`[EmailAutomation] ${due.length} record(s) due at ${currentTime} SGT`);
+
+  if (due.length === 0) return;
+
+  // Create one Graph client shared across all sends (one token request total)
+  const client = getGraphClient();
 
   for (const record of due) {
     try {
-      await sendAutomationEmail(record);
+      await sendAutomationEmail(record, client);
       console.log(`[EmailAutomation] Sent email for "${record.portal_name}" (${record.id})`);
     } catch (err) {
       console.error(`[EmailAutomation] Failed to send for "${record.portal_name}":`, err.message);
