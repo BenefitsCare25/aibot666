@@ -110,6 +110,22 @@ export default function Layout() {
               Roles
             </NavLink>
           )}
+
+          {user?.role === 'super_admin' && (
+            <NavLink
+              to="/email-automation"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-primary-600 text-white border-l-4 border-primary-400'
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                }`
+              }
+            >
+              <span className="text-xl">📧</span>
+              Email Automation
+            </NavLink>
+          )}
         </nav>
 
         <div className="absolute bottom-0 w-64 p-4 border-t border-gray-700">

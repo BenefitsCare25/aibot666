@@ -14,6 +14,7 @@ import QuickQuestions from './pages/QuickQuestions';
 import AISettings from './pages/AISettings';
 import AdminUsers from './pages/AdminUsers';
 import Roles from './pages/Roles';
+import EmailAutomation from './pages/EmailAutomation';
 
 export default function App() {
   return (
@@ -52,6 +53,11 @@ export default function App() {
           <Route path="roles" element={
             <ProtectedRoute requireSuperAdmin>
               <Roles />
+            </ProtectedRoute>
+          } />
+          <Route path="email-automation" element={
+            <ProtectedRoute requireSuperAdmin>
+              <EmailAutomation />
             </ProtectedRoute>
           } />
         </Route>

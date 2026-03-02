@@ -20,6 +20,8 @@ import documentsRoutes from './api/routes/documents.js';
 // Import services
 import { initializeTelegramBot } from './api/services/telegram.js';
 import { redis, closeRedis } from './api/utils/session.js';
+import cron from 'node-cron';
+import { runScheduledCheck } from './api/services/emailAutomationService.js';
 
 dotenv.config();
 
@@ -464,6 +466,9 @@ try {
   console.error('Failed to initialize Telegram bot:', error);
   console.warn('Continuing without Telegram integration...');
 }
+
+// Schedule daily email automation check at 8:00 AM SGT
+cron.schedule('0 8 * * *', runScheduledCheck, { timezone: 'Asia/Singapore' });
 
 // Start server
 const server = app.listen(PORT, () => {

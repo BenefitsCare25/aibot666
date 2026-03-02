@@ -11,6 +11,7 @@ import chatHistoryRouter from './chatHistory.js';
 import analyticsRouter from './analytics.js';
 import quickQuestionsRouter from './quickQuestions.js';
 import debugRouter from './debug.js';
+import emailAutomationRouter from './emailAutomation.js';
 
 const router = express.Router();
 
@@ -145,6 +146,7 @@ router.use('/companies', adminContextMiddleware);
 router.use((req, res, next) => {
   // Skip middleware for company routes and template downloads
   if (req.path.startsWith('/companies') ||
+      req.path.startsWith('/email-automation') ||
       req.path === '/quick-questions/download-template' ||
       req.path === '/knowledge/download-template') {
     return next();
@@ -165,6 +167,7 @@ router.use('/chat-history', chatHistoryRouter);
 router.use('/analytics', analyticsRouter);
 router.use('/quick-questions', quickQuestionsRouter);
 router.use('/debug', debugRouter);
+router.use('/email-automation', emailAutomationRouter);
 
 // Cache clear route (mounted at /cache, not under /debug)
 /**
