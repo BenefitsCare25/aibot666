@@ -812,8 +812,6 @@ router.post('/message', async (req, res) => {
       response.confidence = 0.9;
     }
 
-    const hasEscalationPhrase = response.answer?.toLowerCase().includes('for such query, let us check back with the team');
-
     // Save messages to Redis (sequential - order matters in Redis list)
     await addMessageToHistory(session.conversationId, {
       role: 'user',
@@ -847,6 +845,8 @@ router.post('/message', async (req, res) => {
     const cleanLower = cleanAnswer.toLowerCase();
     const aiSaysNoKnowledge =
       cleanLower.includes('for such query, let us check back with the team') ||
+      cleanLower.includes('for such a query, let us check back with the team') ||
+      cleanLower.includes('check back with the team') ||
       (cleanLower.includes('escalate') && cleanLower.includes('contact')) ||
       (cleanLower.includes('specific details of your policy') && cleanLower.includes('contact'));
 
