@@ -9,6 +9,7 @@ import {
   deleteKnowledgeEntry
 } from '../../services/vectorDB.js';
 import { sanitizeSearchParam } from '../../utils/sanitize.js';
+import { invalidateCompanyQueryCache } from '../../utils/session.js';
 
 const router = express.Router();
 
@@ -70,6 +71,8 @@ router.post('/', async (req, res) => {
       source: 'admin_upload'
     }, req.supabase); // Pass schema-specific client
 
+    invalidateCompanyQueryCache(req.company.schemaName).catch(() => {}); // non-fatal
+
     res.json({
       success: true,
       data: entry
@@ -100,6 +103,8 @@ router.post('/batch', async (req, res) => {
     }
 
     const created = await addKnowledgeEntriesBatch(entries, req.supabase); // Pass schema-specific client
+
+    invalidateCompanyQueryCache(req.company.schemaName).catch(() => {}); // non-fatal
 
     res.json({
       success: true,
@@ -183,6 +188,8 @@ router.put('/:id', async (req, res) => {
 
     const entry = await updateKnowledgeEntry(id, updates, req.supabase); // Pass schema-specific client
 
+    invalidateCompanyQueryCache(req.company.schemaName).catch(() => {}); // non-fatal
+
     res.json({
       success: true,
       data: entry
@@ -206,6 +213,8 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
     await deleteKnowledgeEntry(id, req.supabase); // Pass schema-specific client
+
+    invalidateCompanyQueryCache(req.company.schemaName).catch(() => {}); // non-fatal
 
     res.json({
       success: true,
@@ -246,6 +255,8 @@ router.post('/upload-excel', upload.single('file'), async (req, res) => {
 
     // Delete uploaded file
     fs.unlinkSync(req.file.path);
+
+    invalidateCompanyQueryCache(req.company.schemaName).catch(() => {}); // non-fatal
 
     res.json({
       success: true,

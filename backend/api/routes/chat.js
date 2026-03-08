@@ -1,5 +1,5 @@
 import express from 'express';
-import { generateRAGResponse } from '../services/openai.js';
+import { generateRAGResponse, generateEmbedding } from '../services/openai.js';
 import { searchKnowledgeBase, getEmployeeByEmployeeId, getEmployeeByIdentifier } from '../services/vectorDB.js';
 import {
   createSession,
@@ -11,6 +11,8 @@ import {
   checkRateLimit,
   cacheQueryResult,
   getCachedQueryResult,
+  getSemanticCacheMatch,
+  setSemanticCache,
   updateConversationState,
   getConversationState
 } from '../utils/session.js';
@@ -705,9 +707,13 @@ router.post('/message', async (req, res) => {
       });
     }
 
-    // Check cache for similar queries
+    // Build namespaced cache key — prevents cross-tenant cache hits (PDPA compliance)
     const queryHash = createHash('sha256').update(message.trim().toLowerCase()).digest('hex');
-    const cachedResult = await getCachedQueryResult(queryHash);
+    const schemaName = req.company.schemaName;
+    const cacheKey = `query:${schemaName}:${queryHash}`;
+
+    // Exact-match cache check
+    const cachedResult = await getCachedQueryResult(cacheKey);
 
     if (cachedResult) {
       await touchSession(sessionId);
@@ -741,14 +747,35 @@ router.post('/message', async (req, res) => {
     const messageIntent = classifyMessageIntent(message);
     const needsKBSearch = messageIntent === 'domain_question';
 
-    // Search knowledge base only for domain questions
+    // For domain questions: generate embedding once, reuse for semantic cache + KB search
+    let queryEmbedding = null;
+    if (needsKBSearch) {
+      queryEmbedding = await generateEmbedding(message);
+
+      // Semantic cache check — catch paraphrase matches (e.g. "dental coverage" vs "dental benefits")
+      const semanticHit = await getSemanticCacheMatch(schemaName, queryEmbedding);
+      if (semanticHit) {
+        await touchSession(sessionId);
+        return res.json({
+          success: true,
+          data: {
+            ...semanticHit,
+            cached: true
+          }
+        });
+      }
+    }
+
+    // Search knowledge base only for domain questions, passing pre-computed embedding
     const contexts = needsKBSearch
       ? await searchKnowledgeBase(
           message,
           req.supabase,
           companyAISettings?.top_k_results || 5,
           companyAISettings?.similarity_threshold || 0.7,
-          null
+          null,
+          null,
+          queryEmbedding
         )
       : [];
 
@@ -875,13 +902,15 @@ router.post('/message', async (req, res) => {
       });
     }
 
-    // Cache the result if confidence is high
-    if (response.confidence >= 0.8) {
-      await cacheQueryResult(queryHash, {
+    // Cache the result if confidence is high (only for domain questions with an embedding)
+    if (response.confidence >= 0.8 && needsKBSearch && queryEmbedding) {
+      const cachePayload = {
         answer: response.answer,
         confidence: response.confidence,
         sources: response.sources
-      }, 300);
+      };
+      // Store exact-match cache and semantic cache (embedding) together
+      setSemanticCache(schemaName, queryHash, cachePayload, queryEmbedding).catch(() => {});
     }
 
     // Final summary log

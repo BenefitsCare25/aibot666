@@ -40,14 +40,14 @@ async function updateKnowledgeUsage(ids, supabaseClient = null) {
  * @param {string} policyType - Optional policy type filter (e.g., 'Premium', 'Standard')
  * @returns {Promise<Array>} - Array of matching knowledge base entries
  */
-export async function searchKnowledgeBase(query, supabaseClient = null, topK = TOP_K_RESULTS, threshold = SIMILARITY_THRESHOLD, category = null, policyType = null) {
+export async function searchKnowledgeBase(query, supabaseClient = null, topK = TOP_K_RESULTS, threshold = SIMILARITY_THRESHOLD, category = null, policyType = null, precomputedEmbedding = null) {
   try {
 
     // Use provided client or fallback to default
     const client = supabaseClient || supabase;
 
-    // Generate embedding for the query
-    const queryEmbedding = await generateEmbedding(query);
+    // Reuse pre-computed embedding if provided (avoids redundant OpenAI API call)
+    const queryEmbedding = precomputedEmbedding || await generateEmbedding(query);
 
     // Single vector search with actual threshold (removed duplicate low-threshold check)
     // Fetch more results initially if we're going to filter by policy type

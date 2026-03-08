@@ -264,14 +264,13 @@ export async function getSessionCount() {
 
 /**
  * Cache query result
- * @param {string} queryHash - Hash of the query
+ * @param {string} cacheKey - Full namespaced cache key (query:{schemaName}:{hash})
  * @param {Object} result - Query result to cache
- * @param {number} ttl - Time to live in seconds (default 300 = 5 minutes)
+ * @param {number} ttl - Time to live in seconds (default 3600 = 1 hour)
  * @returns {Promise<boolean>} - Success status
  */
-export async function cacheQueryResult(queryHash, result, ttl = 300) {
+export async function cacheQueryResult(cacheKey, result, ttl = 3600) {
   try {
-    const cacheKey = `query:${queryHash}`;
     await redis.setex(cacheKey, ttl, JSON.stringify(result));
     return true;
   } catch (error) {
@@ -282,12 +281,11 @@ export async function cacheQueryResult(queryHash, result, ttl = 300) {
 
 /**
  * Get cached query result
- * @param {string} queryHash - Hash of the query
+ * @param {string} cacheKey - Full namespaced cache key (query:{schemaName}:{hash})
  * @returns {Promise<Object|null>} - Cached result or null
  */
-export async function getCachedQueryResult(queryHash) {
+export async function getCachedQueryResult(cacheKey) {
   try {
-    const cacheKey = `query:${queryHash}`;
     const data = await redis.get(cacheKey);
 
     if (!data) {
@@ -298,6 +296,122 @@ export async function getCachedQueryResult(queryHash) {
   } catch (error) {
     console.error('Error getting cached query result:', error);
     return null;
+  }
+}
+
+/**
+ * Compute cosine similarity between two vectors
+ * @param {number[]} vecA
+ * @param {number[]} vecB
+ * @returns {number} similarity score 0-1
+ */
+function cosineSimilarity(vecA, vecB) {
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < vecA.length; i++) {
+    dot += vecA[i] * vecB[i];
+    normA += vecA[i] * vecA[i];
+    normB += vecB[i] * vecB[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+/**
+ * Find semantically similar cached answer using embedding comparison
+ * @param {string} schemaName - Company schema name (namespace)
+ * @param {number[]} queryEmbedding - Pre-computed query embedding
+ * @param {number} threshold - Minimum cosine similarity (default 0.95)
+ * @returns {Promise<Object|null>} - Cached result or null
+ */
+export async function getSemanticCacheMatch(schemaName, queryEmbedding, threshold = 0.95) {
+  try {
+    const indexKey = `query:index:${schemaName}`;
+    const hashes = await redis.smembers(indexKey);
+    if (!hashes || hashes.length === 0) return null;
+
+    for (const hash of hashes) {
+      const embeddingRaw = await redis.get(`query:embed:${schemaName}:${hash}`);
+      if (!embeddingRaw) continue;
+
+      const cachedEmbedding = JSON.parse(embeddingRaw);
+      const similarity = cosineSimilarity(queryEmbedding, cachedEmbedding);
+
+      if (similarity >= threshold) {
+        const answerRaw = await redis.get(`query:${schemaName}:${hash}`);
+        if (answerRaw) {
+          return JSON.parse(answerRaw);
+        }
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error in getSemanticCacheMatch:', error);
+    return null;
+  }
+}
+
+/**
+ * Store answer + embedding in semantic cache
+ * @param {string} schemaName - Company schema name
+ * @param {string} hash - SHA-256 hash of the query
+ * @param {Object} answer - Answer object to cache
+ * @param {number[]} embedding - Query embedding vector
+ * @param {number} ttl - TTL in seconds (default 3600)
+ * @returns {Promise<boolean>}
+ */
+export async function setSemanticCache(schemaName, hash, answer, embedding, ttl = 3600) {
+  try {
+    const pipeline = redis.pipeline();
+    pipeline.setex(`query:${schemaName}:${hash}`, ttl, JSON.stringify(answer));
+    pipeline.setex(`query:embed:${schemaName}:${hash}`, ttl, JSON.stringify(embedding));
+    pipeline.sadd(`query:index:${schemaName}`, hash);
+    pipeline.expire(`query:index:${schemaName}`, ttl);
+    await pipeline.exec();
+    return true;
+  } catch (error) {
+    console.error('Error in setSemanticCache:', error);
+    return false;
+  }
+}
+
+/**
+ * Invalidate all query cache entries for a company schema
+ * Called when KB is mutated (create/update/delete)
+ * @param {string} schemaName - Company schema name
+ * @returns {Promise<void>}
+ */
+export async function invalidateCompanyQueryCache(schemaName) {
+  try {
+    const patterns = [
+      `query:${schemaName}:*`,
+      `query:embed:${schemaName}:*`
+    ];
+
+    let totalDeleted = 0;
+    for (const pattern of patterns) {
+      let cursor = '0';
+      const keysToDelete = [];
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+        cursor = nextCursor;
+        keysToDelete.push(...keys);
+      } while (cursor !== '0');
+
+      if (keysToDelete.length > 0) {
+        await redis.del(...keysToDelete);
+        totalDeleted += keysToDelete.length;
+      }
+    }
+
+    // Delete the index set
+    await redis.del(`query:index:${schemaName}`);
+
+    if (totalDeleted > 0) {
+      console.info(`[Cache] Invalidated ${totalDeleted} query cache entries for ${schemaName}`);
+    }
+  } catch (error) {
+    console.error('[Cache] invalidateCompanyQueryCache error:', error.message);
+    // Non-fatal — cache invalidation failure should not break KB save
   }
 }
 
@@ -397,6 +511,9 @@ export default {
   getSessionCount,
   cacheQueryResult,
   getCachedQueryResult,
+  getSemanticCacheMatch,
+  setSemanticCache,
+  invalidateCompanyQueryCache,
   checkRateLimit,
   updateConversationState,
   getConversationState,
