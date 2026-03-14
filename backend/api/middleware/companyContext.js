@@ -84,7 +84,10 @@ export async function companyContextMiddleware(req, res, next) {
       // Email configuration for LOG requests
       log_request_email_to: company.log_request_email_to || null,
       log_request_email_cc: company.log_request_email_cc || null,
-      log_request_keywords: company.log_request_keywords || null
+      log_request_keywords: company.log_request_keywords || null,
+      // Email configuration for callback requests
+      callback_email_to: company.callback_email_to || null,
+      callback_email_cc: company.callback_email_cc || null
     };
 
     // Add schema name directly for easy access
