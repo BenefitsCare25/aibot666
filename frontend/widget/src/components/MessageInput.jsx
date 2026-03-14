@@ -3,6 +3,7 @@ import { Send, FileText, Paperclip, X } from 'lucide-react';
 import FileAttachment from './FileAttachment';
 import EmailInput from './EmailInput';
 import { detectLogContext } from '../utils/logDetection';
+import { useChatStore } from '../store/chatStore';
 
 export default function MessageInput({
   value,
@@ -28,11 +29,12 @@ export default function MessageInput({
   const [emailValid, setEmailValid] = useState(true);
   const [showLogSuggestion, setShowLogSuggestion] = useState(false);
   const [expandLogButton, setExpandLogButton] = useState(false);
+  const logKeywords = useChatStore(state => state.logKeywords);
 
   // Detect LOG context from user input
   useEffect(() => {
     if (value && !isLogMode && !logRequested) {
-      const hasLogContext = detectLogContext(value);
+      const hasLogContext = detectLogContext(value, logKeywords);
       setShowLogSuggestion(hasLogContext);
       setExpandLogButton(hasLogContext);
     } else {

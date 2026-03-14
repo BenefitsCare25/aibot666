@@ -24,16 +24,20 @@ const LOG_KEYWORDS = [
 /**
  * Detect if a message contains LOG-related keywords
  * @param {string} message - The user's message
+ * @param {string[]|null} customKeywords - Per-company keywords from /config (merged with defaults)
  * @returns {boolean} - True if LOG keywords detected
  */
-export function detectLogContext(message) {
+export function detectLogContext(message, customKeywords = null) {
   if (!message || typeof message !== 'string') {
     return false;
   }
 
   const lowerMessage = message.toLowerCase().trim();
+  const keywords = customKeywords && customKeywords.length > 0
+    ? [...new Set([...LOG_KEYWORDS, ...customKeywords.map(k => k.toLowerCase())])]
+    : LOG_KEYWORDS;
 
-  return LOG_KEYWORDS.some(keyword => lowerMessage.includes(keyword));
+  return keywords.some(keyword => lowerMessage.includes(keyword));
 }
 
 /**

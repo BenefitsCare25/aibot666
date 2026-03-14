@@ -45,7 +45,8 @@ router.get('/config', (req, res) => {
       features: {
         showChat: settings.showChat !== false,
         showLog: settings.showLog !== false
-      }
+      },
+      logKeywords: req.company?.log_request_keywords || null
     }
   });
 });

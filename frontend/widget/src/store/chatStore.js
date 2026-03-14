@@ -22,6 +22,7 @@ export const useChatStore = create((set, get) => ({
 
   // Company widget feature flags
   companyFeatures: { showChat: true, showLog: true },
+  logKeywords: null, // Per-company LOG trigger keywords (null = use hardcoded defaults)
 
   // New state for LOG request feature
   attachments: [],
@@ -65,7 +66,10 @@ export const useChatStore = create((set, get) => ({
         headers: getHeaders(state)
       });
       if (response.data.success) {
-        set({ companyFeatures: response.data.data.features });
+        set({
+          companyFeatures: response.data.data.features,
+          logKeywords: response.data.data.logKeywords || null
+        });
       }
     } catch (e) {
       // Keep defaults on network error
