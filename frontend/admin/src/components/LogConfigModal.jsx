@@ -301,12 +301,12 @@ export default function LogConfigModal({ company, onClose, onSuccess }) {
                           className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-primary-500"
                           placeholder="Document name"
                         />
-                        <input
-                          type="text"
+                        <textarea
                           value={doc.description || ''}
                           onChange={(e) => updateDocument(routeIndex, docIndex, 'description', e.target.value)}
-                          className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-primary-500"
-                          placeholder="Description (optional)"
+                          className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-primary-500 resize-none"
+                          placeholder="Description (optional, supports multiple lines)"
+                          rows={2}
                         />
                         <div className="flex items-center gap-2">
                           <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">

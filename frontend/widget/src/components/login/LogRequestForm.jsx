@@ -56,7 +56,7 @@ export default function LogRequestForm({
                         {doc.name}
                       </span>
                       {doc.description && (
-                        <p className="ic-text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                        <p className="ic-text-xs" style={{ color: 'var(--color-text-tertiary)', whiteSpace: 'pre-line' }}>
                           {doc.description}
                         </p>
                       )}
