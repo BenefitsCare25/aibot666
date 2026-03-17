@@ -30,6 +30,7 @@ backend/
 │   │   │   ├── chatHistory.js        # Conversation listing, messages, attendance
 │   │   │   ├── analytics.js          # Usage analytics, trends, frequent categories
 │   │   │   ├── quickQuestions.js      # Quick questions CRUD, bulk import, Excel
+│   │   │   ├── emailAutomation.js    # Email automation CRUD, send-now, import/preview (superAdmin only)
 │   │   │   └── debug.js              # Diagnostics (requireSuperAdmin protected)
 │   │   ├── chat.js                    # Chat session, messages, intent-aware RAG flow, callbacks, /config endpoint
 │   │   ├── auth.js                    # Login (with lockout), token refresh
@@ -41,13 +42,14 @@ backend/
 │   │   ├── vectorDB.js               # Re-export shim (backward compat for both above)
 │   │   ├── escalationService.js       # Escalation handling, contact detection
 │   │   ├── callbackService.js         # Callback email + Telegram notifications
+│   │   ├── emailAutomationService.js  # resolveTemplateVars, buildAutomationEmail, sendAutomationEmail, runScheduledCheck
 │   │   ├── companySchema.js           # Company lookup (indexed: exact → ilike → additional_domains)
 │   │   ├── documentProcessor.js       # PDF extraction, chunking, embedding
 │   │   ├── jobQueue.js               # BullMQ document processing queue
 │   │   ├── telegram.js               # Telegram bot notifications
 │   │   └── excel.js                  # Excel import/export
 │   ├── utils/
-│   │   ├── session.js                # Redis sessions (pipeline ops, conv: reverse lookup)
+│   │   ├── session.js                # Redis sessions (pipeline ops, conv: reverse lookup, query cache + semantic cache)
 │   │   ├── redisClient.js            # ioredis singleton
 │   │   ├── auth.js                   # JWT_SECRET (no fallback, throws if unset)
 │   │   ├── sanitize.js               # Search param sanitization (SQL injection prevention)
@@ -70,6 +72,7 @@ backend/
 
 Routes defined **before** `companyContextMiddleware`: `db-test`, template downloads.
 `/companies` prefix gets `adminContextMiddleware` (public schema).
+`/email-automation` prefix skips `companyContextMiddleware` (uses public `supabase` client directly — not tenant-scoped).
 All other admin routes get `companyContextMiddleware` (tenant schema).
 
 ### Security Features
@@ -96,6 +99,8 @@ All other admin routes get `companyContextMiddleware` (tenant schema).
 - **Post-response ops**: `Promise.all` for DB save + session touch after OpenAI response
 - **Employee lookup**: Single `.or()` query instead of 3 sequential queries
 - **Intent classification**: Greetings/conversational messages skip KB search entirely (no embedding + pgvector cost)
+- **Query cache**: Namespaced per company (`query:{schemaName}:{hash}`) — PDPA-compliant, no cross-tenant hits. TTL 3600s. Invalidated on any KB mutation (create/update/delete/Excel upload) via `invalidateCompanyQueryCache()` using Redis SCAN (non-blocking)
+- **Semantic cache**: Paraphrase matching using cosine similarity on stored embeddings (`query:embed:{schemaName}:{hash}`). Index tracked in `query:index:{schemaName}` Redis SET. Threshold: 0.95. Embedding generated once per `domain_question` and reused for both semantic cache check and `searchKnowledgeBase()` — zero extra OpenAI calls on cache miss
 
 ## Widget Architecture
 
@@ -218,6 +223,7 @@ frontend/admin/src/
 │   ├── employees.js                   # Employee API
 │   ├── knowledge.js                   # Knowledge base + document upload API
 │   ├── quickQuestions.js              # Quick questions API
+│   ├── emailAutomation.js             # Email automation API (getAll, create, update, remove, sendNow, importPreview, importExcel)
 │   └── companies.js                   # Company API (CRUD, status, email-config, embed-code)
 ├── components/
 │   ├── EmailConfigModal.jsx            # LOG + callback email config per company
@@ -226,7 +232,8 @@ frontend/admin/src/
     ├── Companies.jsx                  # Company management (CRUD, status toggle, email config)
     ├── KnowledgeBase.jsx              # Knowledge base management
     ├── Employees.jsx                  # Employee management
-    └── QuickQuestions.jsx             # Quick questions management
+    ├── QuickQuestions.jsx             # Quick questions management
+    └── EmailAutomation.jsx            # Email automation (superAdmin only) — table, edit modal, import with validation preview
 ```
 
 ## Iframe Dynamic Resize Mechanism
@@ -316,7 +323,8 @@ Both `benefits.inspro.com.sg` and `benefits-staging.inspro.com.sg` are **SPAs** 
 - **Backend**: Azure Web App (`app-aibot-api.azurewebsites.net`)
 - **Admin Portal**: Azure Static Web Apps
 - **Auto-deploy**: Push to `main` triggers GitHub Actions (triggers on `backend/**` or `frontend/widget/**` changes)
-- **CI/CD pipeline**: Install widget deps → build widget + SRI hashes → install backend deps → deploy to Azure
+- **CI/CD pipeline**: Install widget deps (npm cached) → build widget + SRI hashes → install backend deps (npm cached) → deploy to Azure
+- **Deploy time**: ~4-5 min total (build ~35s cached, Azure upload+restart ~4min)
 - **GitHub account**: `BenefitsCare25` (switch with `gh auth switch --user BenefitsCare25`)
 
 ## Testing
@@ -411,34 +419,156 @@ docker compose restart rest
 
 ### Intent-Aware Routing (chat.js)
 
-Messages are classified before the KB search to avoid wasteful RAG calls and false escalations:
+Messages are classified using a 2-tier system: fast regex for obvious greetings/acks, then gpt-4o-mini LLM fallback for ambiguous messages (~$0.00015/call, ~200ms latency).
 
 ```
 User Message
      ↓
-classifyMessageIntent() → greeting | conversational | domain_question
+classifyMessageIntentFastPath() → greeting | conversational | unknown
+     ↓ (if unknown)
+classifyMessageIntentLLM() → domain_question | correction | contact_info | meta_request | follow_up
      ↓
-greeting/conversational → skip KB search, respond warmly, confidence=0.9, no escalation
+greeting/conversational/correction/contact_info → skip KB search, confidence=0.9, no escalation
      ↓
-domain_question → full KB search → RAG → escalate only if truly no knowledge
+domain_question/follow_up/meta_request → KB search → RAG → 2-attempt escalation flow
 ```
 
-**`classifyMessageIntent(message)`** (helper in `chat.js`):
-- `greeting`: hi, hello, good morning, 你好, 嗨, etc.
-- `conversational`: ok, thanks, got it, bye, 谢谢, 好的, etc.
-- `domain_question`: everything else → full RAG pipeline
+**Intent categories**:
+| Intent | KB Search? | Can Escalate? | Example |
+|--------|-----------|--------------|---------|
+| `greeting` | No | No | "hi", "hello" |
+| `conversational` | No | No | "ok", "thanks", "bye" |
+| `domain_question` | Yes | Yes (after 2nd attempt) | "what's my dental coverage?" |
+| `correction` | No | No | "ignore the wrong email", "I meant..." |
+| `contact_info` | No | No | "sengwee.cbre.com", "88399967" |
+| `meta_request` | Yes | Yes (after 2nd attempt) | "forgot username", "can't login" |
+| `follow_up` | Yes | Yes (after 2nd attempt) | "what about dental?" after medical |
 
-**`calculateConfidence()`** (`openai.js`): No safety net for empty-context responses. Base 0.5 + similarity boost if contexts exist. Capped at 0.5 if uncertainty phrases detected. Boosted to ≥0.75 only for contact acknowledgments.
+**2-attempt escalation flow**: KB miss on first attempt → ask user to elaborate → retry KB → THEN escalate. Conversation state tracks `askedToElaborate` and `failedKBAttempts` in Redis session. Consecutive escalation softening after 2+ escalations in same conversation.
 
-**Anti-hallucination (openai.js — 2026-03-01)**: When KB returns no results, the context section is replaced with an explicit `[NO KNOWLEDGE BASE DATA AVAILABLE FOR THIS QUERY — You MUST use the escalation phrase]` marker. System prompt instruction #3 explicitly forbids answering benefits/coverage/policy questions from GPT training knowledge. The previous `Math.max(confidence, 0.75)` safety net for empty-context was removed — it was incorrectly boosting confidence on hallucinated answers.
+**Smart contact detection** (`escalationService.js`): Regex expanded to recognize domain-style identifiers (e.g., `name.company.com`) in addition to emails and phone numbers. LLM intent also catches contact info contextually.
 
-**Escalation guard**: `needsKBSearch && ESCALATE_ON_NO_KNOWLEDGE && (aiSaysNoKnowledge || lowConfidence)` — greetings and small talk can never trigger escalation.
+**`calculateConfidence()`** (`openai.js`): Non-KB intents (correction, contact_info, greeting, conversational) return 0.85 immediately. For KB intents: Base 0.5 + similarity boost if contexts exist. Capped at 0.5 if uncertainty phrases detected. Boosted to ≥0.75 only for contact acknowledgments.
 
-**Escalation threshold (chat.js — 2026-03-02)**: Default raised from `0.3` to `0.55`. Base confidence when KB has no results is always `0.5` — threshold must exceed `0.5` to catch no-context cases. Company-level override via `companyAISettings.escalation_threshold`.
+**Anti-hallucination (openai.js — 2026-03-01)**: When KB returns no results, the context section is replaced with an explicit `[NO KNOWLEDGE BASE DATA AVAILABLE FOR THIS QUERY — You MUST use the escalation phrase]` marker. System prompt instruction #3 explicitly forbids answering benefits/coverage/policy questions from GPT training knowledge.
 
-**`aiSaysNoKnowledge` detection (chat.js — 2026-03-02)**: Broadened beyond exact phrase match to also detect AI deviations: `("escalate" && "contact")` or `("specific details of your policy" && "contact")` patterns.
+**Escalation guard**: `canEscalate && needsKBSearch && ESCALATE_ON_NO_KNOWLEDGE && (aiSaysNoKnowledge || lowConfidence)` — only domain_question, follow_up, and meta_request intents can escalate, and only after 2nd attempt.
 
-**Greeting response (openai.js — 2026-03-02)**: System prompt instruction 3a updated to produce a short generic greeting ("Hello! How can I assist you today?") without mentioning insurance/benefits in the greeting itself.
+**Escalation threshold (chat.js — 2026-03-02)**: Default `0.55`. Company-level override via `companyAISettings.escalation_threshold`.
+
+**System prompt updates (openai.js — 2026-03-17)**: Instructions 3b (elaboration before escalation) and 3c (non-benefits message handling) added. Context awareness extended with correction handling and domain-style identifier recognition.
+
+### Query Cache + Semantic Cache (chat.js + session.js — 2026-03-09)
+
+Full pipeline for `domain_question` intent:
+
+```
+domain_question detected
+     ↓
+Exact-match check: getCachedQueryResult(`query:{schemaName}:{hash}`)
+     ↓ miss
+generateEmbedding(query)          ← ONE call, shared below
+     ↓
+getSemanticCacheMatch(schemaName, embedding)  ← cosine similarity ≥ 0.95 → return cached
+     ↓ miss
+searchKnowledgeBase(..., precomputedEmbedding)  ← skips internal generateEmbedding()
+     ↓
+generateRAGResponse → setSemanticCache()  ← stores answer + embedding + updates index
+```
+
+**Redis key structure:**
+
+| Key | Value | TTL |
+|-----|-------|-----|
+| `query:{schemaName}:{hash}` | `{answer, confidence, sources}` JSON | 3600s |
+| `query:embed:{schemaName}:{hash}` | `float[]` embedding JSON | 3600s |
+| `query:index:{schemaName}` | Redis SET of hashes (for SMEMBERS scan) | 3600s |
+
+**Cache invalidation**: All KB write routes (create, batch, update, delete, Excel upload) call `invalidateCompanyQueryCache(schemaName)` fire-and-forget after success. Deletes all three key patterns via Redis SCAN.
+
+**PDPA compliance**: Cache is namespaced per `schemaName` — CBRE and STM can ask identical questions without serving each other's cached answers.
+
+## Email Automation (Super Admin Only)
+
+Manages monthly panel listing reminder emails to insurance/health providers. Accessible via Admin Portal sidebar → **📧 Email Automation** (super admin only).
+
+### Database Table (public schema)
+
+```sql
+public.email_automations (
+  id UUID PRIMARY KEY,
+  portal_name TEXT,
+  listing_type TEXT,
+  recipient_email TEXT NOT NULL,   -- newline or comma-separated, may be mailto: hyperlinks in Excel
+  cc_list TEXT,
+  recipient_name TEXT NOT NULL,
+  body_content TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  recurring_day INTEGER (1–28),    -- day of month for monthly sends
+  scheduled_date DATE,             -- one-time send date
+  send_time TEXT DEFAULT '08:00',  -- HH:MM in Singapore time
+  is_active BOOLEAN DEFAULT true,
+  last_sent_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ
+)
+```
+
+**Migration for send_time** (run once in Supabase SQL editor):
+```sql
+ALTER TABLE public.email_automations ADD COLUMN IF NOT EXISTS send_time TEXT DEFAULT '08:00';
+```
+
+### Scheduler
+
+- Cron runs **every minute** (`* * * * *`) — lightweight Supabase query each tick
+- Sends emails where: `is_active=true` AND (`scheduled_date=today` OR `recurring_day=todayDay`) AND `send_time=currentHH:MM (SGT)` AND NOT already sent today at or after the scheduled time
+- **Duplicate send guard**: skips only if `last_sent_at` (converted to SGT) is same day AND time ≥ `send_time`. A manual "Send Now" before the scheduled time does NOT block the scheduled trigger.
+- One Graph API client created per cron run (shared across all emails — single token request)
+- Cron wrapped in try/catch — failures log but never crash the Express process
+
+### Template Variables
+
+`<<current month>>` / `<<Current Month>>` → e.g. "March" (case-insensitive)
+`<<current year>>` / `<<Current Year>>` → e.g. "2026"
+
+Email body sent as: `Dear [recipientName],<br><br>[resolved body with \n → <br>]`
+
+### Excel Import
+
+Sheet name: **"Email Automation"** (falls back to first sheet if not found).
+
+Expected column headers (case-insensitive, typo-tolerant):
+| DB Field | Accepted Headers |
+|----------|-----------------|
+| `recipient_email` | "Recipient Email", **"Recipent Email"** (typo in source file), "email", "to" |
+| `cc_list` | "CC list", "cc" |
+| `recipient_name` | "Recipient Name", "name" |
+| `body_content` | "Body Email Content", "body content", "body" |
+| `subject` | "Email Subject", "subject" |
+| `portal_name` | "Portal Name", "portal" |
+| `listing_type` | "Listing Type", "type" |
+| `send_time` | "Send Time", "time" |
+
+**Import flow (2-step)**:
+1. Select file → click **Validate & Preview** → calls `POST /import/preview` → shows column detection status + first 3 records
+2. If no errors → click **Import N Records** → calls `POST /import` → inserts new / updates existing (matched by `portal_name`)
+
+**Hyperlink handling**: ExcelJS returns mailto: links as `{text, hyperlink}` objects — `getCellText()` extracts `.text` property.
+
+### API Endpoints
+
+All require `requireSuperAdmin`. Use public `supabase` client (not `req.supabase`).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/admin/email-automation` | List all records |
+| POST | `/api/admin/email-automation` | Create record |
+| PUT | `/api/admin/email-automation/:id` | Update record |
+| DELETE | `/api/admin/email-automation/:id` | Delete record |
+| POST | `/api/admin/email-automation/:id/send` | Immediate send |
+| POST | `/api/admin/email-automation/import/preview` | Validate Excel (no insert) |
+| POST | `/api/admin/email-automation/import` | Import Excel |
 
 ## Common Issues & Fixes
 

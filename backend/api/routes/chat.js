@@ -1,4 +1,5 @@
 import express from 'express';
+import OpenAI from 'openai';
 import { generateRAGResponse, generateEmbedding } from '../services/openai.js';
 import { searchKnowledgeBase, getEmployeeByEmployeeId, getEmployeeByIdentifier } from '../services/vectorDB.js';
 import {
@@ -26,7 +27,7 @@ import { sendLogRequestEmail, sendAcknowledgmentEmail } from '../services/email.
 import path from 'path';
 import fs from 'fs/promises';
 import { groupQuestionsByCategory } from '../utils/quickQuestionUtils.js';
-import { isContactInformation, handleEscalation } from '../services/escalationService.js';
+import { isContactInformation, handleEscalation, getPendingEscalation, updateEscalationWithContact } from '../services/escalationService.js';
 import { sendCallbackNotificationEmail, sendCallbackTelegramNotification } from '../services/callbackService.js';
 
 const router = express.Router();
@@ -35,6 +36,9 @@ const router = express.Router();
 router.use(companyContextMiddleware);
 
 const ESCALATE_ON_NO_KNOWLEDGE = process.env.ESCALATE_ON_NO_KNOWLEDGE !== 'false';
+
+// Lightweight OpenAI client for intent classification (gpt-4o-mini)
+const classificationClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // GET /api/chat/config - Return company widget feature flags
 router.get('/config', (req, res) => {
@@ -744,9 +748,21 @@ router.post('/message', async (req, res) => {
     // Get company AI settings (will be null/undefined if not configured)
     const companyAISettings = req.company?.ai_settings || null;
 
-    // Classify intent to determine if KB search is needed
-    const messageIntent = classifyMessageIntent(message);
-    const needsKBSearch = messageIntent === 'domain_question';
+    // Classify intent: fast regex first, LLM fallback for ambiguous messages
+    let messageIntent = classifyMessageIntentFastPath(message);
+    // Get conversation history early (needed for LLM classification + RAG)
+    const history = await getConversationHistory(session.conversationId, 10, session.employeeId);
+    const formattedHistory = history.map(h => ({ role: h.role, content: h.content }));
+
+    if (messageIntent === 'unknown') {
+      try {
+        messageIntent = await classifyMessageIntentLLM(message, formattedHistory);
+      } catch (err) {
+        console.error('LLM intent classification failed, falling back:', err.message);
+        messageIntent = 'domain_question';
+      }
+    }
+    const needsKBSearch = ['domain_question', 'follow_up', 'meta_request'].includes(messageIntent);
 
     // For domain questions: generate embedding once, reuse for semantic cache + KB search
     let queryEmbedding = null;
@@ -787,16 +803,6 @@ router.post('/message', async (req, res) => {
     } else {
     }
 
-    // Get conversation history (with employee validation for security)
-    const history = await getConversationHistory(session.conversationId, 10, session.employeeId);
-
-    // Format history for OpenAI
-    const formattedHistory = history.map(h => ({
-      role: h.role,
-      content: h.content
-    }));
-
-
     // Pre-process: Check if user is responding to escalation with contact info
     let messageToProcess = message;
     const conversationState = await getConversationState(sessionId);
@@ -811,32 +817,46 @@ router.post('/message', async (req, res) => {
     const isContactInfo = isContactInformation(message);
     const awaitingContact = conversationState?.awaitingContactInfo === true;
 
-    if ((wasEscalation || awaitingContact) && isContactInfo) {
-      // Inject context hint to help AI understand this is a contact info response
+    // Handle contact_info intent: LLM-classified OR regex-detected after escalation
+    if (messageIntent === 'contact_info' || ((wasEscalation || awaitingContact) && isContactInfo)) {
       messageToProcess = `[User is providing contact information in response to escalation request] ${message}`;
 
-      // Clear the awaiting contact info state
-      if (awaitingContact) {
-        await updateConversationState(sessionId, {
-          awaitingContactInfo: false,
-          lastBotAction: 'received_contact_info',
-          contactReceivedAt: new Date().toISOString()
-        });
+      // Update escalation record if pending
+      const pendingEscalation = await getPendingEscalation(session.conversationId, req.supabase);
+      if (pendingEscalation) {
+        await updateEscalationWithContact(pendingEscalation.id, message, employee, req.supabase);
       }
+
+      await updateConversationState(sessionId, {
+        awaitingContactInfo: false,
+        lastBotAction: 'received_contact_info',
+        contactReceivedAt: new Date().toISOString(),
+        failedKBAttempts: 0,
+        askedToElaborate: false
+      });
     }
 
+    // Handle correction intent: reset elaborate state, no KB search needed
+    if (messageIntent === 'correction') {
+      await updateConversationState(sessionId, {
+        askedToElaborate: false,
+        failedKBAttempts: 0,
+        lastIntent: 'correction'
+      });
+    }
 
-    // Generate RAG response with company-specific AI settings
+    // Generate RAG response with company-specific AI settings + intent
     const response = await generateRAGResponse(
       messageToProcess,
       contexts,
       employee,
       formattedHistory,
-      companyAISettings  // Pass company AI settings
+      companyAISettings,
+      messageIntent
     );
 
-    // Greetings/conversational messages are always handled correctly — override low base confidence
-    if (messageIntent !== 'domain_question') {
+    // Non-KB intents get high confidence (greetings, corrections, contact_info, conversational)
+    if (!needsKBSearch) {
       response.confidence = 0.9;
     }
 
@@ -862,13 +882,10 @@ router.post('/message', async (req, res) => {
     let escalated = false;
     let escalationReason = null;
 
-
     // Get escalation threshold from company settings (default 0.55)
-    // Base confidence when KB has no results is 0.5 — threshold must exceed 0.5 to catch no-context cases
     const escalationThreshold = companyAISettings?.escalation_threshold ?? 0.55;
 
-    // Check if AI explicitly says it cannot answer — detect both the exact template phrase
-    // and common deviations where the AI improvises its own escalation wording
+    // Check if AI explicitly says it cannot answer
     const cleanAnswer = response.answer ? response.answer.replace(/[*_]/g, '') : '';
     const cleanLower = cleanAnswer.toLowerCase();
     const aiSaysNoKnowledge =
@@ -878,23 +895,57 @@ router.post('/message', async (req, res) => {
       (cleanLower.includes('escalate') && cleanLower.includes('contact')) ||
       (cleanLower.includes('specific details of your policy') && cleanLower.includes('contact'));
 
-    // Check if confidence is strictly below threshold (< not <=, to avoid escalating on-threshold responses)
     const lowConfidence = response.confidence < escalationThreshold;
 
-    // Escalate if:
-    // 1. This is a domain question (not a greeting/conversational message), AND
-    // 2. AI explicitly cannot answer (uses escalation phrase), OR confidence is below threshold
-    if (needsKBSearch && ESCALATE_ON_NO_KNOWLEDGE && (aiSaysNoKnowledge || lowConfidence)) {
-      escalated = true;
-      escalationReason = aiSaysNoKnowledge ? 'ai_unable_to_answer' : 'low_confidence';
+    // Only KB-searchable intents can escalate
+    const canEscalate = ['domain_question', 'follow_up', 'meta_request'].includes(messageIntent);
+    const currentState = conversationState || {};
+    const alreadyAskedToElaborate = currentState.askedToElaborate === true;
 
-    } else {
+    if (canEscalate && needsKBSearch && ESCALATE_ON_NO_KNOWLEDGE && (aiSaysNoKnowledge || lowConfidence)) {
+
+      if (!alreadyAskedToElaborate) {
+        // FIRST ATTEMPT: Ask user to elaborate instead of escalating
+        response.answer = "I'd like to help you with that. Could you provide a bit more detail or rephrase your question so I can find the right information for you?";
+        response.confidence = 0.7;
+        escalated = false;
+
+        await updateConversationState(sessionId, {
+          failedKBAttempts: (currentState.failedKBAttempts || 0) + 1,
+          askedToElaborate: true,
+          lastFailedQuery: message,
+          lastIntent: messageIntent
+        });
+      } else {
+        // SECOND ATTEMPT: User already elaborated but KB still has no answer → escalate
+        escalated = true;
+        escalationReason = aiSaysNoKnowledge ? 'ai_unable_to_answer' : 'low_confidence';
+
+        await updateConversationState(sessionId, {
+          failedKBAttempts: 0,
+          askedToElaborate: false,
+          lastFailedQuery: null,
+          consecutiveEscalations: (currentState.consecutiveEscalations || 0) + 1
+        });
+      }
+    } else if (canEscalate && contexts?.length > 0) {
+      // KB returned results — reset failed attempt counter
+      await updateConversationState(sessionId, {
+        failedKBAttempts: 0,
+        askedToElaborate: false,
+        lastFailedQuery: null,
+        consecutiveEscalations: 0
+      });
     }
 
     if (escalated) {
+      // Soften message after 2+ consecutive escalations in same conversation
+      if ((currentState.consecutiveEscalations || 0) >= 2) {
+        response.answer = "I'm sorry I don't have that information available. Our team has already been notified and will follow up with you.";
+      }
+
       await handleEscalation(session, message, response, employee, escalationReason, req.supabase, req.company.schemaName);
 
-      // Update conversation state to track escalation
       await updateConversationState(sessionId, {
         lastBotAction: 'escalated',
         awaitingContactInfo: true,
@@ -1150,17 +1201,58 @@ router.get('/status', async (req, res) => {
 });
 
 /**
- * Helper: Classify message intent to determine if KB search is needed
- * Returns 'greeting' | 'conversational' | 'domain_question'
+ * Helper: Fast-path intent classification using regex only
+ * Returns 'greeting' | 'conversational' | 'unknown'
  */
-function classifyMessageIntent(message) {
+function classifyMessageIntentFastPath(message) {
   const msg = message.trim();
   const greetingPattern = /^(hi+|hello+|hey+|good (morning|afternoon|evening|day)|howdy|greetings|sup|yo|what'?s up|how are you|how r u|你好|早上好|下午好|晚上好|嗨|喂)\W*$/i;
   const conversationalPattern = /^(ok|okay|got it|i see|sure|alright|understood|noted|cool|great|sounds good|perfect|thanks|thank you|ty|thx|no problem|np|bye|goodbye|see you|take care|谢谢|好的|明白)\W*$/i;
 
   if (greetingPattern.test(msg)) return 'greeting';
   if (conversationalPattern.test(msg)) return 'conversational';
-  return 'domain_question';
+  return 'unknown';
+}
+
+/**
+ * Helper: LLM-assisted intent classification using gpt-4o-mini
+ * Called only when fast-path returns 'unknown'
+ * Returns 'domain_question' | 'correction' | 'contact_info' | 'meta_request' | 'follow_up'
+ */
+async function classifyMessageIntentLLM(message, conversationHistory = []) {
+  const lastAssistantMsg = conversationHistory
+    .filter(m => m.role === 'assistant')
+    .slice(-1)[0]?.content || '';
+
+  // Truncate for token efficiency
+  const truncatedLast = lastAssistantMsg.substring(0, 200);
+  const truncatedMsg = message.substring(0, 200);
+
+  const classificationPrompt = `Classify this message in an insurance benefits chatbot.
+Categories: domain_question, correction, contact_info, meta_request, follow_up
+
+Rules:
+- correction: user corrects previous input ("ignore that", "wrong email", "I meant...", "forget that")
+- contact_info: email address, phone number, or domain-style identifier (name.company.com)
+- meta_request: account help, login issues, forgot username/password
+- follow_up: short question referencing previous topic ("what about dental?", "and for outpatient?")
+- domain_question: benefits/coverage/policy/claims questions, or anything else
+
+Last bot message: "${truncatedLast}"
+User message: "${truncatedMsg}"
+
+Reply with ONLY the category name.`;
+
+  const response = await classificationClient.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: classificationPrompt }],
+    temperature: 0,
+    max_tokens: 20
+  });
+
+  const result = response.choices[0].message.content.trim().toLowerCase();
+  const validIntents = ['domain_question', 'correction', 'contact_info', 'meta_request', 'follow_up'];
+  return validIntents.includes(result) ? result : 'domain_question';
 }
 
 /**

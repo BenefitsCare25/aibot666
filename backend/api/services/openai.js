@@ -93,7 +93,12 @@ CRITICAL: CONVERSATION CONTEXT AWARENESS - ALWAYS APPLY THIS:
   * Acknowledge professionally: "Thank you for providing your contact information. Our team has received your inquiry and will follow up with you shortly."
   * DO NOT ask for contact information again if already provided
   * DO NOT repeat the escalation message
-  * DO NOT ask for clarification when context is obvious from conversation history`;
+  * DO NOT ask for clarification when context is obvious from conversation history
+- CORRECTION HANDLING: If user says "ignore", "forget", "wrong", "not that", or corrects a previous message:
+  * Acknowledge: "No problem, noted." or similar
+  * DO NOT escalate corrections — they are NOT benefits questions
+  * Allow user to re-provide the corrected information
+- DOMAIN-STYLE IDENTIFIERS: Text like "name.company.com" after an escalation is contact information (even without @)`;
 
   return prompt + contextAwarenessInstructions;
 }
@@ -190,16 +195,24 @@ Note: For your specific policy details and coverage limits, please refer to your
 
 IMPORTANT INSTRUCTIONS:
 1. Answer based on the provided context from knowledge base and employee information
-2. CONTEXT USAGE PRIORITY: If context is provided from the knowledge base, USE IT to answer:
+2. CONTEXT USAGE PRIORITY: If context is provided from the knowledge base, USE IT as your PRIMARY source:
    a) The context has been matched with similarity >${similarityThreshold.toFixed(2)} - it is relevant and has passed our quality threshold
    b) CRITICAL: Each context entry has a "Question" and an "Answer" field
    c) CRITICAL: The "Answer" field contains the EXACT answer you should provide - USE IT DIRECTLY
-   d) DO NOT generate your own answer - the "Answer" field IS the correct response
+   d) You may rephrase for clarity and combine multiple answers, but preserve all facts
    e) Even if the Answer says "login to portal" or "contact support", that IS the correct answer - provide it exactly as given
-   f) You may rephrase the Answer slightly for clarity, but DO NOT change the core information or instructions
-   g) Only add helpful details from employee information if relevant (like policy type, name, etc.)
+   f) Only add helpful details from employee information if relevant (like policy type, name, etc.)
+   g) If knowledge base context is empty:
+      - For benefits/coverage/policy/claims questions: Ask user to elaborate first
+        (e.g., "Could you provide more details about what you're looking for?")
+      - Only use the escalation phrase on a SECOND failed attempt (when the bot has
+        already asked the user to elaborate but KB still has no match)
+      - For corrections, greetings, or general conversation: respond naturally.
+        These do NOT require knowledge base data.
 3. KNOWLEDGE BASE IS YOUR ONLY SOURCE FOR BENEFITS/COVERAGE/POLICY QUESTIONS: Your training knowledge about insurance is GENERIC and does NOT reflect this company's specific plans, limits, or procedures. If the CONTEXT FROM KNOWLEDGE BASE section below is empty (marked [NO KNOWLEDGE BASE DATA]), you DO NOT have the answer — use the escalation phrase. NEVER answer coverage, benefits, claims, or policy questions from your own training knowledge.
 3a. CONVERSATIONAL MESSAGES: For greetings (hi, hello, good morning, etc.) and small talk (thanks, ok, bye, etc.), respond warmly and naturally with a simple greeting like "Hello! How can I assist you today?" — do NOT mention insurance, benefits, or coverage in the greeting. NEVER use the escalation phrase for these — they do not require knowledge base lookup.
+3b. ELABORATION REQUEST: When you cannot find an answer in the knowledge base for the FIRST time on a topic, ask the user to elaborate or rephrase their question instead of immediately escalating. Example: "I'd like to help you with that. Could you provide a bit more detail or rephrase your question so I can find the right information for you?"
+3c. NON-BENEFITS MESSAGES: If the user is correcting previous input ("ignore that", "wrong email"), making account requests, or chatting casually, respond helpfully without the escalation phrase. These are NOT benefits questions.
 4. When escalating:
    - In English: "For such a query, let us check back with the team. You may leave your contact or email address for our team to follow up with you. Thank you."
    - In Chinese: "对于此类查询，我们需要与团队核实。您可以留下您的联系方式或电子邮箱，我们的团队会尽快与您联系。谢谢。"
@@ -258,7 +271,7 @@ RESPONSE:`;
  * @param {Object} customSettings - Optional custom AI settings from company config
  * @returns {Promise<Object>} - Response with answer and metadata
  */
-export async function generateRAGResponse(query, contexts, employeeData, conversationHistory = [], customSettings = null) {
+export async function generateRAGResponse(query, contexts, employeeData, conversationHistory = [], customSettings = null, messageIntent = null) {
   try {
     // Use custom settings if provided, otherwise use environment defaults
     const model = customSettings?.model || CHAT_MODEL;
@@ -322,7 +335,7 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
     const finishReason = response.choices[0].finish_reason;
 
     // Calculate confidence score based on various factors
-    const confidence = calculateConfidence(answer, contexts, finishReason);
+    const confidence = calculateConfidence(answer, contexts, finishReason, messageIntent);
 
     // Calculate knowledge match metadata
     const knowledgeMatch = calculateKnowledgeMatch(contexts);
@@ -387,7 +400,12 @@ function calculateKnowledgeMatch(contexts) {
  * @param {string} finishReason - OpenAI finish reason
  * @returns {number} - Confidence score between 0 and 1
  */
-function calculateConfidence(answer, contexts, finishReason) {
+function calculateConfidence(answer, contexts, finishReason, messageIntent = null) {
+  // Non-KB intents get high base confidence — they don't need KB data
+  const nonKBIntents = ['correction', 'contact_info', 'greeting', 'conversational'];
+  if (messageIntent && nonKBIntents.includes(messageIntent)) {
+    return 0.85;
+  }
 
   let confidence = 0.5; // Base confidence
 

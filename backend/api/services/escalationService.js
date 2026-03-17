@@ -18,7 +18,10 @@ export function isContactInformation(message) {
   const digitsOnly = text.replace(/[^\d]/g, '');
   const isPhoneNumber = digitsOnly.length >= 8;
 
-  return emailPattern.test(text) || phonePattern.test(text) || isPhoneNumber;
+  // Pattern: Domain-style identifiers (e.g., sengwee.cbre.com) — no @ but looks like contact info
+  const domainIdentifier = /^[a-z0-9._-]+\.[a-z0-9.-]+\.[a-z]{2,}$/i;
+
+  return emailPattern.test(text) || phonePattern.test(text) || isPhoneNumber || domainIdentifier.test(text);
 }
 
 /**
