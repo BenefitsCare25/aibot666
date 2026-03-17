@@ -43,6 +43,8 @@ const classificationClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // GET /api/chat/config - Return company widget feature flags
 router.get('/config', (req, res) => {
   const settings = req.company?.settings || {};
+  const logConfig = settings.logConfig || null;
+
   res.json({
     success: true,
     data: {
@@ -50,9 +52,35 @@ router.get('/config', (req, res) => {
         showChat: settings.showChat !== false,
         showLog: settings.showLog !== false
       },
-      logKeywords: req.company?.log_request_keywords || null
+      logKeywords: req.company?.log_request_keywords || null,
+      logConfig: logConfig ? {
+        routes: logConfig.routes || [],
+        downloadableFiles: Object.fromEntries(
+          Object.entries(logConfig.downloadableFiles || {}).map(
+            ([key, val]) => [key, { fileName: val.fileName, size: val.size }]
+          )
+        )
+      } : null
     }
   });
+});
+
+// GET /api/chat/log-form/:fileKey - Serve downloadable LOG form PDFs
+router.get('/log-form/:fileKey', (req, res) => {
+  const { fileKey } = req.params;
+  const settings = req.company?.settings || {};
+  const downloadableFiles = settings.logConfig?.downloadableFiles || {};
+  const file = downloadableFiles[fileKey];
+
+  if (!file || !file.base64) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  const buffer = Buffer.from(file.base64, 'base64');
+  res.setHeader('Content-Type', file.mimeType || 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
+  res.setHeader('Content-Length', buffer.length);
+  res.send(buffer);
 });
 
 // Configure multer for file uploads
@@ -521,7 +549,7 @@ router.post('/request-log', async (req, res) => {
  */
 router.post('/anonymous-log-request', async (req, res) => {
   try {
-    const { email, description, employeeId, attachments = [] } = req.body;
+    const { email, description, employeeId, attachments = [], logRoute } = req.body;
     const supabaseClient = req.supabase;
     const company = req.company;
 
@@ -568,7 +596,8 @@ router.post('/anonymous-log-request', async (req, res) => {
           user_agent: req.headers['user-agent'],
           ip_address: req.ip,
           company_id: company?.id,
-          employee_identifier: employeeId?.trim() || null
+          employee_identifier: employeeId?.trim() || null,
+          logRoute: logRoute || null
         }
       })
       .select()
@@ -590,6 +619,14 @@ router.post('/anonymous-log-request', async (req, res) => {
       };
 
 
+      // Resolve logRoute label from company settings if logRoute ID is provided
+      let logRouteLabel = null;
+      if (logRoute) {
+        const routes = company?.settings?.logConfig?.routes || [];
+        const matchedRoute = routes.find(r => r.id === logRoute);
+        logRouteLabel = matchedRoute?.label || logRoute;
+      }
+
       // Send email to support team
       await sendLogRequestEmail({
         employee: employee || {
@@ -600,7 +637,7 @@ router.post('/anonymous-log-request', async (req, res) => {
         conversationHistory: [],
         conversationId: logRequest.id, // Use LOG request ID as reference
         requestType: 'anonymous',
-        requestMessage: description?.trim() || 'Anonymous LOG request submitted via widget',
+        requestMessage: (logRouteLabel ? `[${logRouteLabel}] ` : '') + (description?.trim() || 'Anonymous LOG request submitted via widget'),
         attachments: attachments, // Pass base64-encoded attachments from frontend
         companyConfig
       });

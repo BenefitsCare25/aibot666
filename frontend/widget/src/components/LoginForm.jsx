@@ -5,6 +5,7 @@ import { useChatStore } from '../store/chatStore';
 import OptionSelector from './login/OptionSelector';
 import ChatLoginForm from './login/ChatLoginForm';
 import LogRequestForm from './login/LogRequestForm';
+import LogRouteSelector from './login/LogRouteSelector';
 import CallbackForm from './login/CallbackForm';
 import SuccessScreen from './login/SuccessScreen';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
@@ -61,7 +62,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
   const [uploadingFile, setUploadingFile] = useState(false);
   const [logSubmitted, setLogSubmitted] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
-  const { createSession, apiUrl, domain: companyDomain } = useChatStore();
+  const { createSession, apiUrl, domain: companyDomain, logConfig } = useChatStore();
+  const [selectedLogRoute, setSelectedLogRoute] = useState(null);
 
   // Auto-select when only one option is available
   useEffect(() => {
@@ -69,6 +71,14 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
     if (!companyFeatures.showChat && companyFeatures.showLog) setSelectedOption('log');
     else if (companyFeatures.showChat && !companyFeatures.showLog) setSelectedOption('chat');
   }, [companyFeatures]);
+
+  // Auto-select single LOG route
+  useEffect(() => {
+    if (selectedOption !== 'log' || selectedLogRoute) return;
+    if (logConfig?.routes?.length === 1) {
+      setSelectedLogRoute(logConfig.routes[0]);
+    }
+  }, [selectedOption, logConfig, selectedLogRoute]);
 
   const getDomain = () => companyDomain || window.location.hostname;
 
@@ -237,7 +247,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
           email: logEmail.trim(),
           description: logDescription.trim(),
           employeeId: identifier || null,
-          attachments: logAttachments
+          attachments: logAttachments,
+          logRoute: selectedLogRoute?.id || null
         })
       });
 
@@ -272,6 +283,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
     setSuccessMessage('');
     setError('');
     setSelectedOption(null);
+    setSelectedLogRoute(null);
   };
 
   return (
@@ -365,7 +377,17 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
           />
         )}
 
-        {selectedOption === 'log' && !logSubmitted && (
+        {selectedOption === 'log' && !logSubmitted && logConfig?.routes?.length > 1 && !selectedLogRoute && (
+          <LogRouteSelector
+            routes={logConfig.routes}
+            downloadableFiles={logConfig.downloadableFiles}
+            apiUrl={apiUrl}
+            onSelectRoute={setSelectedLogRoute}
+            onBack={() => setSelectedOption(null)}
+          />
+        )}
+
+        {selectedOption === 'log' && !logSubmitted && !(logConfig?.routes?.length > 1 && !selectedLogRoute) && (
           <LogRequestForm
             logEmail={logEmail}
             setLogEmail={setLogEmail}
@@ -377,7 +399,16 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
             onSubmit={handleLogRequestSubmit}
             onFileUpload={handleFileUpload}
             onRemoveAttachment={removeAttachment}
-            onBack={() => setSelectedOption(null)}
+            onBack={() => {
+              if (logConfig?.routes?.length > 1) {
+                setSelectedLogRoute(null);
+              } else {
+                setSelectedOption(null);
+                setSelectedLogRoute(null);
+              }
+            }}
+            logRoute={selectedLogRoute}
+            apiUrl={apiUrl}
           />
         )}
 

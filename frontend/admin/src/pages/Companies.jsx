@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { companyApi } from '../api/companies';
 import EmbedCodeModal from '../components/EmbedCodeModal';
 import EmailConfigModal from '../components/EmailConfigModal';
+import LogConfigModal from '../components/LogConfigModal';
 import { usePermissions } from '../hooks/usePermissions';
 
 export default function Companies() {
@@ -13,6 +14,7 @@ export default function Companies() {
   const [editingCompany, setEditingCompany] = useState(null);
   const [showEmbedCode, setShowEmbedCode] = useState(false);
   const [showEmailConfig, setShowEmailConfig] = useState(null);
+  const [showLogConfig, setShowLogConfig] = useState(null);
   const [creatingSchema, setCreatingSchema] = useState(false); // New state for schema creation
   const [successMessage, setSuccessMessage] = useState(''); // New state for success messages
   const [formData, setFormData] = useState({
@@ -511,6 +513,15 @@ export default function Companies() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     {can('companies.edit') && (
                       <button
+                        onClick={() => setShowLogConfig(company)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                        title="Configure LOG request routes"
+                      >
+                        📋
+                      </button>
+                    )}
+                    {can('companies.edit') && (
+                      <button
                         onClick={() => setShowEmailConfig(company)}
                         className="text-purple-600 hover:text-purple-900 mr-3"
                         title="Configure email settings"
@@ -593,6 +604,19 @@ export default function Companies() {
           <li><strong>Schema Template:</strong> All schemas use the template in <code>backend/config/company-schema-template.sql</code></li>
         </ul>
       </div>
+
+      {/* LOG Configuration Modal */}
+      {showLogConfig && (
+        <LogConfigModal
+          company={showLogConfig}
+          onClose={() => setShowLogConfig(null)}
+          onSuccess={() => {
+            loadCompanies();
+            setSuccessMessage('LOG configuration updated successfully');
+            setTimeout(() => setSuccessMessage(''), 5000);
+          }}
+        />
+      )}
 
       {/* Email Configuration Modal */}
       {showEmailConfig && (

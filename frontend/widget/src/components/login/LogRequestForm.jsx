@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Loader2, Upload, Paperclip, X } from 'lucide-react';
+import { Loader2, Upload, Paperclip, X, Download, FileText, ArrowLeft } from 'lucide-react';
 
 export default function LogRequestForm({
   logEmail,
@@ -13,9 +13,71 @@ export default function LogRequestForm({
   onFileUpload,
   onRemoveAttachment,
   onBack,
+  logRoute = null,
+  apiUrl = '',
 }) {
+  const handleDownload = (downloadKey) => {
+    if (downloadKey && apiUrl) {
+      window.open(`${apiUrl}/api/chat/log-form/${downloadKey}`, '_blank');
+    }
+  };
+
+  const hasRoutes = !!logRoute;
+  const backLabel = hasRoutes ? '\u2190 Back to hospital type' : '\u2190 Back to options';
+
   return (
     <form onSubmit={onSubmit} className="ic-space-y-4">
+      {/* Route info + required documents */}
+      {logRoute && (
+        <div
+          className="ic-rounded-xl ic-p-3"
+          style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+        >
+          <div className="ic-flex ic-items-center ic-gap-2 ic-mb-2">
+            <FileText className="ic-w-4 ic-h-4" style={{ color: 'var(--color-text-secondary)' }} strokeWidth={2} />
+            <span className="ic-text-sm ic-font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+              {logRoute.label}
+            </span>
+          </div>
+
+          {logRoute.requiredDocuments?.length > 0 && (
+            <>
+              <p className="ic-text-xs ic-font-medium ic-mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
+                Required documents:
+              </p>
+              <ul className="ic-space-y-1.5">
+                {logRoute.requiredDocuments.map((doc, idx) => (
+                  <li key={idx} className="ic-flex ic-items-start ic-gap-2">
+                    <span className="ic-text-xs ic-mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>•</span>
+                    <div className="ic-flex-1">
+                      <span className="ic-text-xs ic-font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                        {doc.name}
+                      </span>
+                      {doc.description && (
+                        <p className="ic-text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                          {doc.description}
+                        </p>
+                      )}
+                      {doc.downloadKey && (
+                        <button
+                          type="button"
+                          onClick={() => handleDownload(doc.downloadKey)}
+                          className="ic-inline-flex ic-items-center ic-gap-1 ic-text-xs ic-font-medium ic-mt-0.5 hover:ic-underline"
+                          style={{ color: 'var(--color-primary-500)' }}
+                        >
+                          <Download className="ic-w-3 ic-h-3" strokeWidth={2} />
+                          Download form
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+
       <div>
         <label
           htmlFor="logEmail"
@@ -64,12 +126,14 @@ export default function LogRequestForm({
           }}
           disabled={isLoading}
         />
-        <p
-          className="ic-text-xs ic-mt-2 ic-italic"
-          style={{ color: 'var(--color-text-tertiary)' }}
-        >
-          Attach Financial Care Cost/Pre-admission Hospital Form
-        </p>
+        {!logRoute && (
+          <p
+            className="ic-text-xs ic-mt-2 ic-italic"
+            style={{ color: 'var(--color-text-tertiary)' }}
+          >
+            Attach Financial Care Cost/Pre-admission Hospital Form
+          </p>
+        )}
       </div>
 
       {/* File Upload Section */}
@@ -186,7 +250,7 @@ export default function LogRequestForm({
         className="ic-w-full ic-text-sm ic-py-2 ic-text-center ic-transition-colors"
         style={{ color: 'var(--color-text-tertiary)' }}
       >
-        &larr; Back to options
+        {backLabel}
       </button>
     </form>
   );

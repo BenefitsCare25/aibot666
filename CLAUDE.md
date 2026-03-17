@@ -32,7 +32,7 @@ backend/
 │   │   │   ├── quickQuestions.js      # Quick questions CRUD, bulk import, Excel
 │   │   │   ├── emailAutomation.js    # Email automation CRUD, send-now, import/preview (superAdmin only)
 │   │   │   └── debug.js              # Diagnostics (requireSuperAdmin protected)
-│   │   ├── chat.js                    # Chat session, messages, intent-aware RAG flow, callbacks, /config endpoint
+│   │   ├── chat.js                    # Chat session, messages, intent-aware RAG flow, callbacks, /config, /log-form/:fileKey
 │   │   ├── auth.js                    # Login (with lockout), token refresh
 │   │   ├── documents.js              # PDF upload, processing status
 │   │   └── adminUsers.js             # Admin user management
@@ -113,7 +113,8 @@ frontend/widget/src/
 │   ├── login/
 │   │   ├── OptionSelector.jsx         # Chat vs LOG option cards (conditional per companyFeatures)
 │   │   ├── ChatLoginForm.jsx          # Employee ID login form
-│   │   ├── LogRequestForm.jsx         # LOG request with file upload
+│   │   ├── LogRequestForm.jsx         # LOG request with file upload + per-route document checklist
+│   │   ├── LogRouteSelector.jsx       # Hospital type route selection cards (multi-route LOG config)
 │   │   ├── CallbackForm.jsx           # Contact number callback
 │   │   └── SuccessScreen.jsx          # Confirmation message
 │   ├── PrivacyPolicyModal.jsx         # Terms of Use modal (13 sections, Inspro-specific)
@@ -124,7 +125,7 @@ frontend/widget/src/
 │   ├── QuickQuestions.jsx             # Quick question cards
 │   └── FileAttachment.jsx            # File upload (uses onError callback, no alert())
 └── store/
-    └── chatStore.js                   # Zustand state (crypto.randomUUID IDs, error state, companyFeatures)
+    └── chatStore.js                   # Zustand state (crypto.randomUUID IDs, error state, companyFeatures, logConfig)
 ```
 
 ## Widget Deployment
@@ -227,9 +228,10 @@ frontend/admin/src/
 │   └── companies.js                   # Company API (CRUD, status, email-config, embed-code)
 ├── components/
 │   ├── EmailConfigModal.jsx            # LOG + callback email config per company
-│   └── EmbedCodeModal.jsx             # Dynamic + static embed snippet generator
+│   ├── EmbedCodeModal.jsx             # Dynamic + static embed snippet generator
+│   └── LogConfigModal.jsx            # LOG route config per company (hospital types, required docs, PDF uploads)
 └── pages/
-    ├── Companies.jsx                  # Company management (CRUD, status toggle, email config)
+    ├── Companies.jsx                  # Company management (CRUD, status toggle, email config, LOG config)
     ├── KnowledgeBase.jsx              # Knowledge base management
     ├── Employees.jsx                  # Employee management
     ├── QuickQuestions.jsx             # Quick questions management
@@ -371,6 +373,52 @@ Per-company toggles stored in `company.settings` JSONB. Controlled via Admin Por
 - Only Chat enabled → auto-selects chat form, skips option screen
 - Only LOG enabled → auto-selects LOG form, skips option screen
 - Network error on `/config` → defaults to both enabled
+
+## LOG Route Configuration (Per-Company)
+
+Per-company LOG request routes stored in `company.settings.logConfig` JSONB. Managed via Admin Portal → Company Management → 📋 button → **LOG Configuration modal**.
+
+**Data structure** (`settings.logConfig`):
+```json
+{
+  "routes": [
+    {
+      "id": "govt-hospital",
+      "label": "Govt / Restructured Hospital",
+      "requiredDocuments": [
+        { "name": "Hospital Care Cost Form", "description": "Obtained from the hospital", "downloadKey": null },
+        { "name": "LOG Request Form", "description": "Download and complete this form", "downloadKey": "log-form" }
+      ]
+    }
+  ],
+  "downloadableFiles": {
+    "log-form": { "fileName": "LOG_Request_Form.pdf", "base64": "<base64>", "mimeType": "application/pdf", "size": 140000 }
+  }
+}
+```
+
+**How it works:**
+1. `GET /api/chat/config` returns `logConfig` (routes + file metadata, NO base64 data) or `null`
+2. `GET /api/chat/log-form/:fileKey` serves downloadable PDFs (reads base64 from settings, returns as binary attachment)
+3. `chatStore.js` stores `logConfig` from fetchConfig response
+4. `LoginForm.jsx` determines flow based on route count:
+   - **No logConfig** → default LogRequestForm (backward compatible)
+   - **1 route** → auto-selected, document checklist shown above form
+   - **2+ routes** → LogRouteSelector shown first → user picks → then form with docs
+5. `LogRequestForm.jsx` displays route label, required document checklist, and download links when `logRoute` prop is present
+6. `POST /api/chat/anonymous-log-request` accepts optional `logRoute` field → stored in `metadata.logRoute` → route label included in support email
+
+**Backend endpoints:**
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/chat/log-form/:fileKey` | Serve downloadable PDF from company settings |
+
+**Admin Portal:**
+- 📋 button per company row → LogConfigModal
+- Add/edit/remove/reorder routes
+- Add/remove required documents per route
+- Toggle downloadable flag + set download key
+- Upload PDF files (max 2MB, stored as base64 in settings)
 
 ## Multi-Tenant Infrastructure (Self-Hosted Supabase on Azure VM)
 

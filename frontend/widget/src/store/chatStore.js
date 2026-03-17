@@ -23,6 +23,7 @@ export const useChatStore = create((set, get) => ({
   // Company widget feature flags
   companyFeatures: { showChat: true, showLog: true },
   logKeywords: null, // Per-company LOG trigger keywords (null = use hardcoded defaults)
+  logConfig: null, // Per-company LOG route configuration
 
   // New state for LOG request feature
   attachments: [],
@@ -55,7 +56,8 @@ export const useChatStore = create((set, get) => ({
       isLogMode: false,
       uploadError: null,
       logError: null,
-      companyFeatures: { showChat: true, showLog: true }
+      companyFeatures: { showChat: true, showLog: true },
+      logConfig: null
     });
   },
 
@@ -68,7 +70,8 @@ export const useChatStore = create((set, get) => ({
       if (response.data.success) {
         set({
           companyFeatures: response.data.data.features,
-          logKeywords: response.data.data.logKeywords || null
+          logKeywords: response.data.data.logKeywords || null,
+          logConfig: response.data.data.logConfig || null
         });
       }
     } catch (e) {
