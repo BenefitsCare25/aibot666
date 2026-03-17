@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion';
 import { FileText, Download, ArrowLeft, ChevronRight } from 'lucide-react';
 
-export default function LogRouteSelector({ routes, downloadableFiles, apiUrl, onSelectRoute, onBack }) {
+export default function LogRouteSelector({ routes, downloadableFiles, apiUrl, domain, onSelectRoute, onBack }) {
   const handleDownload = (e, downloadKey) => {
     e.stopPropagation();
     if (downloadKey && apiUrl) {
-      window.open(`${apiUrl}/api/chat/log-form/${downloadKey}`, '_blank');
+      const domainParam = domain ? `?domain=${encodeURIComponent(domain)}` : '';
+      window.open(`${apiUrl}/api/chat/log-form/${downloadKey}${domainParam}`, '_blank');
     }
   };
 

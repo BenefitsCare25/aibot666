@@ -15,10 +15,12 @@ export default function LogRequestForm({
   onBack,
   logRoute = null,
   apiUrl = '',
+  domain = '',
 }) {
   const handleDownload = (downloadKey) => {
     if (downloadKey && apiUrl) {
-      window.open(`${apiUrl}/api/chat/log-form/${downloadKey}`, '_blank');
+      const domainParam = domain ? `?domain=${encodeURIComponent(domain)}` : '';
+      window.open(`${apiUrl}/api/chat/log-form/${downloadKey}${domainParam}`, '_blank');
     }
   };
 

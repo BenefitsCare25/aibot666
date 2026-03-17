@@ -125,7 +125,13 @@ function extractDomainFromRequest(req) {
 
   let domain = null;
 
-  // 1. Check request body (for POST requests from widget)
+  // 1a. Check query parameter (for GET requests like file downloads via window.open)
+  if (req.query && req.query.domain) {
+    domain = req.query.domain;
+    return domain;
+  }
+
+  // 1b. Check request body (for POST requests from widget)
   if (req.body && req.body.domain) {
     domain = req.body.domain;
     return domain;

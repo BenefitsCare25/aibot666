@@ -382,6 +382,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
             routes={logConfig.routes}
             downloadableFiles={logConfig.downloadableFiles}
             apiUrl={apiUrl}
+            domain={getDomain()}
             onSelectRoute={setSelectedLogRoute}
             onBack={() => setSelectedOption(null)}
           />
@@ -409,6 +410,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
             }}
             logRoute={selectedLogRoute}
             apiUrl={apiUrl}
+            domain={getDomain()}
           />
         )}
 
