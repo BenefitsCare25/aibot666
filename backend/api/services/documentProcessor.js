@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import crypto from 'crypto';
 import path from 'path';
 import { generateEmbeddingsBatch } from './openai.js';
-import { isLikelyScanned, extractPdfWithVision } from './visionExtractor.js';
+import { extractPdfWithVision } from './visionExtractor.js';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
@@ -58,6 +58,8 @@ export function detectFormat(filePath) {
  */
 export async function extractPDFContent(filePath, onProgress = null) {
   const dataBuffer = await fs.readFile(filePath);
+
+  // Use pdf-parse only for metadata (title, page count, author)
   const data = await pdf(dataBuffer);
 
   const title = data.info?.Title ||
@@ -71,31 +73,29 @@ export async function extractPDFContent(filePath, onProgress = null) {
     creationDate: data.info?.CreationDate,
   };
 
-  // Check if PDF is scanned (image-based)
-  if (isLikelyScanned(data.text, data.numpages)) {
-    console.log(`[DocumentProcessor] Scanned PDF detected (${data.text.trim().length} chars / ${data.numpages} pages). Attempting vision extraction...`);
+  const pageCount = data.numpages || 1;
+  console.log(`[DocumentProcessor] PDF: ${pageCount} pages, title="${title.trim()}"`);
 
-    const visionResult = await extractPdfWithVision(dataBuffer, data.numpages, onProgress);
+  // Always use GPT-4o-mini vision for PDF extraction
+  console.log(`[DocumentProcessor] Using vision extraction for all ${pageCount} pages...`);
+  const visionResult = await extractPdfWithVision(dataBuffer, pageCount, onProgress);
 
-    if (visionResult && visionResult.text.length > data.text.trim().length) {
-      console.log(`[DocumentProcessor] Vision extraction succeeded: ${visionResult.text.length} chars (vs ${data.text.trim().length} from pdf-parse)`);
-      return {
-        text: visionResult.text,
-        pageCount: data.numpages,
-        title: title.trim(),
-        metadata: baseMetadata,
-        extractionMethod: 'vision',
-      };
-    }
-
-    if (!visionResult) {
-      console.warn('[DocumentProcessor] Vision extraction unavailable, using sparse text from pdf-parse');
-    }
+  if (visionResult && visionResult.text.trim().length > 0) {
+    console.log(`[DocumentProcessor] Vision extraction succeeded: ${visionResult.text.length} chars from ${visionResult.pagesProcessed} pages`);
+    return {
+      text: visionResult.text,
+      pageCount,
+      title: title.trim(),
+      metadata: baseMetadata,
+      extractionMethod: 'vision',
+    };
   }
 
+  // Fallback to pdf-parse text if vision fails (e.g. pdf-to-img not installed)
+  console.warn(`[DocumentProcessor] Vision extraction failed, falling back to pdf-parse text`);
   return {
     text: data.text,
-    pageCount: data.numpages,
+    pageCount,
     title: title.trim(),
     metadata: baseMetadata,
     extractionMethod: 'text',
@@ -264,7 +264,7 @@ export function structureAwareChunk(text, title = '') {
 
   return chunks.map((chunk, index) => ({
     ...chunk,
-    title,
+    title: chunk.heading || title,
     chunkIndex: index,
   }));
 }

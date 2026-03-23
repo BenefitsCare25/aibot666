@@ -67,6 +67,7 @@ export async function searchKnowledgeBase(query, supabaseClient = null, topK = T
     }
 
     let results = data || [];
+    console.log(`[Knowledge Search] RPC returned ${results.length} results (threshold=${threshold}, topK=${fetchCount})`);
 
     // Apply policy type filtering if provided
     if (policyType && results.length > 0) {

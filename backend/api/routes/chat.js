@@ -833,11 +833,14 @@ router.post('/message', async (req, res) => {
         )
       : [];
 
-    // Additional context logging after search
+    // Log KB search results for debugging
     if (contexts && contexts.length > 0) {
+      console.log(`[KB Search] Found ${contexts.length} results for "${message.substring(0, 60)}"`);
       contexts.forEach((ctx, idx) => {
+        console.log(`  [${idx + 1}] similarity=${ctx.similarity?.toFixed(4)} title="${(ctx.title || '').substring(0, 60)}" category=${ctx.category}`);
       });
-    } else {
+    } else if (needsKBSearch) {
+      console.log(`[KB Search] No results for "${message.substring(0, 60)}" (threshold=${companyAISettings?.similarity_threshold || 0.7})`);
     }
 
     // Pre-process: Check if user is responding to escalation with contact info

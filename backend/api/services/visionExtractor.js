@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import fs from 'fs/promises';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -9,24 +8,9 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const VISION_MODEL = process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini';
 const VISION_CONCURRENCY = parseInt(process.env.VISION_CONCURRENCY) || 3;
 const VISION_MAX_PAGES = parseInt(process.env.VISION_MAX_PAGES) || 50;
-const SCANNED_THRESHOLD_CHARS_PER_PAGE = 100;
 
 /**
- * Detect whether a PDF is likely scanned (image-based) rather than text-based
- * @param {string} text - Extracted text from pdf-parse
- * @param {number} pageCount - Number of pages
- * @returns {boolean}
- */
-export function isLikelyScanned(text, pageCount) {
-  if (!text || !pageCount || pageCount === 0) return true;
-  const cleanText = text.replace(/\s+/g, ' ').trim();
-  const avgCharsPerPage = cleanText.length / pageCount;
-  return avgCharsPerPage < SCANNED_THRESHOLD_CHARS_PER_PAGE;
-}
-
-/**
- * Convert PDF pages to PNG image buffers using pdf-to-img
- * Falls back gracefully if native canvas deps are missing
+ * Convert PDF pages to PNG image buffers using pdf-to-img v5
  * @param {Buffer} pdfBuffer - Raw PDF file buffer
  * @param {Object} options
  * @param {number} options.scale - Render scale (default 2 for good quality)
@@ -35,21 +19,21 @@ export function isLikelyScanned(text, pageCount) {
  */
 export async function convertPdfToImages(pdfBuffer, { scale = 2, maxPages = VISION_MAX_PAGES } = {}) {
   try {
-    const { convert } = await import('pdf-to-img');
+    const { pdf } = await import('pdf-to-img');
 
     const images = [];
-    const result = await convert(pdfBuffer, { scale });
+    const doc = await pdf(pdfBuffer, { scale });
 
-    for await (const image of result) {
+    for await (const image of doc) {
       images.push(image);
       if (images.length >= maxPages) break;
     }
 
+    console.log(`[VisionExtractor] Converted ${images.length} pages to PNG images`);
     return images;
   } catch (error) {
-    if (error.code === 'ERR_MODULE_NOT_FOUND' || error.message?.includes('canvas')) {
-      console.warn('[VisionExtractor] pdf-to-img not available (missing canvas native deps). Skipping vision extraction.');
-      console.warn('[VisionExtractor] To enable: npm install pdf-to-img canvas');
+    if (error.code === 'ERR_MODULE_NOT_FOUND') {
+      console.error('[VisionExtractor] pdf-to-img not installed. Run: npm install pdf-to-img');
       return null;
     }
     throw error;
@@ -92,7 +76,9 @@ async function extractPageWithVision(imageBuffer, pageNum) {
     temperature: 0,
   });
 
-  return response.choices[0].message.content || '';
+  const text = response.choices[0].message.content || '';
+  console.log(`[VisionExtractor] Page ${pageNum}: extracted ${text.length} chars`);
+  return text;
 }
 
 /**
@@ -131,12 +117,11 @@ async function batchExtractPages(images, concurrency = VISION_CONCURRENCY, onPro
 }
 
 /**
- * Full vision extraction pipeline for a scanned PDF
+ * Full vision extraction pipeline for PDF
  * @param {Buffer} pdfBuffer - Raw PDF buffer
- * @param {number} pageCount - Total page count (from pdf-parse)
+ * @param {number} pageCount - Total page count
  * @param {Function} onProgress - Progress callback
  * @returns {Promise<{text: string, method: string, pagesProcessed: number}|null>}
- *   Returns null if vision extraction is unavailable
  */
 export async function extractPdfWithVision(pdfBuffer, pageCount, onProgress = null) {
   const pagesToProcess = Math.min(pageCount, VISION_MAX_PAGES);
@@ -157,7 +142,7 @@ export async function extractPdfWithVision(pdfBuffer, pageCount, onProgress = nu
     .filter(t => t && t.trim().length > 0)
     .join('\n\n');
 
-  console.log(`[VisionExtractor] Extracted ${combinedText.length} chars from ${images.length} pages`);
+  console.log(`[VisionExtractor] Total extracted: ${combinedText.length} chars from ${images.length} pages`);
 
   return {
     text: combinedText,
@@ -167,7 +152,6 @@ export async function extractPdfWithVision(pdfBuffer, pageCount, onProgress = nu
 }
 
 export default {
-  isLikelyScanned,
   convertPdfToImages,
   extractPdfWithVision,
 };

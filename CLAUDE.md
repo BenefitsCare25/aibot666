@@ -480,11 +480,17 @@ BullMQ queue → documentWorker.js (5 concurrent workers)
 extracting → chunking → categorizing → embedding → storing → completed
 ```
 
-### Scanned PDF Detection (visionExtractor.js)
-- pdf-parse extracts text first; if avg < 100 chars/page → classified as scanned
-- Pages converted to images via `pdf-to-img`, sent to GPT-4o-mini vision API
-- Falls back to sparse pdf-parse text if `canvas` native dep unavailable (Azure safe)
+### PDF Extraction: Vision-First (visionExtractor.js + documentProcessor.js)
+- **All PDFs use GPT-4o-mini vision** — pages converted to PNG images via `pdf-to-img` v5, each page sent to vision API for structured text extraction
+- `pdf-parse` retained only for metadata (title, author, page count) — NOT used for content extraction
+- `pdf-to-img` v5 uses `pdf()` named export (not `convert` from v4), has built-in renderer (no `canvas` native dep needed)
+- Vision preserves structure: headings, bullet points, tables, reading order — critical for PPT-style PDFs
+- Falls back to pdf-parse text only if vision extraction returns empty
 - Env vars: `OPENAI_VISION_MODEL` (default gpt-4o-mini), `VISION_CONCURRENCY` (default 3), `VISION_MAX_PAGES` (default 50)
+
+### BullMQ Queue Tuning (jobQueue.js + documentWorker.js)
+- `attempts: 1` — no retries (uploaded file is deleted after first attempt; retries cause ENOENT)
+- `BATCH_SIZE: 25` — reduced from 100 to avoid Supabase statement timeout on large embedding inserts
 
 ### Step-Level Progress
 Worker emits structured progress: `{ percent, step, detail }` — polled by frontend every 2s with exponential backoff (max 10s). Steps: extracting (15%) → chunking (35%) → categorizing (45%) → embedding (55%) → storing (75–90%) → completed (100%).
