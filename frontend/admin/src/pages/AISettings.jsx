@@ -22,9 +22,8 @@ export default function AISettings() {
     model: 'gpt-4o',
     temperature: 0,
     max_tokens: 1000,
-    similarity_threshold: 0.7,
+    similarity_threshold: 0.55,
     top_k_results: 5,
-    escalation_threshold: 0.5,
     system_prompt: null,
     use_global_defaults: true
   });
@@ -335,7 +334,7 @@ export default function AISettings() {
               className="w-full"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Minimum similarity for knowledge base matches (0.6-0.8 recommended)
+              Minimum similarity for knowledge base matches (default: 0.55, range 0.5-0.7 recommended)
             </p>
           </div>
 
