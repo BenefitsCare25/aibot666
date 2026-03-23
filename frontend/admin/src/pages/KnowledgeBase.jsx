@@ -366,6 +366,7 @@ export default function KnowledgeBase() {
   };
 
   const formatFileSize = (bytes) => {
+    if (bytes == null || isNaN(bytes)) return '-';
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -748,7 +749,7 @@ export default function KnowledgeBase() {
                           {formatFileSize(doc.file_size)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(doc.created_at).toLocaleDateString()}
+                          {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end gap-2">

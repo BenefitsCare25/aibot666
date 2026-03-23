@@ -23,6 +23,9 @@ import { redis, closeRedis } from './api/utils/session.js';
 import cron from 'node-cron';
 import { runScheduledCheck } from './api/services/emailAutomationService.js';
 
+// Start document processing worker (BullMQ — runs in same process)
+import './api/workers/documentWorker.js';
+
 dotenv.config();
 
 // SRI hashes with TTL cache (re-reads from disk every 60s to survive deploys without restart)
