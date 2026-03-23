@@ -34,7 +34,7 @@ backend/
 │   │   │   └── debug.js              # Diagnostics (requireSuperAdmin protected)
 │   │   ├── chat.js                    # Chat session, messages, intent-aware RAG flow, callbacks, /config, /log-form/:fileKey
 │   │   ├── auth.js                    # Login (with lockout), token refresh
-│   │   ├── documents.js              # PDF upload, processing status
+│   │   ├── documents.js              # Document upload (PDF/DOCX/TXT/CSV), bulk upload, processing status, metadata edit
 │   │   └── adminUsers.js             # Admin user management
 │   ├── services/
 │   │   ├── knowledgeService.js        # Knowledge base CRUD + vector search
@@ -44,7 +44,8 @@ backend/
 │   │   ├── callbackService.js         # Callback email + Telegram notifications
 │   │   ├── emailAutomationService.js  # resolveTemplateVars, buildAutomationEmail, sendAutomationEmail, runScheduledCheck
 │   │   ├── companySchema.js           # Company lookup (indexed: exact → ilike → additional_domains)
-│   │   ├── documentProcessor.js       # PDF extraction, chunking, embedding
+│   │   ├── documentProcessor.js       # Multi-format extraction (PDF/DOCX/TXT/CSV), vision fallback for scanned PDFs, chunking, embedding
+│   │   ├── visionExtractor.js         # GPT-4o-mini vision extraction for scanned PDFs (page→image→OCR)
 │   │   ├── jobQueue.js               # BullMQ document processing queue
 │   │   ├── telegram.js               # Telegram bot notifications
 │   │   └── excel.js                  # Excel import/export
@@ -59,7 +60,7 @@ backend/
 │   │   ├── quickQuestionUtils.js      # groupQuestionsByCategory()
 │   │   └── response.js               # successResponse(), errorResponse()
 │   └── workers/
-│       └── documentWorker.js          # BullMQ worker for PDF processing
+│       └── documentWorker.js          # BullMQ worker for document processing (step-level progress: extracting→chunking→categorizing→embedding→storing)
 └── public/
     ├── widget.iife.js                 # Compiled widget (auto-generated)
     ├── widget.css                     # Compiled styles (auto-generated)
@@ -222,7 +223,7 @@ frontend/admin/src/
 ├── api/
 │   ├── client.js                      # Axios client + downloadFile() helper
 │   ├── employees.js                   # Employee API
-│   ├── knowledge.js                   # Knowledge base + document upload API
+│   ├── knowledge.js                   # Knowledge base + document upload API (single/bulk upload, metadata edit)
 │   ├── quickQuestions.js              # Quick questions API
 │   ├── emailAutomation.js             # Email automation API (getAll, create, update, remove, sendNow, importPreview, importExcel)
 │   └── companies.js                   # Company API (CRUD, status, email-config, embed-code)
@@ -232,7 +233,7 @@ frontend/admin/src/
 │   └── LogConfigModal.jsx            # LOG route config per company (hospital types, required docs, PDF uploads)
 └── pages/
     ├── Companies.jsx                  # Company management (CRUD, status toggle, email config, LOG config)
-    ├── KnowledgeBase.jsx              # Knowledge base management
+    ├── KnowledgeBase.jsx              # Knowledge base management + multi-format document upload (PDF/DOCX/TXT/CSV), bulk upload, step progress, metadata editing
     ├── Employees.jsx                  # Employee management
     ├── QuickQuestions.jsx             # Quick questions management
     └── EmailAutomation.jsx            # Email automation (superAdmin only) — table, edit modal, import with validation preview
@@ -462,6 +463,46 @@ docker compose restart rest
 - Key file: `supabase-vm-key.pem` (in local `azurevm/` folder)
 - NSG rule: SSH port 22 restricted to specific source IP — update NSG if your IP changes
 - Default user: `azureuser`
+
+## Document Processing Pipeline (RAG Ingestion)
+
+### Supported Formats
+PDF, DOCX, TXT, CSV — max 25MB each, up to 10 files bulk upload.
+
+### Processing Flow
+```
+Upload (single or bulk)
+  ↓
+SHA-256 hash check → 409 if duplicate
+  ↓
+BullMQ queue → documentWorker.js (5 concurrent workers)
+  ↓
+extracting → chunking → categorizing → embedding → storing → completed
+```
+
+### Scanned PDF Detection (visionExtractor.js)
+- pdf-parse extracts text first; if avg < 100 chars/page → classified as scanned
+- Pages converted to images via `pdf-to-img`, sent to GPT-4o-mini vision API
+- Falls back to sparse pdf-parse text if `canvas` native dep unavailable (Azure safe)
+- Env vars: `OPENAI_VISION_MODEL` (default gpt-4o-mini), `VISION_CONCURRENCY` (default 3), `VISION_MAX_PAGES` (default 50)
+
+### Step-Level Progress
+Worker emits structured progress: `{ percent, step, detail }` — polled by frontend every 2s with exponential backoff (max 10s). Steps: extracting (15%) → chunking (35%) → categorizing (45%) → embedding (55%) → storing (75–90%) → completed (100%).
+
+### Database: document_uploads table
+Columns added 2026-03-23: `file_hash TEXT`, `subcategory VARCHAR(100)`.
+Migration: `backend/migrations/add_document_uploads_file_hash.sql`
+
+### API Endpoints (documents.js)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/admin/documents/upload` | Single file upload |
+| POST | `/api/admin/documents/upload-bulk` | Up to 10 files |
+| GET | `/api/admin/documents` | List documents |
+| GET | `/api/admin/documents/:id/status` | Poll status (returns jobStep, jobDetail) |
+| PATCH | `/api/admin/documents/:id/metadata` | Update category/subcategory (updates doc + all chunks) |
+| DELETE | `/api/admin/documents/:id` | Delete doc + all chunks |
+| GET | `/api/admin/documents/:id/chunks` | View knowledge base chunks |
 
 ## Chat Pipeline Architecture
 

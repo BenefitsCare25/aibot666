@@ -50,9 +50,33 @@
       "WebFetch(domain:app-aibot-api.azurewebsites.net)",
       "Bash(npm run build-widget:*)",
       "Bash(gh run:*)",
-      "Bash(gh workflow:*)"
+      "Bash(gh workflow:*)",
+      "Bash(for f in api/routes/admin/employees.js api/routes/admin/knowledge.js api/routes/admin/escalations.js api/routes/admin/companies.js api/routes/admin/chatHistory.js api/routes/admin/analytics.js api/routes/admin/quickQuestions.js api/routes/admin/debug.js api/routes/chat.js api/routes/auth.js config/redis.js)",
+      "Bash(do echo \"Checking $f...\")",
+      "Bash(for f in api/utils/sanitize.js api/utils/fileValidation.js api/utils/response.js api/utils/validation.js api/utils/pagination.js api/utils/quickQuestionUtils.js api/utils/auth.js api/utils/session.js api/utils/redisClient.js api/middleware/companyContext.js api/services/companySchema.js api/services/jobQueue.js api/workers/documentWorker.js config/supabase.js api/routes/documents.js)",
+      "Bash(git status:*)",
+      "Bash(git rm:*)",
+      "Bash(cmd.exe /c \"cd C:\\\\Users\\\\huien\\\\aibot\\\\backend && npm run build-widget\")",
+      "Bash(cmd.exe /c \"cd /d C:\\\\Users\\\\huien\\\\aibot\\\\backend && npm run build-widget 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\huien\\\\aibot\\\\backend''; npm run build-widget 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\huien\\\\aibot''; git status 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\huien\\\\aibot''; git diff --name-only 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\huien\\\\aibot''; git log --oneline -5 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\huien\\\\aibot''; git add frontend/widget/src/components/ConsentBanner.jsx frontend/widget/src/components/PrivacyPolicyModal.jsx frontend/widget/src/components/ChatWindow.jsx frontend/widget/src/components/LoginForm.jsx backend/public/widget.iife.js backend/public/widget.css backend/public/sri-hashes.json backend/public/embed-code.html && git commit -m ''feat: add PDPA consent banner + privacy policy modal'' && git push origin main 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\huien\\\\aibot''; git add frontend/widget/src/components/ConsentBanner.jsx frontend/widget/src/components/PrivacyPolicyModal.jsx frontend/widget/src/components/ChatWindow.jsx frontend/widget/src/components/LoginForm.jsx backend/public/widget.iife.js backend/public/widget.css backend/public/sri-hashes.json backend/public/embed-code.html 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\huien\\\\aibot''; git commit -m ''feat: add PDPA consent banner + privacy policy modal'' 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\huien\\\\aibot''; git push origin main 2>&1\")",
+      "WebFetch(domain:benefits.inspro.com.sg)",
+      "Bash(cd:*)",
+      "WebFetch(domain:towardsdatascience.com)",
+      "Bash(npx vite:*)",
+      "Bash(npx -y vite build --mode development)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "github"
+  ]
 }

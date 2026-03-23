@@ -1,6 +1,9 @@
 import pdf from 'pdf-parse/lib/pdf-parse.js';
 import fs from 'fs/promises';
+import crypto from 'crypto';
+import path from 'path';
 import { generateEmbeddingsBatch } from './openai.js';
+import { isLikelyScanned, extractPdfWithVision } from './visionExtractor.js';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
@@ -15,58 +18,172 @@ const CHAT_MODEL = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
 // Chunking configuration
 const MAX_CHUNK_TOKENS = 800;
 const CHUNK_OVERLAP_TOKENS = 100;
-const APPROX_CHARS_PER_TOKEN = 4; // Rough estimate: 1 token ≈ 4 characters
+const APPROX_CHARS_PER_TOKEN = 4;
+
+// Supported file extensions
+const SUPPORTED_FORMATS = ['.pdf', '.docx', '.txt', '.csv'];
+
+/**
+ * Generate SHA-256 hash of a file for duplicate detection
+ * @param {string} filePath - Path to file
+ * @returns {Promise<string>} Hex-encoded hash
+ */
+export async function generateFileHash(filePath) {
+  const buffer = await fs.readFile(filePath);
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+/**
+ * Detect file format from extension
+ * @param {string} filePath
+ * @returns {string} Format identifier: 'pdf' | 'docx' | 'txt' | 'csv'
+ */
+export function detectFormat(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === '.pdf') return 'pdf';
+  if (ext === '.docx') return 'docx';
+  if (ext === '.txt') return 'txt';
+  if (ext === '.csv') return 'csv';
+  return 'unknown';
+}
 
 /**
  * Extract text and metadata from PDF file
+ * Uses pdf-parse first, falls back to GPT-4o-mini vision for scanned PDFs
  * @param {string} filePath - Path to PDF file
- * @returns {Promise<Object>} - {text, pageCount, title}
+ * @param {Function} onProgress - Progress callback for vision extraction
+ * @returns {Promise<Object>} - {text, pageCount, title, metadata, extractionMethod}
  */
-export async function extractPDFContent(filePath) {
-  try {
-    const dataBuffer = await fs.readFile(filePath);
-    const data = await pdf(dataBuffer);
+export async function extractPDFContent(filePath, onProgress = null) {
+  const dataBuffer = await fs.readFile(filePath);
+  const data = await pdf(dataBuffer);
 
-    // Extract metadata
-    const title = data.info?.Title ||
-                  filePath.split(/[/\\]/).pop().replace('.pdf', '') ||
-                  'Untitled Document';
+  const title = data.info?.Title ||
+    filePath.split(/[/\\]/).pop().replace('.pdf', '') ||
+    'Untitled Document';
+
+  const baseMetadata = {
+    author: data.info?.Author,
+    subject: data.info?.Subject,
+    keywords: data.info?.Keywords,
+    creationDate: data.info?.CreationDate,
+  };
+
+  // Check if PDF is scanned (image-based)
+  if (isLikelyScanned(data.text, data.numpages)) {
+    console.log(`[DocumentProcessor] Scanned PDF detected (${data.text.trim().length} chars / ${data.numpages} pages). Attempting vision extraction...`);
+
+    const visionResult = await extractPdfWithVision(dataBuffer, data.numpages, onProgress);
+
+    if (visionResult && visionResult.text.length > data.text.trim().length) {
+      console.log(`[DocumentProcessor] Vision extraction succeeded: ${visionResult.text.length} chars (vs ${data.text.trim().length} from pdf-parse)`);
+      return {
+        text: visionResult.text,
+        pageCount: data.numpages,
+        title: title.trim(),
+        metadata: baseMetadata,
+        extractionMethod: 'vision',
+      };
+    }
+
+    if (!visionResult) {
+      console.warn('[DocumentProcessor] Vision extraction unavailable, using sparse text from pdf-parse');
+    }
+  }
+
+  return {
+    text: data.text,
+    pageCount: data.numpages,
+    title: title.trim(),
+    metadata: baseMetadata,
+    extractionMethod: 'text',
+  };
+}
+
+/**
+ * Extract text from .docx file using mammoth
+ * @param {string} filePath
+ * @returns {Promise<Object>} - {text, title, metadata}
+ */
+export async function extractDocxContent(filePath) {
+  try {
+    const mammoth = await import('mammoth');
+    const buffer = await fs.readFile(filePath);
+    const result = await mammoth.extractRawText({ buffer });
+    const text = result.value || '';
+    const title = path.basename(filePath, '.docx');
 
     return {
-      text: data.text,
-      pageCount: data.numpages,
-      title: title.trim(),
-      metadata: {
-        author: data.info?.Author,
-        subject: data.info?.Subject,
-        keywords: data.info?.Keywords,
-        creationDate: data.info?.CreationDate,
-      }
+      text,
+      pageCount: Math.max(1, Math.ceil(text.length / 3000)),
+      title,
+      metadata: {},
+      extractionMethod: 'docx',
     };
   } catch (error) {
-    console.error('Error extracting PDF content:', error);
-    throw new Error(`Failed to extract PDF: ${error.message}`);
+    if (error.code === 'ERR_MODULE_NOT_FOUND') {
+      throw new Error('mammoth package not installed. Run: npm install mammoth');
+    }
+    throw new Error(`Failed to extract DOCX: ${error.message}`);
+  }
+}
+
+/**
+ * Extract text from .txt or .csv file
+ * @param {string} filePath
+ * @returns {Promise<Object>} - {text, title, metadata}
+ */
+export async function extractTextContent(filePath) {
+  const text = await fs.readFile(filePath, 'utf-8');
+  const ext = path.extname(filePath).toLowerCase();
+  const title = path.basename(filePath, ext);
+
+  return {
+    text,
+    pageCount: Math.max(1, Math.ceil(text.length / 3000)),
+    title,
+    metadata: {},
+    extractionMethod: ext === '.csv' ? 'csv' : 'text',
+  };
+}
+
+/**
+ * Route to the correct extractor based on file format
+ * @param {string} filePath
+ * @param {Function} onProgress - Progress callback
+ * @returns {Promise<Object>} - Extraction result
+ */
+export async function extractContent(filePath, onProgress = null) {
+  const format = detectFormat(filePath);
+
+  switch (format) {
+    case 'pdf':
+      return extractPDFContent(filePath, onProgress);
+    case 'docx':
+      return extractDocxContent(filePath);
+    case 'txt':
+    case 'csv':
+      return extractTextContent(filePath);
+    default:
+      throw new Error(`Unsupported file format: ${path.extname(filePath)}`);
   }
 }
 
 /**
  * Detect section headings in text
- * Returns array of {heading, startIndex, endIndex}
  * @param {string} text - Full document text
  * @returns {Array<Object>} - Detected sections
  */
 function detectSections(text) {
   const sections = [];
   const lines = text.split('\n');
-  let currentIndex = 0;
 
-  // Patterns for detecting headings
   const headingPatterns = [
-    /^[A-Z][A-Z\s]{3,}$/,                    // ALL CAPS HEADINGS
-    /^\d+\.\s+[A-Z][^.!?]+$/,                // 1. Numbered Sections
-    /^(Section|Chapter|Part)\s+\d+[:\.]?/i,  // Section 1:, Chapter 2.
-    /^[A-Z][^.!?]{3,50}$/,                   // Title Case Headings (short lines)
-    /^#{1,6}\s+.+$/,                         // Markdown-style headings
+    /^[A-Z][A-Z\s]{3,}$/,
+    /^\d+\.\s+[A-Z][^.!?]+$/,
+    /^(Section|Chapter|Part)\s+\d+[:\.]?/i,
+    /^[A-Z][^.!?]{3,50}$/,
+    /^#{1,6}\s+.+$/,
   ];
 
   for (let i = 0; i < lines.length; i++) {
@@ -74,7 +191,6 @@ function detectSections(text) {
     const isHeading = headingPatterns.some(pattern => pattern.test(line));
 
     if (isHeading && line.length > 3 && line.length < 100) {
-      // Calculate character index for this line
       const precedingText = lines.slice(0, i).join('\n');
       sections.push({
         heading: line,
@@ -89,7 +205,6 @@ function detectSections(text) {
 
 /**
  * Structure-aware text chunking
- * Splits by sections first, then by token limits with overlap
  * @param {string} text - Full document text
  * @param {string} title - Document title
  * @returns {Array<Object>} - Array of chunks with metadata
@@ -102,22 +217,18 @@ export function structureAwareChunk(text, title = '') {
   const chunks = [];
   const sections = detectSections(text);
 
-  // If no sections detected, fall back to simple chunking
   if (sections.length === 0) {
     return simpleChunk(text, title);
   }
 
-  // Process each section
   for (let i = 0; i < sections.length; i++) {
     const section = sections[i];
     const nextSection = sections[i + 1];
 
-    // Extract section content
     const sectionStart = section.startIndex;
     const sectionEnd = nextSection ? nextSection.startIndex : text.length;
     const sectionText = text.slice(sectionStart, sectionEnd).trim();
 
-    // If section is small enough, keep it as one chunk
     const estimatedTokens = Math.ceil(sectionText.length / APPROX_CHARS_PER_TOKEN);
 
     if (estimatedTokens <= MAX_CHUNK_TOKENS) {
@@ -132,7 +243,6 @@ export function structureAwareChunk(text, title = '') {
         }
       });
     } else {
-      // Section is too large, split it with overlap while preserving heading
       const subChunks = splitLargeSection(sectionText, section.heading);
       subChunks.forEach((chunk, idx) => {
         chunks.push({
@@ -150,7 +260,6 @@ export function structureAwareChunk(text, title = '') {
     }
   }
 
-  // Add document title context to each chunk
   return chunks.map((chunk, index) => ({
     ...chunk,
     title,
@@ -160,9 +269,6 @@ export function structureAwareChunk(text, title = '') {
 
 /**
  * Simple token-based chunking with overlap (fallback)
- * @param {string} text - Text to chunk
- * @param {string} title - Document title
- * @returns {Array<Object>} - Array of chunks
  */
 function simpleChunk(text, title = '') {
   const chunks = [];
@@ -175,13 +281,12 @@ function simpleChunk(text, title = '') {
     const endIndex = Math.min(startIndex + maxChunkChars, text.length);
     let chunk = text.slice(startIndex, endIndex);
 
-    // Try to break at sentence boundary if not at end
     if (endIndex < text.length) {
       const lastPeriod = chunk.lastIndexOf('. ');
       const lastNewline = chunk.lastIndexOf('\n');
       const breakPoint = Math.max(lastPeriod, lastNewline);
 
-      if (breakPoint > maxChunkChars * 0.7) { // Only break if we're at least 70% through
+      if (breakPoint > maxChunkChars * 0.7) {
         chunk = chunk.slice(0, breakPoint + 1);
       }
     }
@@ -196,10 +301,8 @@ function simpleChunk(text, title = '') {
       }
     });
 
-    // Move start index forward with overlap
     startIndex += chunk.length - overlapChars;
 
-    // Safety check to prevent infinite loops
     if (chunk.length === 0) {
       startIndex += maxChunkChars;
     }
@@ -210,25 +313,19 @@ function simpleChunk(text, title = '') {
 
 /**
  * Split a large section into smaller chunks while keeping heading context
- * @param {string} sectionText - Section text
- * @param {string} heading - Section heading
- * @returns {Array<string>} - Array of chunk texts
  */
 function splitLargeSection(sectionText, heading) {
   const chunks = [];
   const maxChunkChars = MAX_CHUNK_TOKENS * APPROX_CHARS_PER_TOKEN;
   const overlapChars = CHUNK_OVERLAP_TOKENS * APPROX_CHARS_PER_TOKEN;
 
-  // Remove heading from section text to avoid duplication
   const contentWithoutHeading = sectionText.replace(heading, '').trim();
-
   let startIndex = 0;
 
   while (startIndex < contentWithoutHeading.length) {
     const endIndex = Math.min(startIndex + maxChunkChars, contentWithoutHeading.length);
     let chunkContent = contentWithoutHeading.slice(startIndex, endIndex);
 
-    // Try to break at sentence boundary
     if (endIndex < contentWithoutHeading.length) {
       const lastPeriod = chunkContent.lastIndexOf('. ');
       const lastNewline = chunkContent.lastIndexOf('\n');
@@ -239,7 +336,6 @@ function splitLargeSection(sectionText, heading) {
       }
     }
 
-    // Prepend heading to maintain context
     const fullChunk = `${heading}\n\n${chunkContent.trim()}`;
     chunks.push(fullChunk);
 
@@ -255,7 +351,6 @@ function splitLargeSection(sectionText, heading) {
 
 /**
  * Detect document category using AI analysis
- * Analyzes title and sample chunks to determine category
  * @param {string} title - Document title
  * @param {Array<Object>} sampleChunks - First 2 chunks
  * @param {Array<string>} validCategories - List of valid categories
@@ -266,7 +361,7 @@ export async function detectCategory(title, sampleChunks, validCategories = []) 
     const sampleText = sampleChunks
       .map(chunk => chunk.content)
       .join('\n\n')
-      .slice(0, 2000); // Limit to ~500 tokens
+      .slice(0, 2000);
 
     const categoryList = validCategories.length > 0
       ? validCategories.join(', ')
@@ -307,7 +402,6 @@ Category:`;
 
     const detectedCategory = response.choices[0].message.content.trim();
 
-    // Validate against valid categories if provided
     if (validCategories.length > 0) {
       const matchedCategory = validCategories.find(
         cat => cat.toLowerCase() === detectedCategory.toLowerCase()
@@ -318,18 +412,17 @@ Category:`;
     return detectedCategory || 'General';
   } catch (error) {
     console.error('Error detecting category:', error);
-    return 'General'; // Fallback category
+    return 'General';
   }
 }
 
 /**
  * Generate embeddings for chunks in batches
- * Processes 50-100 chunks per API call for efficiency
  * @param {Array<Object>} chunks - Array of chunk objects
  * @returns {Promise<Array<Object>>} - Chunks with embeddings added
  */
 export async function batchGenerateEmbeddings(chunks) {
-  const BATCH_SIZE = 100; // Process 100 chunks per API call
+  const BATCH_SIZE = 100;
   const chunksWithEmbeddings = [];
 
   try {
@@ -339,7 +432,6 @@ export async function batchGenerateEmbeddings(chunks) {
 
       console.log(`Generating embeddings for batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(chunks.length / BATCH_SIZE)}`);
 
-      // Retry logic for rate limits
       let embeddings;
       let retries = 0;
       const MAX_RETRIES = 3;
@@ -351,7 +443,7 @@ export async function batchGenerateEmbeddings(chunks) {
         } catch (error) {
           retries++;
           if (error.message.includes('rate_limit') && retries < MAX_RETRIES) {
-            const delay = Math.pow(2, retries) * 1000; // Exponential backoff
+            const delay = Math.pow(2, retries) * 1000;
             console.log(`Rate limit hit, retrying in ${delay}ms...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           } else {
@@ -360,7 +452,6 @@ export async function batchGenerateEmbeddings(chunks) {
         }
       }
 
-      // Add embeddings to chunks
       batch.forEach((chunk, index) => {
         chunksWithEmbeddings.push({
           ...chunk,
@@ -368,7 +459,6 @@ export async function batchGenerateEmbeddings(chunks) {
         });
       });
 
-      // Small delay between batches to avoid rate limits
       if (i + BATCH_SIZE < chunks.length) {
         await new Promise(resolve => setTimeout(resolve, 200));
       }
@@ -382,37 +472,50 @@ export async function batchGenerateEmbeddings(chunks) {
 }
 
 /**
- * Complete document processing pipeline
- * @param {string} filePath - Path to PDF file
+ * Complete document processing pipeline (supports all formats)
+ * @param {string} filePath - Path to document file
  * @param {Array<string>} validCategories - Optional list of valid categories
+ * @param {Function} onStepProgress - Callback: (step, detail) for step-level progress
  * @returns {Promise<Object>} - {chunks, metadata, category}
  */
-export async function processDocument(filePath, validCategories = []) {
+export async function processDocument(filePath, validCategories = [], onStepProgress = null) {
   try {
-    console.log('Step 1: Extracting PDF content...');
-    const { text, pageCount, title, metadata } = await extractPDFContent(filePath);
+    const format = detectFormat(filePath);
+    const step = (name, detail) => {
+      console.log(`[${name}] ${detail}`);
+      if (onStepProgress) onStepProgress(name, detail);
+    };
 
-    console.log('Step 2: Chunking document with structure awareness...');
+    step('extracting', `Extracting content from ${format.toUpperCase()} file...`);
+    const { text, pageCount, title, metadata, extractionMethod } = await extractContent(filePath, (done, total) => {
+      step('extracting', `Vision processing page ${done}/${total}`);
+    });
+
+    if (!text || text.trim().length === 0) {
+      throw new Error('No text content could be extracted from the document');
+    }
+
+    step('chunking', 'Splitting document into chunks...');
     const chunks = structureAwareChunk(text, title);
+    step('chunking', `Created ${chunks.length} chunks from ${pageCount || 1} pages`);
 
-    console.log(`Created ${chunks.length} chunks from ${pageCount} pages`);
-
-    console.log('Step 3: Detecting document category...');
+    step('categorizing', 'Detecting document category...');
     const sampleChunks = chunks.slice(0, 2);
     const category = await detectCategory(title, sampleChunks, validCategories);
+    step('categorizing', `Category: ${category}`);
 
-    console.log(`Detected category: ${category}`);
-
-    console.log('Step 4: Generating embeddings in batches...');
+    step('embedding', 'Generating embeddings...');
     const chunksWithEmbeddings = await batchGenerateEmbeddings(chunks);
+    step('embedding', `Embedded ${chunksWithEmbeddings.length} chunks`);
 
     return {
       chunks: chunksWithEmbeddings,
       metadata: {
         title,
-        pageCount,
+        pageCount: pageCount || 1,
         chunkCount: chunks.length,
         category,
+        extractionMethod: extractionMethod || format,
         ...metadata,
       },
     };
@@ -422,10 +525,18 @@ export async function processDocument(filePath, validCategories = []) {
   }
 }
 
+export { SUPPORTED_FORMATS };
+
 export default {
   extractPDFContent,
+  extractDocxContent,
+  extractTextContent,
+  extractContent,
   structureAwareChunk,
   detectCategory,
   batchGenerateEmbeddings,
   processDocument,
+  generateFileHash,
+  detectFormat,
+  SUPPORTED_FORMATS,
 };

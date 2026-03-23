@@ -66,3 +66,4 @@ coverage/
 __pycache__/
 *.pyc
 *.pyo
+.mcp.json

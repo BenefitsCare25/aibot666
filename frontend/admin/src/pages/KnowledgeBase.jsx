@@ -41,6 +41,9 @@ export default function KnowledgeBase() {
   const [showChunksModal, setShowChunksModal] = useState(null);
   const [chunks, setChunks] = useState([]);
   const [chunksLoading, setChunksLoading] = useState(false);
+  const [docSteps, setDocSteps] = useState({}); // {docId: {step, detail, percent}}
+  const [editMetaDoc, setEditMetaDoc] = useState(null);
+  const [editMetaData, setEditMetaData] = useState({ category: '', subcategory: '' });
 
   useEffect(() => {
     loadEntries();
@@ -182,47 +185,61 @@ export default function KnowledgeBase() {
     }
   };
 
-  // PDF Document Upload Functions
+  // Document Upload Functions (supports PDF, DOCX, TXT, CSV)
+  const ACCEPTED_TYPES = {
+    'application/pdf': ['.pdf'],
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+    'text/plain': ['.txt'],
+    'text/csv': ['.csv'],
+    'application/csv': ['.csv'],
+  };
+
   const onDrop = useCallback(async (acceptedFiles) => {
-    const file = acceptedFiles[0];
-    if (!file) return;
+    if (!acceptedFiles.length) return;
 
-    // Validate file type
-    if (file.type !== 'application/pdf') {
-      toast.error('Only PDF files are allowed');
-      return;
-    }
-
-    // Validate file size (25MB max)
-    if (file.size > 25 * 1024 * 1024) {
-      toast.error('File size must be less than 25MB');
+    // Validate file sizes
+    const oversized = acceptedFiles.filter(f => f.size > 25 * 1024 * 1024);
+    if (oversized.length) {
+      toast.error(`${oversized.length} file(s) exceed 25MB limit`);
       return;
     }
 
     setUploadingPdf(true);
     try {
-      const response = await knowledgeApi.uploadDocument(file, selectedCategory || null);
+      if (acceptedFiles.length === 1) {
+        // Single file upload
+        const file = acceptedFiles[0];
+        const response = await knowledgeApi.uploadDocument(file, selectedCategory || null);
+        const documentId = response.data?.data?.documentId || response.data?.documentId;
 
-      // Handle different response structures
-      const documentId = response.data?.data?.documentId || response.data?.documentId;
+        if (!documentId) throw new Error('Upload succeeded but no document ID returned');
 
-      if (!documentId) {
-        console.error('No document ID in response:', response);
-        throw new Error('Upload succeeded but no document ID returned');
+        toast.success('Document uploaded! Processing in background...');
+        setProcessingDocs(prev => new Set(prev).add(documentId));
+        pollDocumentStatus(documentId);
+      } else {
+        // Bulk upload
+        const response = await knowledgeApi.uploadDocumentsBulk(acceptedFiles, selectedCategory || null);
+        const results = response.data?.data || response.data || [];
+
+        const succeeded = results.filter(r => r.success);
+        const failed = results.filter(r => !r.success);
+
+        if (succeeded.length > 0) {
+          toast.success(`${succeeded.length} document(s) queued for processing`);
+          succeeded.forEach(r => {
+            setProcessingDocs(prev => new Set(prev).add(r.documentId));
+            pollDocumentStatus(r.documentId);
+          });
+        }
+        if (failed.length > 0) {
+          failed.forEach(r => toast.error(`${r.filename}: ${r.error}`));
+        }
       }
 
-      toast.success('Document uploaded! Processing in background...');
-
-      // Start polling for this document
-      setProcessingDocs(prev => new Set(prev).add(documentId));
-      pollDocumentStatus(documentId);
-
-      // Reload documents list
       loadDocuments();
       setSelectedCategory('');
     } catch (error) {
-      console.error('Upload error:', error);
-      console.error('Error response:', error.response);
       const errorMsg = error.response?.data?.error || error.message || 'Failed to upload document';
       toast.error(errorMsg);
     } finally {
@@ -232,8 +249,8 @@ export default function KnowledgeBase() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'application/pdf': ['.pdf'] },
-    maxFiles: 1,
+    accept: ACCEPTED_TYPES,
+    maxFiles: 10,
     disabled: uploadingPdf
   });
 
@@ -250,7 +267,12 @@ export default function KnowledgeBase() {
         throw new Error('Invalid status response');
       }
 
-      const { status } = documentData;
+      const { status, jobStep, jobDetail } = documentData;
+
+      // Update step progress for processing docs
+      if (status === 'processing' && jobStep) {
+        setDocSteps(prev => ({ ...prev, [documentId]: { step: jobStep, detail: jobDetail || '', percent: documentData.jobPercent || 0 } }));
+      }
 
       // Update documents list
       setDocuments(prev =>
@@ -258,6 +280,7 @@ export default function KnowledgeBase() {
       );
 
       if (status === 'completed') {
+        setDocSteps(prev => { const next = { ...prev }; delete next[documentId]; return next; });
         setProcessingDocs(prev => {
           const next = new Set(prev);
           next.delete(documentId);
@@ -269,6 +292,7 @@ export default function KnowledgeBase() {
       }
 
       if (status === 'failed') {
+        setDocSteps(prev => { const next = { ...prev }; delete next[documentId]; return next; });
         setProcessingDocs(prev => {
           const next = new Set(prev);
           next.delete(documentId);
@@ -416,7 +440,7 @@ export default function KnowledgeBase() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            PDF Documents
+            Documents
           </button>
         </nav>
       </div>
@@ -556,13 +580,13 @@ export default function KnowledgeBase() {
         </>
       )}
 
-      {/* PDF Documents Tab */}
+      {/* Documents Tab */}
       {activeTab === 'documents' && (
         <div className="space-y-6">
           {/* Upload Section */}
           {can('knowledge.upload') && (
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Upload PDF Document</h2>
+              <h2 className="text-lg font-semibold mb-4">Upload Documents</h2>
 
               {/* Category Selection */}
               <div className="mb-4">
@@ -611,15 +635,15 @@ export default function KnowledgeBase() {
                     />
                   </svg>
                   {uploadingPdf ? (
-                    <p className="text-sm text-gray-600">Uploading PDF...</p>
+                    <p className="text-sm text-gray-600">Uploading document(s)...</p>
                   ) : isDragActive ? (
-                    <p className="text-sm text-primary-600 font-medium">Drop PDF here...</p>
+                    <p className="text-sm text-primary-600 font-medium">Drop file(s) here...</p>
                   ) : (
                     <>
                       <p className="text-sm text-gray-600">
-                        <span className="font-semibold text-primary-600">Click to upload</span> or drag and drop
+                        <span className="font-semibold text-primary-600">Click to upload</span> or drag and drop (up to 10 files)
                       </p>
-                      <p className="text-xs text-gray-500">PDF only, max 25MB</p>
+                      <p className="text-xs text-gray-500">PDF, DOCX, TXT, CSV — max 25MB each</p>
                     </>
                   )}
                 </div>
@@ -628,11 +652,13 @@ export default function KnowledgeBase() {
               <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <h4 className="text-sm font-medium text-blue-900 mb-2">How it works:</h4>
                 <ul className="text-xs text-blue-800 space-y-1">
-                  <li>• PDF is processed in the background (30-60 seconds)</li>
+                  <li>• Documents are processed in the background (30-90 seconds)</li>
+                  <li>• Supports PDF, DOCX, TXT, and CSV formats</li>
+                  <li>• Scanned PDFs are handled via AI vision extraction</li>
                   <li>• Text is extracted and chunked intelligently</li>
                   <li>• Category is auto-detected using AI</li>
                   <li>• Embeddings are generated for semantic search</li>
-                  <li>• All chunks become searchable by the chatbot</li>
+                  <li>• Duplicate files are detected and rejected automatically</li>
                 </ul>
               </div>
             </div>
@@ -691,6 +717,14 @@ export default function KnowledgeBase() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-sm font-medium text-gray-900">{doc.original_name}</div>
+                          {doc.status === 'processing' && docSteps[doc.id] && (
+                            <div className="mt-1">
+                              <div className="text-xs text-blue-600 capitalize">{docSteps[doc.id].step}: {docSteps[doc.id].detail}</div>
+                              <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                                <div className="bg-blue-600 h-1.5 rounded-full transition-all duration-500" style={{ width: `${docSteps[doc.id].percent || 0}%` }} />
+                              </div>
+                            </div>
+                          )}
                           {doc.error_message && (
                             <div className="text-xs text-red-600 mt-1">{doc.error_message}</div>
                           )}
@@ -719,12 +753,25 @@ export default function KnowledgeBase() {
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end gap-2">
                             {doc.status === 'completed' && (
-                              <button
-                                onClick={() => handleViewChunks(doc.id)}
-                                className="text-primary-600 hover:text-primary-900"
-                              >
-                                View Chunks
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => handleViewChunks(doc.id)}
+                                  className="text-primary-600 hover:text-primary-900"
+                                >
+                                  Chunks
+                                </button>
+                                {can('knowledge.edit') && (
+                                  <button
+                                    onClick={() => {
+                                      setEditMetaDoc(doc);
+                                      setEditMetaData({ category: doc.category || '', subcategory: doc.subcategory || '' });
+                                    }}
+                                    className="text-green-600 hover:text-green-900"
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                              </>
                             )}
                             {can('knowledge.delete') && (
                               <button
@@ -942,6 +989,72 @@ export default function KnowledgeBase() {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Metadata Modal */}
+      {editMetaDoc && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h2 className="text-xl font-bold mb-4">Edit Document Metadata</h2>
+            <p className="text-sm text-gray-600 mb-4">{editMetaDoc.original_name}</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select
+                  value={editMetaData.category}
+                  onChange={(e) => setEditMetaData({ ...editMetaData, category: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">Select category</option>
+                  <option value="benefits">Benefits</option>
+                  <option value="claims">Claims</option>
+                  <option value="policies">Policies</option>
+                  <option value="procedures">Procedures</option>
+                  <option value="HR Guidelines">HR Guidelines</option>
+                  <option value="Training">Training</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subcategory</label>
+                <input
+                  type="text"
+                  value={editMetaData.subcategory}
+                  onChange={(e) => setEditMetaData({ ...editMetaData, subcategory: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="e.g., dental, optical"
+                />
+              </div>
+              <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                <p className="text-xs text-yellow-800">
+                  This will update the category on the document and all {editMetaDoc.chunk_count || 0} knowledge base chunks.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      await knowledgeApi.updateDocumentMetadata(editMetaDoc.id, editMetaData);
+                      toast.success('Document metadata updated');
+                      setEditMetaDoc(null);
+                      loadDocuments();
+                    } catch (error) {
+                      toast.error('Failed to update metadata');
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                >
+                  Save Changes
+                </button>
+                <button
+                  onClick={() => setEditMetaDoc(null)}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

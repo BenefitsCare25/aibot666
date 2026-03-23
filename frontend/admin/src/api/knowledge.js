@@ -46,7 +46,7 @@ export const knowledgeApi = {
     await downloadFile('/api/admin/knowledge/download-template', 'KnowledgeBase_Template.xlsx');
   },
 
-  // Document upload methods
+  // Upload single document (PDF, DOCX, TXT, CSV)
   uploadDocument: async (file, category = null) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -55,9 +55,20 @@ export const knowledgeApi = {
     }
 
     return apiClient.post('/api/admin/documents/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+
+  // Upload multiple documents at once
+  uploadDocumentsBulk: async (files, category = null) => {
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+    if (category) {
+      formData.append('category', category);
+    }
+
+    return apiClient.post('/api/admin/documents/upload-bulk', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
 
@@ -67,9 +78,14 @@ export const knowledgeApi = {
     return apiClient.get('/api/admin/documents', { params: { page, limit, status } });
   },
 
-  // Get document status (for polling)
+  // Get document status (for polling) — now includes step info
   getDocumentStatus: async (documentId) => {
     return apiClient.get(`/api/admin/documents/${documentId}/status`);
+  },
+
+  // Update document category/subcategory after upload
+  updateDocumentMetadata: async (documentId, { category, subcategory }) => {
+    return apiClient.patch(`/api/admin/documents/${documentId}/metadata`, { category, subcategory });
   },
 
   // Delete document and all chunks
