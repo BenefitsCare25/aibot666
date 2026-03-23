@@ -227,9 +227,9 @@ const worker = new Worker(
   },
   {
     connection: redisConnection,
-    concurrency: 5,
-    lockDuration: 300000,
-    stalledInterval: 300000,
+    concurrency: 1,
+    lockDuration: 600000,
+    stalledInterval: 600000,
     limiter: {
       max: 10,
       duration: 60000,
