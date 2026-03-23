@@ -10,11 +10,7 @@ const redisConnection = parseRedisUrl();
 export const documentQueue = new Queue('document-processing', {
   connection: redisConnection,
   defaultJobOptions: {
-    attempts: 3, // Retry up to 3 times
-    backoff: {
-      type: 'exponential',
-      delay: 2000, // Start with 2s, then 10s, then 60s
-    },
+    attempts: 1, // No retries — file is deleted after first attempt
     removeOnComplete: {
       age: 86400, // Keep completed jobs for 24 hours (for debugging)
       count: 100, // Keep last 100 completed jobs
@@ -31,7 +27,7 @@ documentQueue.on('error', (error) => {
 });
 
 documentQueue.on('waiting', (jobId) => {
-  console.log(`Document job ${jobId} is waiting`);
+  console.log(`Document job ${typeof jobId === 'object' ? jobId?.id ?? JSON.stringify(jobId) : jobId} is waiting`);
 });
 
 documentQueue.on('active', (job) => {

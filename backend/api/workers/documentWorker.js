@@ -81,7 +81,7 @@ async function storeChunks(chunks, documentId, category, subcategory, schemaClie
       document_id: documentId,
     }));
 
-    const BATCH_SIZE = 100;
+    const BATCH_SIZE = 25;
     let insertedCount = 0;
 
     for (let i = 0; i < entriesWithEmbeddings.length; i += BATCH_SIZE) {
