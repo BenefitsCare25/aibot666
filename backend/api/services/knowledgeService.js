@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const SIMILARITY_THRESHOLD = parseFloat(process.env.VECTOR_SIMILARITY_THRESHOLD) || 0.7;
+const SIMILARITY_THRESHOLD = parseFloat(process.env.VECTOR_SIMILARITY_THRESHOLD) || 0.55;
 const TOP_K_RESULTS = parseInt(process.env.TOP_K_RESULTS) || 5;
 
 /**
@@ -53,6 +53,9 @@ export async function searchKnowledgeBase(query, supabaseClient = null, topK = T
     // Fetch more results initially if we're going to filter by policy type
     const fetchCount = policyType ? topK * 3 : topK;
 
+    const schemaName = client._schemaName || 'public';
+    console.log(`[Knowledge Search] Querying schema=${schemaName}, threshold=${threshold}, topK=${fetchCount}`);
+
     let rpcQuery = client.rpc('match_knowledge', {
       query_embedding: queryEmbedding,
       match_threshold: threshold,
@@ -62,12 +65,12 @@ export async function searchKnowledgeBase(query, supabaseClient = null, topK = T
     const { data, error } = await rpcQuery;
 
     if (error) {
-      console.error('[Knowledge Search] ❌ RPC Error:', error);
+      console.error(`[Knowledge Search] ❌ RPC Error (schema=${schemaName}):`, error);
       throw new Error(`Vector search failed: ${error.message}`);
     }
 
     let results = data || [];
-    console.log(`[Knowledge Search] RPC returned ${results.length} results (threshold=${threshold}, topK=${fetchCount})`);
+    console.log(`[Knowledge Search] RPC returned ${results.length} results (schema=${schemaName}, threshold=${threshold}, topK=${fetchCount})`);
 
     // Apply policy type filtering if provided
     if (policyType && results.length > 0) {

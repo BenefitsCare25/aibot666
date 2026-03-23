@@ -524,7 +524,10 @@ export async function notifyTelegramEscalation(escalation, query, employee, aiRe
     let reasonEmoji = '⚠️';
     let reasonText = 'Unknown reason';
 
-    if (context.reason === 'no_knowledge_found') {
+    if (context.reason === 'ai_escalated') {
+      reasonEmoji = '🔔';
+      reasonText = 'AI Escalated (no KB match or unable to answer)';
+    } else if (context.reason === 'no_knowledge_found') {
       reasonEmoji = '❌';
       reasonText = 'No Knowledge Base Match';
     } else if (context.reason === 'poor_knowledge_match') {

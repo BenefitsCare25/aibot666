@@ -47,61 +47,40 @@ export async function generateEmbeddingsBatch(texts) {
       throw new Error('Texts array cannot be empty');
     }
 
-    // Filter out empty texts
-    const validTexts = texts.filter(t => t && t.trim().length > 0);
+    // Track which indices have valid text vs empty (preserves alignment)
+    const indexMap = [];
+    const validTexts = [];
+    for (let i = 0; i < texts.length; i++) {
+      if (texts[i] && texts[i].trim().length > 0) {
+        indexMap.push(i);
+        validTexts.push(texts[i].trim());
+      }
+    }
 
     if (validTexts.length === 0) {
       throw new Error('No valid texts provided');
     }
 
-    // OpenAI API supports batch embeddings
     const response = await openai.embeddings.create({
       model: EMBEDDING_MODEL,
-      input: validTexts.map(t => t.trim()),
+      input: validTexts,
       encoding_format: 'float'
     });
 
-    return response.data.map(item => item.embedding);
+    // Rebuild full array with nulls for empty texts (preserves index alignment)
+    const result = new Array(texts.length).fill(null);
+    response.data.forEach((item, idx) => {
+      result[indexMap[idx]] = item.embedding;
+    });
+
+    return result;
   } catch (error) {
     console.error('Error generating batch embeddings:', error.message);
     throw new Error(`Failed to generate batch embeddings: ${error.message}`);
   }
 }
 
-/**
- * Inject conversation context awareness instructions into any prompt
- * This ensures all prompts (custom or default) understand conversation flow
- * @param {string} prompt - System prompt to enhance
- * @returns {string} - Prompt with context awareness instructions appended
- */
-function injectConversationContextAwareness(prompt) {
-  const contextAwarenessInstructions = `
-
-CRITICAL: CONVERSATION CONTEXT AWARENESS - ALWAYS APPLY THIS:
-- ALWAYS review the conversation history BEFORE responding
-- Check what YOUR PREVIOUS MESSAGE said - this is critical for understanding context
-- If YOUR PREVIOUS MESSAGE asked for contact information or contained an escalation phrase:
-  * The current user message is VERY LIKELY their contact information
-  * A standalone number (8+ digits) = phone number
-  * An email format (xxx@xxx.xxx) = email address
-  * DO NOT ask "what does this mean" or "I need more context"
-- Pattern recognition for contact info responses:
-  * Pure numbers like "88399967" or "12345678" after escalation = phone number
-  * Email format like "user@email.com" after escalation = email address
-  * Mixed format like "+65 8839 9967" = phone number with country code
-- When user provides contact information (especially after escalation):
-  * Acknowledge professionally: "Thank you for providing your contact information. Our team has received your inquiry and will follow up with you shortly."
-  * DO NOT ask for contact information again if already provided
-  * DO NOT repeat the escalation message
-  * DO NOT ask for clarification when context is obvious from conversation history
-- CORRECTION HANDLING: If user says "ignore", "forget", "wrong", "not that", or corrects a previous message:
-  * Acknowledge: "No problem, noted." or similar
-  * DO NOT escalate corrections — they are NOT benefits questions
-  * Allow user to re-provide the corrected information
-- DOMAIN-STYLE IDENTIFIERS: Text like "name.company.com" after an escalation is contact information (even without @)`;
-
-  return prompt + contextAwarenessInstructions;
-}
+// injectConversationContextAwareness removed — logic now embedded in XML system prompt
 
 /**
  * Inject variables into custom prompt template
@@ -112,15 +91,16 @@ CRITICAL: CONVERSATION CONTEXT AWARENESS - ALWAYS APPLY THIS:
 function injectVariablesIntoPrompt(template, data) {
   const { query, contexts, employeeData, similarityThreshold, topKResults, contextCount } = data;
 
-  // Format context text with clear Q&A structure
+  // Format context text with Title/Content structure
   const contextText = contexts && contexts.length > 0
-    ? contexts.map((ctx, idx) =>
-        `[Context ${idx + 1}]\n` +
-        `Question: ${ctx.title || 'N/A'}\n` +
-        `Category: ${ctx.category}\n` +
-        `Similarity: ${ctx.similarity?.toFixed(4) || 'N/A'}\n` +
-        `Answer: ${ctx.content}`
-      ).join('\n\n---\n\n')
+    ? contexts.map((ctx, idx) => {
+        const cleanTitle = (ctx.title || 'N/A').replace(/^#+\s*/, '').trim();
+        return `[Context ${idx + 1}]\n` +
+          `Title: ${cleanTitle}\n` +
+          `Category: ${ctx.category}\n` +
+          `Similarity: ${ctx.similarity?.toFixed(4) || 'N/A'}\n` +
+          `Content: ${ctx.content}`;
+      }).join('\n\n---\n\n')
     : 'No knowledge base context available for this query.';
 
   // Format employee info (policy details not included for security)
@@ -160,106 +140,96 @@ Note: For your specific policy details and coverage limits, please refer to your
 }
 
 /**
- * Create RAG prompt with retrieved context
+ * Create RAG prompt with retrieved context using XML-structured format
  * @param {string} query - User query
  * @param {Array} contexts - Retrieved context chunks
  * @param {Object} employeeData - Employee information
  * @param {number} similarityThreshold - The threshold used for knowledge search
- * @returns {string} - Formatted prompt with context
+ * @returns {string} - Formatted system prompt (query injected separately via user message)
  */
-function createRAGPrompt(query, contexts, employeeData, similarityThreshold = 0.7) {
-  const contextText = contexts
-    .map((ctx, idx) =>
-      `[Context ${idx + 1}]\n` +
-      `Question: ${ctx.title || 'N/A'}\n` +
-      `Category: ${ctx.category}\n` +
-      `Answer: ${ctx.content}`
-    )
-    .join('\n\n---\n\n');
+function createRAGPrompt(query, contexts, employeeData, conversationHistory = [], similarityThreshold = 0.55) {
+  const contextText = contexts && contexts.length > 0
+    ? contexts.map((ctx, idx) => {
+        // Clean markdown heading artifacts from titles (## / # prefixes)
+        const cleanTitle = (ctx.title || 'N/A').replace(/^#+\s*/, '').trim();
+        return `[Context ${idx + 1}]\n` +
+          `Title: ${cleanTitle}\n` +
+          `Category: ${ctx.category}\n` +
+          `Content: ${ctx.content}`;
+      }).join('\n\n---\n\n')
+    : '[NO KNOWLEDGE BASE DATA AVAILABLE FOR THIS QUERY]';
 
   const employeeInfo = employeeData ? `
-Employee Information:
 - Name: ${employeeData.name}
 - Employee ID: ${employeeData.employee_id || 'N/A'}
 - User ID: ${employeeData.user_id || 'N/A'}
 - Email: ${employeeData.email || 'N/A'}
+` : 'No employee information available.';
 
-Note: For your specific policy details and coverage limits, please refer to your employee portal.
-` : '';
+  // Format conversation history as text (last 20 turns = 40 messages)
+  const recentHistory = conversationHistory.slice(-40);
+  const historyText = recentHistory.length > 0
+    ? recentHistory.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n')
+    : 'No prior conversation.';
 
-  const contextSection = contextText.trim()
-    ? `CONTEXT FROM KNOWLEDGE BASE:\n${contextText}`
-    : `CONTEXT FROM KNOWLEDGE BASE:\n[NO KNOWLEDGE BASE DATA AVAILABLE FOR THIS QUERY — You MUST use the escalation phrase and cannot answer this question]`;
+  return `<system_persona>
+You are an AI assistant for an employee insurance benefits portal. Your primary goal is to provide accurate, helpful, and empathetic support based STRICTLY on the provided knowledge base and the logged-in employee's specific data.
+</system_persona>
 
-  return `You are an AI assistant for an employee insurance benefits portal. Your role is to help employees understand their insurance coverage, benefits, and claims procedures.
+<operational_rules>
+1. PRIMARY SOURCE TRUTH: You must answer using ONLY the context provided in <knowledge_base> and <employee_information>.
+2. EXACT ANSWERS: If a <knowledge_base> entry contains a "Title" and "Content" field that matches the user's intent, use the facts from the "Content" field DIRECTLY. You may rephrase for conversational flow, but do not alter the facts.
+3. NO HALLUCINATION: Never make assumptions about coverage, policies, or claims not explicitly stated in the provided context. You do not have web search capabilities.
+</operational_rules>
 
-IMPORTANT INSTRUCTIONS:
-1. Answer based on the provided context from knowledge base and employee information
-2. CONTEXT USAGE PRIORITY: If context is provided from the knowledge base, USE IT as your PRIMARY source:
-   a) The context has been matched with similarity >${similarityThreshold.toFixed(2)} - it is relevant and has passed our quality threshold
-   b) CRITICAL: Each context entry has a "Question" and an "Answer" field
-   c) CRITICAL: The "Answer" field contains the EXACT answer you should provide - USE IT DIRECTLY
-   d) You may rephrase for clarity and combine multiple answers, but preserve all facts
-   e) Even if the Answer says "login to portal" or "contact support", that IS the correct answer - provide it exactly as given
-   f) Only add helpful details from employee information if relevant (like policy type, name, etc.)
-   g) If knowledge base context is empty:
-      - For benefits/coverage/policy/claims questions: Ask user to elaborate first
-        (e.g., "Could you provide more details about what you're looking for?")
-      - Only use the escalation phrase on a SECOND failed attempt (when the bot has
-        already asked the user to elaborate but KB still has no match)
-      - For corrections, greetings, or general conversation: respond naturally.
-        These do NOT require knowledge base data.
-3. KNOWLEDGE BASE IS YOUR ONLY SOURCE FOR BENEFITS/COVERAGE/POLICY QUESTIONS: Your training knowledge about insurance is GENERIC and does NOT reflect this company's specific plans, limits, or procedures. If the CONTEXT FROM KNOWLEDGE BASE section below is empty (marked [NO KNOWLEDGE BASE DATA]), you DO NOT have the answer — use the escalation phrase. NEVER answer coverage, benefits, claims, or policy questions from your own training knowledge.
-3a. CONVERSATIONAL MESSAGES: For greetings (hi, hello, good morning, etc.) and small talk (thanks, ok, bye, etc.), respond warmly and naturally with a simple greeting like "Hello! How can I assist you today?" — do NOT mention insurance, benefits, or coverage in the greeting. NEVER use the escalation phrase for these — they do not require knowledge base lookup.
-3b. ELABORATION REQUEST: When you cannot find an answer in the knowledge base for the FIRST time on a topic, ask the user to elaborate or rephrase their question instead of immediately escalating. Example: "I'd like to help you with that. Could you provide a bit more detail or rephrase your question so I can find the right information for you?"
-3c. NON-BENEFITS MESSAGES: If the user is correcting previous input ("ignore that", "wrong email"), making account requests, or chatting casually, respond helpfully without the escalation phrase. These are NOT benefits questions.
-4. When escalating:
-   - In English: "For such a query, let us check back with the team. You may leave your contact or email address for our team to follow up with you. Thank you."
-   - In Chinese: "对于此类查询，我们需要与团队核实。您可以留下您的联系方式或电子邮箱，我们的团队会尽快与您联系。谢谢。"
-   - Use the language that matches the user's question
-5. Be specific about policy limits, coverage amounts, and procedures
-6. Use clear, professional, and empathetic language
-7. If asked about claims status or personal medical information, direct to appropriate channels
-8. Never make assumptions about coverage not explicitly stated in the context or employee information
+<privacy_and_security>
+CRITICAL: You are operating in a strict data privacy environment.
+1. NEVER provide information about OTHER employees (names, claims, benefits, personal data).
+2. ONLY discuss the logged-in employee's own information shown in <employee_information>.
+3. If asked about a colleague, non-dependent family member, or any other person, you must REFUSE to answer and do not escalate. Use these exact phrases:
+   - English: "I can only provide information about your own insurance benefits and coverage. For privacy reasons, I cannot access or discuss other employees' information."
+   - Chinese: "我只能提供您自己的保险福利和保障信息。出于隐私原因，我无法访问或讨论其他员工的信息。"
+</privacy_and_security>
 
-LANGUAGE INSTRUCTION:
-9. ALWAYS detect and respond in the SAME language as the user's question
-10. If the user asks in Chinese (中文), respond in Chinese
-11. If the user asks in English, respond in English
-12. Maintain language consistency throughout the conversation
-13. When translating context from English knowledge base to Chinese:
-    - Keep the core meaning and instructions accurate
-    - Adapt formatting and tone to be natural in the target language
-    - Preserve all specific details (amounts, procedures, contact info)
+<escalation_and_state_management>
+Follow these rules based on the state of the conversation and the <knowledge_base>:
 
-CRITICAL DATA PRIVACY RULES:
-14. NEVER provide information about OTHER employees (names, claims, benefits, personal data)
-15. You can ONLY discuss the logged-in employee's own information shown in "Employee Information" section
-16. If asked about another person (colleague, family member not in dependents, other employee):
-    - REFUSE to answer with:
-      * English: "I can only provide information about your own insurance benefits and coverage. For privacy reasons, I cannot access or discuss other employees' information."
-      * Chinese: "我只能提供您自己的保险福利和保障信息。出于隐私原因，我无法访问或讨论其他员工的信息。"
-    - DO NOT escalate queries about other employees - simply refuse
-17. NEVER search the web or external sources for employee data - you do NOT have web search capabilities
-18. NEVER hallucinate or guess information not explicitly provided in the context
-19. If you don't know something, use the escalation phrase from instruction #3 - never make up information
+1. MISSING KNOWLEDGE BASE (First Attempt): If the <knowledge_base> is empty for a benefits/coverage/claims question, ask the user to elaborate (e.g., "Could you provide more details about what you're looking for?").
+2. MISSING KNOWLEDGE BASE (Second Attempt): If the user has already elaborated, but the <knowledge_base> is STILL empty, you must escalate.
+3. ESCALATION MESSAGES:
+   - English: "For such a query, let us check back with the team. You may leave your contact or email address for our team to follow up with you. Thank you."
+   - Chinese: "对于此类查询，我们需要与团队核实。您可以留下您的联系方式或电子邮箱，我们的团队会尽快与您联系。谢谢。"
+4. HANDLING USER CONTACT INFO: ALWAYS review the conversation history. If your PREVIOUS message was an escalation/request for contact info, treat the user's current response as contact data.
+   - Triggers: Pure numbers (8+ digits), email formats (xxx@xxx.xxx), mixed numbers with country codes (+65...), or domain styles (name.company.com).
+   - Action: Acknowledge receipt. DO NOT ask "what does this mean". DO NOT re-escalate.
+   - Acknowledgment Phrase: "Thank you for providing your contact information. Our team has received your inquiry and will follow up with you shortly."
+5. CORRECTION HANDLING: If the user says "ignore", "wrong", or corrects a previous message, acknowledge it simply (e.g., "No problem, noted.") and allow them to proceed. Do not escalate corrections.
+</escalation_and_state_management>
 
-FORMATTING GUIDELINES:
-- Use clean, readable formatting with markdown
-- Use bullet points (using -) for lists instead of asterisks
-- Use bold text sparingly for emphasis on key information only
-- Keep paragraphs short and concise
-- For coverage details, present them in a clean list format
-- Avoid excessive formatting - prioritize clarity over style
+<formatting_guidelines>
+- Use clean, readable formatting with Markdown.
+- Use hyphens (-) for bulleted lists, not asterisks.
+- Present coverage details in a clean list format.
+- Use **bold text** sparingly, only for crucial numbers or key terms.
+- Keep paragraphs short, concise, and professional. Prioritize clarity over stylistic flair.
+- ALWAYS detect and respond in the SAME language as the user's question.
+</formatting_guidelines>
 
+<employee_information>
 ${employeeInfo}
+</employee_information>
 
-${contextSection}
+<knowledge_base>
+${contextText}
+</knowledge_base>
 
-USER QUESTION:
+<conversation_history>
+${historyText}
+</conversation_history>
+
+<user_query>
 ${query}
-
-RESPONSE:`;
+</user_query>`;
 }
 
 /**
@@ -278,7 +248,7 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
     const temperature = customSettings?.temperature ?? TEMPERATURE;
     const maxTokens = customSettings?.max_tokens ?? MAX_TOKENS;
     const customPrompt = customSettings?.system_prompt;
-    const similarityThreshold = customSettings?.similarity_threshold ?? 0.7;
+    const similarityThreshold = customSettings?.similarity_threshold ?? 0.55;
     const topKResults = customSettings?.top_k_results ?? 5;
 
 
@@ -298,28 +268,15 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
       });
 
     } else {
-      systemPrompt = createRAGPrompt(query, contexts, employeeData, similarityThreshold);
+      systemPrompt = createRAGPrompt(query, contexts, employeeData, conversationHistory, similarityThreshold);
     }
 
-    // CRITICAL: Always inject conversation context awareness into ANY prompt (custom or default)
-    // This ensures the AI understands conversation flow regardless of prompt source
-    systemPrompt = injectConversationContextAwareness(systemPrompt);
-
-    // Log the complete system prompt for debugging (only in development or when needed)
-    if (process.env.LOG_FULL_PROMPTS === 'true') {
-    }
-
-    // Build messages array with conversation history
+    // System prompt contains all context (employee, KB, history, query) in XML structure
+    // Send as single system message + one user message for the current query
     const messages = [
-      { role: 'system', content: systemPrompt }
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: query }
     ];
-
-    // Add conversation history (limit to last 5 exchanges)
-    const recentHistory = conversationHistory.slice(-10);
-    messages.push(...recentHistory);
-
-    // Add current query
-    messages.push({ role: 'user', content: query });
 
     const response = await openai.chat.completions.create({
       model: model,
@@ -401,108 +358,30 @@ function calculateKnowledgeMatch(contexts) {
  * @returns {number} - Confidence score between 0 and 1
  */
 function calculateConfidence(answer, contexts, finishReason, messageIntent = null) {
-  // Non-KB intents get high base confidence — they don't need KB data
+  // Non-KB intents get high confidence — they don't need KB data
   const nonKBIntents = ['correction', 'contact_info', 'greeting', 'conversational'];
   if (messageIntent && nonKBIntents.includes(messageIntent)) {
-    return 0.85;
+    return 0.9;
   }
 
-  let confidence = 0.5; // Base confidence
-
-  // Increase confidence if we have relevant contexts
-  if (contexts && contexts.length > 0) {
-    const avgSimilarity = contexts.reduce((sum, ctx) => sum + ctx.similarity, 0) / contexts.length;
-    const contextBoost = avgSimilarity * 0.3;
-    confidence += contextBoost;
-  } else {
+  // KB-based confidence: derived purely from similarity scores of retrieved contexts.
+  // Used for caching decisions and metadata only — escalation is handled by the AI prompt.
+  if (!contexts || contexts.length === 0) {
+    return 0.3;
   }
 
-  // Decrease confidence if answer indicates uncertainty
-  const uncertaintyPhrases = [
-    "I don't have enough information",
-    "I'm not sure",
-    "I don't know",
-    "cannot answer",
-    "let me connect you with",
-    "contact support",
-    "speak with our team",
-    "check back with the team"
-  ];
+  const avgSimilarity = contexts.reduce((sum, ctx) => sum + ctx.similarity, 0) / contexts.length;
+  let confidence = 0.4 + (avgSimilarity * 0.5);
 
-  // Don't penalize confidence for contact acknowledgments
-  const contactAcknowledgmentPhrases = [
-    "thank you for providing your contact",
-    "our team has received your inquiry",
-    "will follow up with you shortly"
-  ];
-
-  const isContactAcknowledgment = contactAcknowledgmentPhrases.some(phrase =>
-    answer.toLowerCase().includes(phrase.toLowerCase())
-  );
-
-  const hasUncertainty = uncertaintyPhrases.some(phrase =>
-    answer.toLowerCase().includes(phrase.toLowerCase())
-  );
-
-
-  // Only reduce confidence if uncertain AND not a contact acknowledgment
-  if (hasUncertainty && !isContactAcknowledgment) {
-    confidence = Math.min(confidence, 0.5); // Cap at 0.5 if uncertain
-  }
-
-  // Boost confidence for contact acknowledgments (these are valid responses)
-  if (isContactAcknowledgment) {
-    confidence = Math.max(confidence, 0.75); // Higher confidence for acknowledgments
-  }
-
-  // Adjust based on finish reason
   if (finishReason === 'length') {
-    confidence *= 0.9; // Slightly reduce if response was cut off
+    confidence *= 0.9;
   }
 
-  // Ensure confidence is between 0 and 1
-  const finalConfidence = Math.max(0, Math.min(1, confidence));
-
-  return finalConfidence;
-}
-
-/**
- * Generate a summary of conversation for context retention
- * @param {Array} messages - Conversation messages
- * @returns {Promise<string>} - Summary text
- */
-export async function summarizeConversation(messages) {
-  try {
-    const conversationText = messages
-      .map(msg => `${msg.role}: ${msg.content}`)
-      .join('\n\n');
-
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        {
-          role: 'system',
-          content: 'Summarize the following conversation in 2-3 sentences, focusing on the main questions and key information discussed.'
-        },
-        {
-          role: 'user',
-          content: conversationText
-        }
-      ],
-      temperature: 0.3,
-      max_tokens: 150
-    });
-
-    return response.choices[0].message.content;
-  } catch (error) {
-    console.error('Error summarizing conversation:', error.message);
-    return 'Conversation about insurance benefits and coverage.';
-  }
+  return Math.max(0, Math.min(1, confidence));
 }
 
 export default {
   generateEmbedding,
   generateEmbeddingsBatch,
-  generateRAGResponse,
-  summarizeConversation
+  generateRAGResponse
 };

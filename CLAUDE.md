@@ -539,17 +539,21 @@ domain_question/follow_up/meta_request → KB search → RAG → 2-attempt escal
 | `meta_request` | Yes | Yes (after 2nd attempt) | "forgot username", "can't login" |
 | `follow_up` | Yes | Yes (after 2nd attempt) | "what about dental?" after medical |
 
-**2-attempt escalation flow**: KB miss on first attempt → ask user to elaborate → retry KB → THEN escalate. Conversation state tracks `askedToElaborate` and `failedKBAttempts` in Redis session. Consecutive escalation softening after 2+ escalations in same conversation.
+**AI-driven escalation (single-layer model — 2026-03-23)**: The AI prompt's `<escalation_and_state_management>` XML rules handle all escalation decisions (2-attempt flow: ask to elaborate first, then escalate). Backend only **detects** the AI's escalation phrases via substring matching and triggers side effects (DB record, Telegram notification). No backend confidence override — the AI is the single source of truth for when to escalate.
 
-**Smart contact detection** (`escalationService.js`): Regex expanded to recognize domain-style identifiers (e.g., `name.company.com`) in addition to emails and phone numbers. LLM intent also catches contact info contextually.
+**Escalation detection** (`chat.js`): Normalized substring matching on AI response text (stripped markdown, collapsed whitespace). Checks for English phrases ("check back with the team", "leave your contact") and Chinese equivalents. Sets `awaitingContactInfo` state in Redis so next user message is treated as contact data.
 
-**`calculateConfidence()`** (`openai.js`): Non-KB intents (correction, contact_info, greeting, conversational) return 0.85 immediately. For KB intents: Base 0.5 + similarity boost if contexts exist. Capped at 0.5 if uncertainty phrases detected. Boosted to ≥0.75 only for contact acknowledgments.
+**Contact info flow**: When `awaitingContactInfo` is true and user sends contact info (detected via regex + LLM intent), backend updates the existing escalation record with contact data and sends a follow-up Telegram notification — no new escalation created.
 
-**Anti-hallucination (openai.js — 2026-03-01)**: When KB returns no results, the context section is replaced with an explicit `[NO KNOWLEDGE BASE DATA AVAILABLE FOR THIS QUERY — You MUST use the escalation phrase]` marker. System prompt instruction #3 explicitly forbids answering benefits/coverage/policy questions from GPT training knowledge.
+**Smart contact detection** (`escalationService.js`): Regex recognizes domain-style identifiers (e.g., `name.company.com`) in addition to emails and phone numbers. LLM intent also catches contact info contextually.
 
-**Escalation guard**: `canEscalate && needsKBSearch && ESCALATE_ON_NO_KNOWLEDGE && (aiSaysNoKnowledge || lowConfidence)` — only domain_question, follow_up, and meta_request intents can escalate, and only after 2nd attempt.
+**`calculateConfidence()`** (`openai.js`): Simplified to purely informational (for caching/metadata). Non-KB intents return 0.9. KB intents: `0.4 + (avgSimilarity * 0.5)`. Not used for escalation decisions.
 
-**Escalation threshold (chat.js — 2026-03-02)**: Default `0.55`. Company-level override via `companyAISettings.escalation_threshold`.
+**Anti-hallucination (openai.js — 2026-03-01)**: When KB returns no results, the context section is replaced with an explicit `[NO KNOWLEDGE BASE DATA AVAILABLE FOR THIS QUERY]` marker. System prompt instruction #3 explicitly forbids answering benefits/coverage/policy questions from GPT training knowledge.
+
+**Escalation guard**: `canEscalate && aiEscalated && ESCALATE_ON_NO_KNOWLEDGE` — only domain_question, follow_up, and meta_request intents can trigger escalation side effects.
+
+**Similarity threshold** (`similarity_threshold`): Default `0.55`. This is the pgvector database-level filter that gates which KB entries reach the AI. Company-level override via `ai_settings.similarity_threshold`. This is NOT an escalation threshold — it controls KB retrieval quality.
 
 **System prompt updates (openai.js — 2026-03-17)**: Instructions 3b (elaboration before escalation) and 3c (non-benefits message handling) added. Context awareness extended with correction handling and domain-style identifier recognition.
 

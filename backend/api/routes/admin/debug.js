@@ -1,6 +1,8 @@
 import express from 'express';
 import supabase from '../../../config/supabase.js';
 import { requireSuperAdmin } from '../../middleware/authMiddleware.js';
+import { generateEmbedding } from '../../services/openai.js';
+import { searchKnowledgeBase } from '../../services/knowledgeService.js';
 const router = express.Router();
 
 /**
@@ -152,6 +154,228 @@ router.get('/supabase', requireSuperAdmin, async (req, res) => {
       success: false,
       error: error.message
     });
+  }
+});
+
+/**
+ * POST /api/admin/debug/test-kb-search
+ * Test KB vector search with a real query — generates embedding and searches
+ */
+router.post('/test-kb-search', requireSuperAdmin, async (req, res) => {
+  try {
+    const { query, threshold = 0.0, topK = 10 } = req.body;
+
+    if (!query) {
+      return res.status(400).json({ success: false, error: 'query is required' });
+    }
+
+    if (!req.supabase || !req.companySchema) {
+      return res.status(400).json({ success: false, error: 'No company context (check X-Widget-Domain header)' });
+    }
+
+    const schema = req.companySchema;
+
+    // Count total KB entries and embeddings
+    const { count: totalCount } = await req.supabase
+      .from('knowledge_base')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: activeCount } = await req.supabase
+      .from('knowledge_base')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true);
+
+    // Generate embedding for the query
+    const embedding = await generateEmbedding(query);
+
+    // Search with the provided threshold (default 0.0 to see ALL scores)
+    const results = await searchKnowledgeBase(query, req.supabase, topK, threshold, null, null, embedding);
+
+    res.json({
+      success: true,
+      data: {
+        schema,
+        query,
+        threshold,
+        totalKBEntries: totalCount,
+        activeKBEntries: activeCount,
+        resultsFound: results.length,
+        results: results.map(r => ({
+          id: r.id,
+          title: r.title,
+          category: r.category,
+          subcategory: r.subcategory,
+          similarity: r.similarity,
+          contentPreview: r.content?.substring(0, 150)
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Debug KB search error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/debug/re-embed-document
+ * Re-generate embeddings for all chunks of a specific document (fixes misaligned embeddings)
+ */
+router.post('/re-embed-document', requireSuperAdmin, async (req, res) => {
+  try {
+    const { documentId } = req.body;
+
+    if (!documentId) {
+      return res.status(400).json({ success: false, error: 'documentId is required' });
+    }
+
+    if (!req.supabase || !req.companySchema) {
+      return res.status(400).json({ success: false, error: 'No company context (check X-Widget-Domain header)' });
+    }
+
+    const schema = req.companySchema;
+
+    // Fetch all chunks for this document
+    const { data: chunks, error: fetchError } = await req.supabase
+      .from('knowledge_base')
+      .select('id, title, content')
+      .eq('document_id', documentId);
+
+    if (fetchError) {
+      return res.status(500).json({ success: false, error: `Failed to fetch chunks: ${fetchError.message}` });
+    }
+
+    if (!chunks || chunks.length === 0) {
+      return res.status(404).json({ success: false, error: 'No chunks found for this document' });
+    }
+
+    // Re-generate embeddings in batches
+    const { generateEmbeddingsBatch } = await import('../../services/openai.js');
+    const BATCH_SIZE = 50;
+    let updatedCount = 0;
+    let skippedCount = 0;
+
+    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+      const batch = chunks.slice(i, i + BATCH_SIZE);
+      const texts = batch.map(c => c.title ? `${c.title}\n\n${c.content}` : c.content);
+
+      const embeddings = await generateEmbeddingsBatch(texts);
+
+      for (let j = 0; j < batch.length; j++) {
+        if (!embeddings[j]) {
+          skippedCount++;
+          continue;
+        }
+
+        const { error: updateError } = await req.supabase
+          .from('knowledge_base')
+          .update({ embedding: embeddings[j] })
+          .eq('id', batch[j].id);
+
+        if (updateError) {
+          console.error(`Failed to update chunk ${batch[j].id}:`, updateError.message);
+        } else {
+          updatedCount++;
+        }
+      }
+
+      console.log(`Re-embedded ${Math.min(i + BATCH_SIZE, chunks.length)}/${chunks.length} chunks`);
+    }
+
+    // Invalidate query cache since embeddings changed
+    const { invalidateCompanyQueryCache } = await import('../../utils/session.js');
+    await invalidateCompanyQueryCache(schema);
+
+    res.json({
+      success: true,
+      data: {
+        schema,
+        documentId,
+        totalChunks: chunks.length,
+        updatedCount,
+        skippedCount,
+      }
+    });
+  } catch (error) {
+    console.error('Re-embed document error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/debug/re-embed-all
+ * Re-generate embeddings for ALL knowledge base entries in the company schema
+ */
+router.post('/re-embed-all', requireSuperAdmin, async (req, res) => {
+  try {
+    if (!req.supabase || !req.companySchema) {
+      return res.status(400).json({ success: false, error: 'No company context (check X-Widget-Domain header)' });
+    }
+
+    const schema = req.companySchema;
+
+    const { data: entries, error: fetchError } = await req.supabase
+      .from('knowledge_base')
+      .select('id, title, content');
+
+    if (fetchError) {
+      return res.status(500).json({ success: false, error: `Failed to fetch entries: ${fetchError.message}` });
+    }
+
+    if (!entries || entries.length === 0) {
+      return res.status(404).json({ success: false, error: 'No knowledge base entries found' });
+    }
+
+    const { generateEmbeddingsBatch } = await import('../../services/openai.js');
+    const BATCH_SIZE = 50;
+    let updatedCount = 0;
+    let skippedCount = 0;
+
+    for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+      const batch = entries.slice(i, i + BATCH_SIZE);
+      const texts = batch.map(e => e.title ? `${e.title}\n\n${e.content}` : e.content);
+
+      const embeddings = await generateEmbeddingsBatch(texts);
+
+      for (let j = 0; j < batch.length; j++) {
+        if (!embeddings[j]) {
+          skippedCount++;
+          continue;
+        }
+
+        const { error: updateError } = await req.supabase
+          .from('knowledge_base')
+          .update({ embedding: embeddings[j] })
+          .eq('id', batch[j].id);
+
+        if (updateError) {
+          console.error(`Failed to update entry ${batch[j].id}:`, updateError.message);
+        } else {
+          updatedCount++;
+        }
+      }
+
+      console.log(`Re-embedded ${Math.min(i + BATCH_SIZE, entries.length)}/${entries.length} entries`);
+
+      if (i + BATCH_SIZE < entries.length) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
+
+    const { invalidateCompanyQueryCache } = await import('../../utils/session.js');
+    await invalidateCompanyQueryCache(schema);
+
+    res.json({
+      success: true,
+      data: {
+        schema,
+        totalEntries: entries.length,
+        updatedCount,
+        skippedCount,
+      }
+    });
+  } catch (error) {
+    console.error('Re-embed all error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

@@ -12,8 +12,9 @@ DECLARE
 BEGIN
   FOR schema_rec IN
     SELECT schema_name FROM information_schema.schemata
-    WHERE schema_name NOT IN ('public', 'auth', 'storage', 'extensions', 'graphql', 'graphql_public', 'realtime', 'supabase_functions', 'supabase_migrations', 'pgrst_config', 'information_schema', 'pg_catalog', 'pg_toast', 'vault', 'pgsodium', 'pgsodium_masks', 'net', 'cron')
+    WHERE schema_name NOT IN ('public', 'auth', 'storage', 'extensions', 'graphql', 'graphql_public', 'realtime', '_realtime', 'supabase_functions', 'supabase_migrations', 'pgrst_config', 'information_schema', 'pg_catalog', 'pg_toast', 'vault', 'pgsodium', 'pgsodium_masks', 'net', 'cron', 'logflare')
     AND schema_name NOT LIKE 'pg_%'
+    AND schema_name NOT LIKE '_%'
   LOOP
 
     -- Create document_uploads table if it doesn't exist

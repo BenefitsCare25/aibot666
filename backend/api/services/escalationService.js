@@ -104,7 +104,7 @@ export async function updateEscalationWithContact(escalationId, contactInfo, emp
  * @param {string} query - The user's message
  * @param {object} response - The AI response object
  * @param {object} employee - The employee record
- * @param {string} reason - The escalation reason ('ai_unable_to_answer' or 'low_confidence')
+ * @param {string} reason - The escalation reason ('ai_escalated', legacy: 'ai_unable_to_answer', 'low_confidence')
  * @param {object} supabaseClient - Company-scoped Supabase client
  * @param {string|null} schemaName - The tenant schema name for multi-tenant routing
  */

@@ -788,7 +788,7 @@ router.post('/message', async (req, res) => {
     // Classify intent: fast regex first, LLM fallback for ambiguous messages
     let messageIntent = classifyMessageIntentFastPath(message);
     // Get conversation history early (needed for LLM classification + RAG)
-    const history = await getConversationHistory(session.conversationId, 10, session.employeeId);
+    const history = await getConversationHistory(session.conversationId, 40, session.employeeId);
     const formattedHistory = history.map(h => ({ role: h.role, content: h.content }));
 
     if (messageIntent === 'unknown') {
@@ -826,7 +826,7 @@ router.post('/message', async (req, res) => {
           message,
           req.supabase,
           companyAISettings?.top_k_results || 5,
-          companyAISettings?.similarity_threshold || 0.7,
+          companyAISettings?.similarity_threshold || 0.55,
           null,
           null,
           queryEmbedding
@@ -840,7 +840,7 @@ router.post('/message', async (req, res) => {
         console.log(`  [${idx + 1}] similarity=${ctx.similarity?.toFixed(4)} title="${(ctx.title || '').substring(0, 60)}" category=${ctx.category}`);
       });
     } else if (needsKBSearch) {
-      console.log(`[KB Search] No results for "${message.substring(0, 60)}" (threshold=${companyAISettings?.similarity_threshold || 0.7})`);
+      console.log(`[KB Search] No results for "${message.substring(0, 60)}" (threshold=${companyAISettings?.similarity_threshold || 0.55})`);
     }
 
     // Pre-process: Check if user is responding to escalation with contact info
@@ -900,7 +900,64 @@ router.post('/message', async (req, res) => {
       response.confidence = 0.9;
     }
 
-    // Save messages to Redis (sequential - order matters in Redis list)
+    // Escalation detection — AI prompt handles escalation decisions via XML rules.
+    // Backend detects escalation phrase to trigger side effects (DB record, Telegram, state).
+    let escalated = false;
+    let escalationReason = null;
+
+    // Normalize: strip markdown, collapse whitespace/newlines for robust substring matching
+    const cleanLower = (response.answer || '')
+      .replace(/[*_#`]/g, '')
+      .replace(/\s+/g, ' ')
+      .toLowerCase()
+      .trim();
+
+    // Detect if the AI chose to escalate — substring matching catches the phrase
+    // even if the AI prepends "Apologies," or adds extra words around it.
+    // Phrases are kept short to survive minor LLM rewording.
+    const aiEscalated =
+      cleanLower.includes('check back with the team') ||
+      cleanLower.includes('leave your contact') ||
+      cleanLower.includes('leave your email') ||
+      cleanLower.includes('our team to follow up') ||
+      cleanLower.includes('核实') ||
+      cleanLower.includes('团队会尽快与您联系') ||
+      cleanLower.includes('留下您的联系');
+
+    const canEscalate = ['domain_question', 'follow_up', 'meta_request'].includes(messageIntent);
+    const currentState = conversationState || {};
+
+    if (canEscalate && aiEscalated && ESCALATE_ON_NO_KNOWLEDGE) {
+      // AI decided to escalate — trigger backend side effects
+      escalated = true;
+      escalationReason = 'ai_escalated';
+
+      await updateConversationState(sessionId, {
+        failedKBAttempts: 0,
+        askedToElaborate: false,
+        lastFailedQuery: null,
+        consecutiveEscalations: (currentState.consecutiveEscalations || 0) + 1
+      });
+
+      await handleEscalation(session, message, response, employee, escalationReason, req.supabase, req.company.schemaName);
+
+      await updateConversationState(sessionId, {
+        lastBotAction: 'escalated',
+        awaitingContactInfo: true,
+        escalationTimestamp: new Date().toISOString(),
+        escalationReason
+      });
+    } else if (canEscalate && contexts?.length > 0) {
+      // KB returned results — reset state
+      await updateConversationState(sessionId, {
+        failedKBAttempts: 0,
+        askedToElaborate: false,
+        lastFailedQuery: null,
+        consecutiveEscalations: 0
+      });
+    }
+
+    // Save messages AFTER escalation check — ensures the final response is persisted
     await addMessageToHistory(session.conversationId, {
       role: 'user',
       content: message
@@ -918,82 +975,6 @@ router.post('/message', async (req, res) => {
       touchSession(sessionId)
     ]);
 
-    // Check if escalation is needed based on configuration
-    let escalated = false;
-    let escalationReason = null;
-
-    // Get escalation threshold from company settings (default 0.55)
-    const escalationThreshold = companyAISettings?.escalation_threshold ?? 0.55;
-
-    // Check if AI explicitly says it cannot answer
-    const cleanAnswer = response.answer ? response.answer.replace(/[*_]/g, '') : '';
-    const cleanLower = cleanAnswer.toLowerCase();
-    const aiSaysNoKnowledge =
-      cleanLower.includes('for such query, let us check back with the team') ||
-      cleanLower.includes('for such a query, let us check back with the team') ||
-      cleanLower.includes('check back with the team') ||
-      (cleanLower.includes('escalate') && cleanLower.includes('contact')) ||
-      (cleanLower.includes('specific details of your policy') && cleanLower.includes('contact'));
-
-    const lowConfidence = response.confidence < escalationThreshold;
-
-    // Only KB-searchable intents can escalate
-    const canEscalate = ['domain_question', 'follow_up', 'meta_request'].includes(messageIntent);
-    const currentState = conversationState || {};
-    const alreadyAskedToElaborate = currentState.askedToElaborate === true;
-
-    if (canEscalate && needsKBSearch && ESCALATE_ON_NO_KNOWLEDGE && (aiSaysNoKnowledge || lowConfidence)) {
-
-      if (!alreadyAskedToElaborate) {
-        // FIRST ATTEMPT: Ask user to elaborate instead of escalating
-        response.answer = "I'd like to help you with that. Could you provide a bit more detail or rephrase your question so I can find the right information for you?";
-        response.confidence = 0.7;
-        escalated = false;
-
-        await updateConversationState(sessionId, {
-          failedKBAttempts: (currentState.failedKBAttempts || 0) + 1,
-          askedToElaborate: true,
-          lastFailedQuery: message,
-          lastIntent: messageIntent
-        });
-      } else {
-        // SECOND ATTEMPT: User already elaborated but KB still has no answer → escalate
-        escalated = true;
-        escalationReason = aiSaysNoKnowledge ? 'ai_unable_to_answer' : 'low_confidence';
-
-        await updateConversationState(sessionId, {
-          failedKBAttempts: 0,
-          askedToElaborate: false,
-          lastFailedQuery: null,
-          consecutiveEscalations: (currentState.consecutiveEscalations || 0) + 1
-        });
-      }
-    } else if (canEscalate && contexts?.length > 0) {
-      // KB returned results — reset failed attempt counter
-      await updateConversationState(sessionId, {
-        failedKBAttempts: 0,
-        askedToElaborate: false,
-        lastFailedQuery: null,
-        consecutiveEscalations: 0
-      });
-    }
-
-    if (escalated) {
-      // Soften message after 2+ consecutive escalations in same conversation
-      if ((currentState.consecutiveEscalations || 0) >= 2) {
-        response.answer = "I'm sorry I don't have that information available. Our team has already been notified and will follow up with you.";
-      }
-
-      await handleEscalation(session, message, response, employee, escalationReason, req.supabase, req.company.schemaName);
-
-      await updateConversationState(sessionId, {
-        lastBotAction: 'escalated',
-        awaitingContactInfo: true,
-        escalationTimestamp: new Date().toISOString(),
-        escalationReason
-      });
-    }
-
     // Cache the result if confidence is high (only for domain questions with an embedding)
     if (response.confidence >= 0.8 && needsKBSearch && queryEmbedding) {
       const cachePayload = {
@@ -1001,11 +982,8 @@ router.post('/message', async (req, res) => {
         confidence: response.confidence,
         sources: response.sources
       };
-      // Store exact-match cache and semantic cache (embedding) together
       setSemanticCache(schemaName, queryHash, cachePayload, queryEmbedding).catch(() => {});
     }
-
-    // Final summary log
 
     res.json({
       success: true,

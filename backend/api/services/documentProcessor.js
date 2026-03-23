@@ -430,7 +430,11 @@ export async function batchGenerateEmbeddings(chunks) {
   try {
     for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
       const batch = chunks.slice(i, i + BATCH_SIZE);
-      const texts = batch.map(chunk => chunk.content);
+      // Use heading/title + content for embedding (matches Q&A entry format for consistent similarity)
+      const texts = batch.map(chunk => {
+        const heading = chunk.heading || chunk.title || '';
+        return heading ? `${heading}\n\n${chunk.content}` : chunk.content;
+      });
 
       console.log(`Generating embeddings for batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(chunks.length / BATCH_SIZE)}`);
 
@@ -455,6 +459,10 @@ export async function batchGenerateEmbeddings(chunks) {
       }
 
       batch.forEach((chunk, index) => {
+        if (embeddings[index] === null) {
+          console.warn(`Skipping chunk "${chunk.heading || chunk.title || index}" — empty content, no embedding generated`);
+          return;
+        }
         chunksWithEmbeddings.push({
           ...chunk,
           embedding: embeddings[index],

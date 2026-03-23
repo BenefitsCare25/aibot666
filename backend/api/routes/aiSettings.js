@@ -11,9 +11,8 @@ const DEFAULT_AI_SETTINGS = {
   temperature: parseFloat(process.env.OPENAI_TEMPERATURE) || 0,
   max_tokens: parseInt(process.env.OPENAI_MAX_TOKENS) || 1000,
   embedding_model: process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small',
-  similarity_threshold: parseFloat(process.env.VECTOR_SIMILARITY_THRESHOLD) || 0.7,
+  similarity_threshold: parseFloat(process.env.VECTOR_SIMILARITY_THRESHOLD) || 0.55,
   top_k_results: parseInt(process.env.TOP_K_RESULTS) || 5,
-  escalation_threshold: 0.5,
   system_prompt: null, // null means use default from openai.js
   use_global_defaults: true
 };
@@ -222,7 +221,7 @@ router.post('/test', async (req, res) => {
       testQuery,
       companySupabase,
       testSettings.top_k_results || 5,
-      testSettings.similarity_threshold || 0.7,
+      testSettings.similarity_threshold || 0.55,
       null,
       null // No policy type filtering for test
     );
@@ -380,14 +379,6 @@ function validateAISettings(settings) {
     const topK = parseInt(settings.top_k_results);
     if (isNaN(topK) || topK < 1 || topK > 20) {
       errors.push('top_k_results must be an integer between 1 and 20');
-    }
-  }
-
-  // Validate escalation_threshold
-  if (settings.escalation_threshold !== undefined) {
-    const threshold = parseFloat(settings.escalation_threshold);
-    if (isNaN(threshold) || threshold < 0 || threshold > 1) {
-      errors.push('escalation_threshold must be a number between 0 and 1');
     }
   }
 

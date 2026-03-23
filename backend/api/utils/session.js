@@ -161,10 +161,10 @@ export async function addMessageToHistory(conversationId, message) {
     pipeline.llen(historyKey);
     const results = await pipeline.exec();
 
-    // Conditional LTRIM only if length > 20
+    // Conditional LTRIM only if length > 40 (keep 20 turns = 40 messages)
     const length = results[2]?.[1];
-    if (length > 20) {
-      await redis.ltrim(historyKey, -20, -1);
+    if (length > 40) {
+      await redis.ltrim(historyKey, -40, -1);
     }
 
     return true;
@@ -181,7 +181,7 @@ export async function addMessageToHistory(conversationId, message) {
  * @param {string} employeeId - Optional employee ID for validation (security check)
  * @returns {Promise<Array>} - Array of messages
  */
-export async function getConversationHistory(conversationId, limit = 10, employeeId = null) {
+export async function getConversationHistory(conversationId, limit = 40, employeeId = null) {
   try {
     // SECURITY: If employeeId is provided, validate conversation belongs to this employee
     if (employeeId) {
