@@ -557,6 +557,8 @@ domain_question/follow_up/meta_request → KB search → RAG → 2-attempt escal
 
 **System prompt updates (openai.js — 2026-03-17)**: Instructions 3b (elaboration before escalation) and 3c (non-benefits message handling) added. Context awareness extended with correction handling and domain-style identifier recognition.
 
+**System prompt management (2026-03-23)**: The AI system prompt is now **exclusively managed in the backend** (`createRAGPrompt()` in `openai.js`). The admin portal AI Settings page no longer has a prompt textarea — it only controls tuning parameters (model, temperature, similarity threshold, top K). Custom `system_prompt` values in `ai_settings` JSONB are ignored by the backend. The `injectVariablesIntoPrompt()` function was removed. This prevents frontend prompt overrides from silently dropping KB context, conversation history, or escalation logic.
+
 ### Query Cache + Semantic Cache (chat.js + session.js — 2026-03-09)
 
 Full pipeline for `domain_question` intent:

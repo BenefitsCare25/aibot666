@@ -83,63 +83,6 @@ export async function generateEmbeddingsBatch(texts) {
 // injectConversationContextAwareness removed — logic now embedded in XML system prompt
 
 /**
- * Inject variables into custom prompt template
- * @param {string} template - Custom prompt template with {{VARIABLES}}
- * @param {Object} data - Data to inject (query, contexts, employeeData, etc.)
- * @returns {string} - Prompt with variables replaced
- */
-function injectVariablesIntoPrompt(template, data) {
-  const { query, contexts, employeeData, similarityThreshold, topKResults, contextCount } = data;
-
-  // Format context text with Title/Content structure
-  const contextText = contexts && contexts.length > 0
-    ? contexts.map((ctx, idx) => {
-        const cleanTitle = (ctx.title || 'N/A').replace(/^#+\s*/, '').trim();
-        return `[Context ${idx + 1}]\n` +
-          `Title: ${cleanTitle}\n` +
-          `Category: ${ctx.category}\n` +
-          `Similarity: ${ctx.similarity?.toFixed(4) || 'N/A'}\n` +
-          `Content: ${ctx.content}`;
-      }).join('\n\n---\n\n')
-    : 'No knowledge base context available for this query.';
-
-  // Format employee info (policy details not included for security)
-  const employeeInfo = employeeData ? `
-Employee Information:
-- Name: ${employeeData.name}
-- Employee ID: ${employeeData.employee_id || 'N/A'}
-- User ID: ${employeeData.user_id || 'N/A'}
-- Email: ${employeeData.email || 'N/A'}
-
-Note: For your specific policy details and coverage limits, please refer to your employee portal.
-` : 'No employee information available.';
-
-  // Replace all variables in template
-  let result = template
-    // Configuration variables
-    .replace(/\{\{SIMILARITY_THRESHOLD\}\}/g, similarityThreshold.toFixed(2))
-    .replace(/\{\{TOP_K_RESULTS\}\}/g, topKResults)
-    .replace(/\{\{CONTEXT_COUNT\}\}/g, contextCount)
-
-    // Query variable
-    .replace(/\{\{QUERY\}\}/g, query)
-    .replace(/\{\{USER_QUESTION\}\}/g, query)
-
-    // Context variables
-    .replace(/\{\{CONTEXT\}\}/g, contextText)
-    .replace(/\{\{CONTEXTS\}\}/g, contextText)
-    .replace(/\{\{KNOWLEDGE_BASE\}\}/g, contextText)
-
-    // Employee variables
-    .replace(/\{\{EMPLOYEE_INFO\}\}/g, employeeInfo)
-    .replace(/\{\{EMPLOYEE_NAME\}\}/g, employeeData?.name || 'N/A')
-    .replace(/\{\{EMPLOYEE_ID\}\}/g, employeeData?.employee_id || 'N/A')
-    .replace(/\{\{EMPLOYEE_EMAIL\}\}/g, employeeData?.email || 'N/A');
-
-  return result;
-}
-
-/**
  * Create RAG prompt with retrieved context using XML-structured format
  * @param {string} query - User query
  * @param {Array} contexts - Retrieved context chunks
@@ -247,29 +190,12 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
     const model = customSettings?.model || CHAT_MODEL;
     const temperature = customSettings?.temperature ?? TEMPERATURE;
     const maxTokens = customSettings?.max_tokens ?? MAX_TOKENS;
-    const customPrompt = customSettings?.system_prompt;
     const similarityThreshold = customSettings?.similarity_threshold ?? 0.55;
     const topKResults = customSettings?.top_k_results ?? 5;
 
 
-    let systemPrompt;
-
-    // If custom prompt is provided, inject variables into it
-    if (customPrompt) {
-
-      // Inject variables into custom prompt
-      systemPrompt = injectVariablesIntoPrompt(customPrompt, {
-        query,
-        contexts,
-        employeeData,
-        similarityThreshold,
-        topKResults,
-        contextCount: contexts?.length || 0
-      });
-
-    } else {
-      systemPrompt = createRAGPrompt(query, contexts, employeeData, conversationHistory, similarityThreshold);
-    }
+    // Always use backend-managed prompt — frontend no longer overrides
+    const systemPrompt = createRAGPrompt(query, contexts, employeeData, conversationHistory, similarityThreshold);
 
     // System prompt contains all context (employee, KB, history, query) in XML structure
     // Send as single system message + one user message for the current query
