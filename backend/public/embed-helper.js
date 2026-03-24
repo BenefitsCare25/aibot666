@@ -58,10 +58,40 @@
     }
   });
 
-  // Handle resize messages from the widget
+  // Handle messages from the widget
   window.addEventListener('message', function(event) {
-    // Verify message type
-    if (!event.data || event.data.type !== 'chatWidgetResize') {
+    if (!event.data) return;
+
+    // Handle file download requests from widget (parent is NOT sandboxed, so downloads work)
+    if (event.data.type === 'chatWidgetDownload') {
+      var url = event.data.url;
+      var fallbackName = event.data.filename || 'download.pdf';
+      fetch(url)
+        .then(function(res) {
+          if (!res.ok) throw new Error('Download failed: ' + res.status);
+          var cd = res.headers.get('content-disposition') || '';
+          var match = cd.match(/filename="?([^";\n]+)"?/);
+          if (match) fallbackName = match[1];
+          return res.blob();
+        })
+        .then(function(blob) {
+          var blobUrl = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = fallbackName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 10000);
+        })
+        .catch(function(err) {
+          console.error('[ChatWidget] Download error:', err);
+        });
+      return;
+    }
+
+    // Handle resize messages
+    if (event.data.type !== 'chatWidgetResize') {
       return;
     }
 
