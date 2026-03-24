@@ -102,8 +102,10 @@
       iframe.style.left = 'auto';
       iframe.style.bottom = isParentMobile ? '12px' : '16px';
       iframe.style.right = isParentMobile ? '12px' : '16px';
-      iframe.style.width = typeof w === 'string' ? w : w + 'px';
-      iframe.style.height = typeof h === 'string' ? h : h + 'px';
+      // Only apply numeric (pixel) dimensions on desktop — ignore '100vw'/'100vh' strings
+      // which the widget may send during a race condition before it receives parent info
+      if (typeof w === 'number') iframe.style.width = w + 'px';
+      if (typeof h === 'number') iframe.style.height = h + 'px';
       iframe.style.zIndex = '9999';
       iframe.style.borderRadius = '16px';
       iframe.style.boxShadow = 'none';
