@@ -17,6 +17,12 @@
     return;
   }
 
+  // Ensure allow-downloads is in sandbox (for LOG form PDF downloads)
+  var sandbox = iframe.getAttribute('sandbox');
+  if (sandbox && sandbox.indexOf('allow-downloads') === -1) {
+    iframe.setAttribute('sandbox', sandbox + ' allow-downloads');
+  }
+
   // Track state for change detection
   var lastState = 'closed';
 
