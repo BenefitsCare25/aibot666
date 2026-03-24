@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { groupQuestionsByCategory } from '../../utils/quickQuestionUtils.js';
+import { safeErrorDetails } from '../../utils/response.js';
 
 const router = express.Router();
 
@@ -68,7 +69,7 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch quick questions',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -145,7 +146,7 @@ router.post('/', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to create quick question',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -188,7 +189,7 @@ router.put('/:id', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to update quick question',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -217,7 +218,7 @@ router.delete('/:id', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to delete quick question',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -265,7 +266,7 @@ router.put('/category/:categoryId', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to update category',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -308,7 +309,7 @@ router.post('/bulk-import', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to bulk import quick questions',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -356,7 +357,7 @@ router.post('/upload-excel', upload.single('file'), async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to import quick questions from Excel',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });

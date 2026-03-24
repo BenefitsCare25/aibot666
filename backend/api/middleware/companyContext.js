@@ -8,6 +8,7 @@ const COMPANY_CACHE_TTL = 300;
 // In-memory company cache (checked before Redis for hot-path optimization)
 const memoryCache = new Map();
 const MEMORY_CACHE_TTL = 60000; // 60 seconds
+const MEMORY_CACHE_MAX_SIZE = 200; // L7: cap to prevent unbounded growth
 
 // Periodic cleanup of expired in-memory entries
 setInterval(() => {
@@ -54,7 +55,6 @@ export async function companyContextMiddleware(req, res, next) {
         return res.status(404).json({
           success: false,
           error: 'Company not found for this domain',
-          domain: normalizedDomain,
           hint: 'Please ensure a company is registered with this domain in the admin panel. Check the Company Selector to verify the correct domain is selected.'
         });
       }
@@ -203,6 +203,10 @@ async function getCachedCompany(domain) {
 async function cacheCompany(domain, company) {
   try {
     // Write to in-memory cache
+    if (memoryCache.size >= MEMORY_CACHE_MAX_SIZE) {
+      const oldest = memoryCache.keys().next().value;
+      memoryCache.delete(oldest);
+    }
     memoryCache.set(domain, { data: company, timestamp: Date.now() });
     // Write to Redis
     const cacheKey = `company:domain:${domain}`;

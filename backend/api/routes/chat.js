@@ -18,6 +18,7 @@ import {
   getConversationState
 } from '../utils/session.js';
 import supabase from '../../config/supabase.js';
+import { safeErrorDetails } from '../utils/response.js';
 import { createHash } from 'crypto';
 import { notifyLogRequest } from '../services/telegram.js';
 import { companyContextMiddleware } from '../middleware/companyContext.js';
@@ -79,7 +80,9 @@ router.get('/log-form/:fileKey', (req, res) => {
 
   const buffer = Buffer.from(file.base64, 'base64');
   res.setHeader('Content-Type', file.mimeType || 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
+  // Sanitize filename to prevent header injection
+  const safeFileName = (file.fileName || 'download.pdf').replace(/["\r\n\\]/g, '_');
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"`);
   res.setHeader('Content-Length', buffer.length);
   res.send(buffer);
 });
@@ -87,7 +90,9 @@ router.get('/log-form/:fileKey', (req, res) => {
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const sessionId = req.body.sessionId || 'temp';
+    // Validate sessionId format to prevent path traversal
+    const rawSessionId = req.body.sessionId || 'temp';
+    const sessionId = /^[a-zA-Z0-9_-]+$/.test(rawSessionId) ? rawSessionId : 'temp';
     const uploadDir = path.join(process.cwd(), 'uploads', 'temp', sessionId);
 
     // Create directory if it doesn't exist
@@ -1500,7 +1505,7 @@ router.get('/quick-questions', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch quick questions',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });

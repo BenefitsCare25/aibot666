@@ -22,10 +22,11 @@ export function resolveTemplateVars(text) {
  */
 function parseEmailList(raw) {
   if (!raw) return [];
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return raw
     .split(/[\n,]/)
     .map(e => e.trim())
-    .filter(e => e.length > 0)
+    .filter(e => e.length > 0 && EMAIL_REGEX.test(e))
     .map(e => ({ emailAddress: { address: e } }));
 }
 

@@ -58,16 +58,35 @@
     }
   });
 
-  // Handle messages from the widget
+  // Determine the expected widget origin from the iframe src
+  var widgetOrigin = '';
+  try {
+    widgetOrigin = new URL(iframe.src).origin;
+  } catch (e) {
+    console.warn('[ChatWidget] Could not parse iframe src origin');
+  }
+
+  // Handle messages from the widget (with origin validation)
   window.addEventListener('message', function(event) {
     if (!event.data) return;
+
+    // SECURITY: Validate message origin matches the widget iframe origin
+    if (widgetOrigin && event.origin !== widgetOrigin) {
+      return;
+    }
 
     // Handle file download requests from widget
     // Uses <a> navigation (not fetch) to avoid parent page CSP connect-src restrictions
     // Server returns Content-Disposition: attachment, so browser downloads without navigating away
     if (event.data.type === 'chatWidgetDownload') {
+      // SECURITY: Only allow downloads from the widget's own API origin
+      var downloadUrl = event.data.url || '';
+      if (widgetOrigin && downloadUrl.indexOf(widgetOrigin) !== 0) {
+        console.warn('[ChatWidget] Blocked download from untrusted URL:', downloadUrl);
+        return;
+      }
       var a = document.createElement('a');
-      a.href = event.data.url;
+      a.href = downloadUrl;
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();

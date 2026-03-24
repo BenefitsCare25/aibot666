@@ -1,6 +1,7 @@
 import express from 'express';
 import { companyContextMiddleware, adminContextMiddleware, invalidateCompanyCache } from '../../middleware/companyContext.js';
 import { authenticateToken, requireSuperAdmin } from '../../middleware/authMiddleware.js';
+import { safeErrorDetails } from '../../utils/response.js';
 
 // Import sub-routers
 import employeesRouter from './employees.js';
@@ -108,7 +109,7 @@ router.get('/quick-questions/download-template', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to generate template',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -130,7 +131,7 @@ router.get('/knowledge/download-template', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to generate template',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -166,7 +167,10 @@ router.use('/companies', companiesRouter);
 router.use('/chat-history', chatHistoryRouter);
 router.use('/analytics', analyticsRouter);
 router.use('/quick-questions', quickQuestionsRouter);
-router.use('/debug', debugRouter);
+// L2: Debug endpoints only available in non-production
+if (process.env.NODE_ENV !== 'production') {
+  router.use('/debug', debugRouter);
+}
 router.use('/email-automation', emailAutomationRouter);
 
 // Cache clear route (mounted at /cache, not under /debug)
@@ -188,13 +192,20 @@ router.post('/cache/clear-company', requireSuperAdmin, async (req, res) => {
     } else {
       // Clear all company caches
       const { redis } = await import('../../utils/session.js');
-      const keys = await redis.keys('company:domain:*');
-      if (keys.length > 0) {
-        await redis.del(...keys);
-      }
+      // L4: Use SCAN instead of KEYS to avoid blocking Redis
+      let cursor = '0';
+      let deletedCount = 0;
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', 'company:domain:*', 'COUNT', 100);
+        cursor = nextCursor;
+        if (keys.length > 0) {
+          await redis.del(...keys);
+          deletedCount += keys.length;
+        }
+      } while (cursor !== '0');
       res.json({
         success: true,
-        message: `Cleared ${keys.length} company cache entries`
+        message: `Cleared ${deletedCount} company cache entries`
       });
     }
   } catch (error) {

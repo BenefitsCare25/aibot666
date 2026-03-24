@@ -55,6 +55,7 @@ backend/
 │   │   ├── auth.js                   # JWT_SECRET (no fallback, throws if unset)
 │   │   ├── sanitize.js               # Search param sanitization (SQL injection prevention)
 │   │   ├── fileValidation.js          # Magic bytes validation (PDF, JPEG, PNG, GIF, XLSX)
+│   │   ├── logAttachmentValidation.js # LOG upload token-overlap validation (mirrors frontend)
 │   │   ├── validation.js             # Shared EMAIL_REGEX, isValidEmail()
 │   │   ├── pagination.js             # parsePagination(), paginationResponse() (cap: 200)
 │   │   ├── quickQuestionUtils.js      # groupQuestionsByCategory()
@@ -89,7 +90,7 @@ All other admin routes get `companyContextMiddleware` (tenant schema).
 - **Domain spoofing**: Origin mismatch logged as warning
 - **Color param XSS**: Validated against `/^#[0-9a-fA-F]{3,8}$/`
 - **X-Frame-Options**: `DENY` on all routes except `/chat` (iframe embed) and `/api/chat/log-form/*` (file downloads opened in new tabs)
-- **LOG upload validation**: Client-side filename matching blocks claims/receipts from being submitted as LOG documents
+- **LOG upload validation**: Frontend + backend token-overlap matching blocks non-LOG documents from being submitted (`logAttachmentValidation.js`)
 
 ### Performance Features
 
@@ -273,6 +274,13 @@ window.addEventListener('message', function(event) {
 
 **Adding new content components:** Add `data-chat-content` attribute to root element, avoid fixed heights, test resize behavior.
 
+**PostMessage types handled by `embed-helper.js`:**
+| Message Type | Direction | Purpose |
+|-------------|-----------|---------|
+| `chatWidgetResize` | Widget → Parent | Resize iframe to fit widget content |
+| `chatWidgetDownload` | Widget → Parent | Delegate file download (iframe sandbox blocks direct downloads) |
+| `chatWidgetParentInfo` | Parent → Widget | Send parent viewport width + isMobile flag |
+
 ## Multi-Tenant Domain Routing
 
 Detection order: `domain` URL param → `document.referrer` → `window.location.hostname`
@@ -412,13 +420,30 @@ Per-company LOG request routes stored in `company.settings.logConfig` JSONB. Man
 6. `POST /api/chat/anonymous-log-request` accepts optional `logRoute` field → stored in `metadata.logRoute` → route label included in support email (includes company name in subject and body)
 
 **Document upload validation (2026-03-24):**
-When a LOG route has `requiredDocuments`, uploaded files are validated client-side via filename partial matching:
-- Expected filenames derived from `requiredDocuments[].name` + `downloadableFiles[].fileName` (normalized: lowercase, `_-` → space, extension stripped)
-- Blocklist regex catches wrong documents: `receipt|claim|invoice|reimburse|\bmc\b|medical.cert|payment`
-- If any file is flagged → submit button disabled, amber warning: "For other claims, please submit through the portal."
-- Validation runs via `useEffect` on attachment changes — instant feedback
-- No validation when `requiredDocuments` is absent (backward compatible)
-- Logic in `validateLogAttachments()` helper in `LoginForm.jsx`
+When a LOG route has `requiredDocuments`, uploaded files are validated on **both frontend and backend** using identical token-overlap matching:
+- **Shared logic**: `validateLogAttachments()` in `LoginForm.jsx` (frontend) and `backend/api/utils/logAttachmentValidation.js` (backend) — must be kept in sync
+- **Token-overlap matching**: expected doc names are tokenized (stopwords removed), uploaded filenames must share ≥2 meaningful tokens with any expected document to pass
+- **Blocklist regex**: `receipt|claim|invoice|reimburse|\bmc\b|medical.cert|payment` → immediately blocked
+- **Frontend**: validation runs on submit click → amber warning shown, submission blocked
+- **Backend**: `POST /anonymous-log-request` validates before DB insert → returns 400 with error code (`ATTACHMENT_REQUIRED`, `ATTACHMENT_BLOCKLIST`, `ATTACHMENT_NO_MATCH`)
+- No files uploaded → "Please upload the required LOG document(s) before submitting."
+- Wrong files uploaded → "Please submit other claims on the portal."
+- At least one correct LOG document present → submission proceeds normally
+- Frontend warnings auto-clear when user changes attachments (useEffect on `logAttachments`)
+- No validation when `requiredDocuments` is absent or `logRoute` is null (backward compatible)
+
+**LOG form PDF download (postMessage delegation):**
+Downloads from within a sandboxed cross-origin iframe are blocked by browsers — the `allow-downloads` sandbox flag is required, and **modifying the sandbox attribute at runtime does NOT retroactively apply to already-loaded content** (HTML spec limitation — only affects future navigations).
+
+Solution: Widget delegates downloads to the parent page via `postMessage`:
+1. Widget sends `{ type: 'chatWidgetDownload', url, filename }` to `window.parent`
+2. `embed-helper.js` (running in the unsandboxed parent) catches the message, creates a hidden `<a>` element with `href` pointing to the download URL, and clicks it programmatically
+3. Server returns `Content-Disposition: attachment` → browser downloads the file without navigating away
+4. Works with all existing client embeds — no sandbox or CSP changes needed on client side
+
+**Why `<a>` navigation, not `fetch+blob`:** Parent pages (e.g., Inspro) may have strict CSP headers (`connect-src 'self'`) that block `fetch()` to external domains. `<a>` navigation is NOT restricted by `connect-src` — it's a navigation, not a connection.
+
+**Rule:** Never use `fetch+blob+a.click()` or `window.open()` for downloads from within the widget iframe. Always delegate to the parent via postMessage. The download handler lives in `embed-helper.js` and must use `<a>` navigation (not `fetch`) to avoid parent CSP restrictions.
 
 **Backend endpoints:**
 | Method | Path | Description |
@@ -710,6 +735,13 @@ Ensure closed state iframe dimensions include padding (300x88px).
 
 ### Large gap at bottom of widget
 Check height calculation — button is hidden when open, use `contentHeight + 8` not `+ 80`.
+
+### File download not working from widget (LOG form PDF)
+**Cause:** The widget runs inside a sandboxed cross-origin iframe. Browsers block all download mechanisms (`fetch+blob`, `window.open`, `<a download>`) from sandboxed iframes unless `allow-downloads` is in the sandbox attribute. Even if `allow-downloads` is added at runtime via `embed-helper.js`, it only applies to future navigations — the already-loaded widget content retains the original sandbox permissions.
+
+**Fix:** Downloads must be delegated to the parent page via `postMessage`. The widget sends `{ type: 'chatWidgetDownload', url, filename }` and `embed-helper.js` (running in the unsandboxed parent) creates a hidden `<a>` element pointing to the download URL and clicks it. See LOG form PDF download section above.
+
+**Rule:** Never attempt direct downloads from within the iframe. Always use the postMessage delegation pattern through `embed-helper.js`.
 
 ### Widget covers full page on Safari/Mac (fullscreen takeover)
 **Cause:** Race condition — inside the 200px iframe, `window.innerWidth = 200` so widget sets `isMobile = true`. If user opens widget before `chatWidgetParentInfo` message arrives from parent, widget sends `width: '100vw', height: '100vh'` (string). Safari is more affected because cross-origin postMessage delivery is slower than Chrome.

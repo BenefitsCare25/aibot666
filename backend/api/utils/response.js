@@ -17,4 +17,15 @@ export function errorResponse(error, status = 500) {
   };
 }
 
-export default { successResponse, errorResponse };
+/**
+ * Return error.message only in non-production environments.
+ * In production, returns a generic message to prevent information leakage.
+ */
+export function safeErrorDetails(error) {
+  if (process.env.NODE_ENV === 'production') {
+    return undefined;
+  }
+  return typeof error === 'string' ? error : error?.message;
+}
+
+export default { successResponse, errorResponse, safeErrorDetails };

@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import { getSchemaClient, supabase } from '../../config/supabase.js';
 import { getCompanyByDomain, normalizeDomain } from '../services/companySchema.js';
+import { safeErrorDetails } from '../utils/response.js';
 
 const router = express.Router();
 
@@ -187,7 +188,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to upload document',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -302,7 +303,7 @@ router.post('/upload-bulk', upload.array('files', 10), async (req, res) => {
     for (const filePath of cleanupFiles) {
       try { fs.unlinkSync(filePath); } catch {}
     }
-    res.status(500).json({ success: false, error: 'Bulk upload failed', details: error.message });
+    res.status(500).json({ success: false, error: 'Bulk upload failed', details: safeErrorDetails(error) });
   }
 });
 
@@ -312,14 +313,16 @@ router.post('/upload-bulk', upload.array('files', 10), async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { status, page = 1, limit = 50 } = req.query;
+    const { status } = req.query;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
     const offset = (page - 1) * limit;
 
     let query = req.supabase
       .from('document_uploads')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
-      .range(offset, offset + parseInt(limit) - 1);
+      .range(offset, offset + limit - 1);
 
     if (status) {
       query = query.eq('status', status);
@@ -334,14 +337,14 @@ router.get('/', async (req, res) => {
       data: data || [],
       pagination: {
         page: parseInt(page),
-        limit: parseInt(limit),
+        limit: limit,
         total: count || 0,
-        pages: Math.ceil((count || 0) / parseInt(limit))
+        pages: Math.ceil((count || 0) / limit)
       }
     });
   } catch (error) {
     console.error('Error fetching documents:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch documents', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to fetch documents', details: safeErrorDetails(error) });
   }
 });
 
@@ -395,7 +398,7 @@ router.get('/:id/status', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching document status:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch document status', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to fetch document status', details: safeErrorDetails(error) });
   }
 });
 
@@ -461,7 +464,7 @@ router.patch('/:id/metadata', async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating document metadata:', error);
-    res.status(500).json({ success: false, error: 'Failed to update metadata', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to update metadata', details: safeErrorDetails(error) });
   }
 });
 
@@ -499,7 +502,7 @@ router.delete('/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('Error deleting document:', error);
-    res.status(500).json({ success: false, error: 'Failed to delete document', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to delete document', details: safeErrorDetails(error) });
   }
 });
 
@@ -510,7 +513,8 @@ router.delete('/:id', async (req, res) => {
 router.get('/:id/chunks', async (req, res) => {
   try {
     const { id } = req.params;
-    const { page = 1, limit = 20 } = req.query;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
 
     const { data, error, count } = await req.supabase
@@ -518,7 +522,7 @@ router.get('/:id/chunks', async (req, res) => {
       .select('id, title, content, category, subcategory, metadata, created_at', { count: 'exact' })
       .eq('document_id', id)
       .order('created_at', { ascending: true })
-      .range(offset, offset + parseInt(limit) - 1);
+      .range(offset, offset + limit - 1);
 
     if (error) throw new Error(`Failed to fetch chunks: ${error.message}`);
 
@@ -527,14 +531,14 @@ router.get('/:id/chunks', async (req, res) => {
       data: data || [],
       pagination: {
         page: parseInt(page),
-        limit: parseInt(limit),
+        limit: limit,
         total: count || 0,
-        pages: Math.ceil((count || 0) / parseInt(limit))
+        pages: Math.ceil((count || 0) / limit)
       }
     });
   } catch (error) {
     console.error('Error fetching document chunks:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch document chunks', details: error.message });
+    res.status(500).json({ success: false, error: 'Failed to fetch document chunks', details: safeErrorDetails(error) });
   }
 });
 

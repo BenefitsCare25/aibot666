@@ -1,5 +1,6 @@
 import express from 'express';
 import { addKnowledgeEntry } from '../../services/vectorDB.js';
+import { safeErrorDetails } from '../../utils/response.js';
 
 const router = express.Router();
 
@@ -130,7 +131,7 @@ router.patch('/:id', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to update escalation',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });

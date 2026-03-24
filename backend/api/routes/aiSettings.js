@@ -2,6 +2,7 @@ import express from 'express';
 import supabase from '../../config/supabase.js';
 import { generateRAGResponse } from '../services/openai.js';
 import { searchKnowledgeBase } from '../services/vectorDB.js';
+import { safeErrorDetails } from '../utils/response.js';
 
 const router = express.Router();
 
@@ -152,7 +153,7 @@ router.put('/companies/:companyId', async (req, res) => {
       return res.status(500).json({
         success: false,
         error: 'Failed to update AI settings',
-        details: error.message
+        details: safeErrorDetails(error)
       });
     }
 
@@ -266,7 +267,7 @@ router.post('/test', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to test AI configuration',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -293,7 +294,7 @@ router.post('/reset/:companyId', async (req, res) => {
       return res.status(500).json({
         success: false,
         error: 'Failed to reset AI settings',
-        details: error.message
+        details: safeErrorDetails(error)
       });
     }
 

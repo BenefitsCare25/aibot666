@@ -190,7 +190,8 @@ export async function getConversationHistory(conversationId, limit = 40, employe
       if (ownerSessionId) {
         const ownerSession = await getSession(ownerSessionId);
         if (ownerSession && ownerSession.employeeId !== employeeId) {
-          console.warn(`Security: Employee ${employeeId} attempted to access conversation ${conversationId} owned by ${ownerSession.employeeId}`);
+          const maskId = (id) => id ? id.slice(0, 3) + '***' : 'unknown';
+          console.warn(`Security: Employee ${maskId(employeeId)} attempted to access conversation ${conversationId} owned by ${maskId(ownerSession.employeeId)}`);
           return []; // Return empty history to prevent data leakage
         }
       }

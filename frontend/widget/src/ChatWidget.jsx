@@ -13,13 +13,19 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { initialize, fetchConfig, companyFeatures } = useChatStore();
 
+  // postMessage targetOrigin for outgoing messages to parent window.
+  // Must be '*' because the widget iframe (at our API origin) is embedded on
+  // arbitrary client sites (e.g., inspro.com.sg) whose origin we cannot predict.
+  // Security for INCOMING messages is handled by event.source checks (C2 fix).
+  const parentOrigin = '*';
+
   useEffect(() => {
     // Initialize store with API URL and optional domain override
     initialize(apiUrl, domain);
     fetchConfig();
 
-    // Check if user has existing session in localStorage
-    const storedSession = localStorage.getItem('chat_session');
+    // Check if user has existing session in sessionStorage (clears on tab close for PII safety)
+    const storedSession = sessionStorage.getItem('chat_session');
     if (storedSession) {
       try {
         const session = JSON.parse(storedSession);
@@ -33,7 +39,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         }
       } catch (error) {
         console.error('Failed to restore session:', error);
-        localStorage.removeItem('chat_session');
+        sessionStorage.removeItem('chat_session');
       }
     }
   }, [apiUrl, domain, initialize, fetchConfig]);
@@ -65,6 +71,8 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
     if (isInIframe) {
       // In iframe: listen for parent's viewport info to avoid resize loop
       const handleParentMessage = (event) => {
+        // SECURITY: Only accept messages from the parent window
+        if (event.source !== window.parent) return;
         if (event.data && event.data.type === 'chatWidgetParentInfo') {
           setIsMobile(event.data.isMobile);
         }
@@ -145,7 +153,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         width: 300,
         height: 88,
         state: 'closed'
-      }, '*');
+      }, parentOrigin);
       return;
     }
 
@@ -159,7 +167,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         width: '100vw',
         height: '100vh',
         state: 'open'
-      }, '*');
+      }, parentOrigin);
       return;
     }
 
@@ -193,7 +201,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         width: 380,
         height: height,
         state: 'open'
-      }, '*');
+      }, parentOrigin);
     };
 
     // Send initial size after delays to ensure content is fully rendered
@@ -233,8 +241,8 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
 
   const handleLogin = (sessionData) => {
     setIsAuthenticated(true);
-    // Store session in localStorage for persistence
-    localStorage.setItem('chat_session', JSON.stringify({
+    // Store session in sessionStorage (clears on tab close for PII safety)
+    sessionStorage.setItem('chat_session', JSON.stringify({
       sessionId: sessionData.sessionId,
       employeeId: sessionData.employee.id,
       employeeName: sessionData.employee.name
@@ -243,7 +251,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    localStorage.removeItem('chat_session');
+    sessionStorage.removeItem('chat_session');
     useChatStore.getState().reset();
     setIsOpen(false);
   };

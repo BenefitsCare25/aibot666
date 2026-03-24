@@ -116,9 +116,18 @@ const worker = new Worker(
   async (job) => {
     const { documentId, filePath, companySchema, uploadedBy, category: preselectedCategory } = job.data;
 
+    // M8: Validate filePath starts with expected upload directory (prevent path traversal)
+    const expectedPrefix = 'uploads/documents/';
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    if (!normalizedPath.startsWith(expectedPrefix) && !normalizedPath.startsWith('./' + expectedPrefix)) {
+      throw new Error(`Invalid file path: must be within ${expectedPrefix}`);
+    }
+    if (normalizedPath.includes('..')) {
+      throw new Error('Invalid file path: directory traversal not allowed');
+    }
+
     console.log(`\n========================================`);
     console.log(`Processing document ${documentId}`);
-    console.log(`File: ${filePath}`);
     console.log(`Schema: ${companySchema}`);
     console.log(`========================================\n`);
 

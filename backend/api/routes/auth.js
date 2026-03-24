@@ -40,7 +40,7 @@ router.post('/login', [
 
     const { username, password } = req.body;
 
-    // Account lockout check (fail-open with timeout to avoid blocking on Redis cold start)
+    // Account lockout check (fail-closed: deny login if Redis unavailable)
     const lockoutKey = `login_lockout:${username}`;
     let failCount = 0;
     try {
@@ -50,7 +50,11 @@ router.post('/login', [
       ]);
       failCount = parseInt(lockoutResult) || 0;
     } catch (e) {
-      console.warn('[auth] Redis lockout check skipped (Redis not ready):', e.message);
+      console.error('[auth] Redis lockout check failed — denying login for safety:', e.message);
+      return res.status(503).json({
+        error: 'Service temporarily unavailable',
+        message: 'Authentication service is temporarily unavailable. Please try again shortly.'
+      });
     }
     if (failCount >= 5) {
       const ttl = await redis.ttl(lockoutKey);

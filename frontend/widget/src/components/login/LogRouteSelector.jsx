@@ -8,6 +8,8 @@ export default function LogRouteSelector({ routes, downloadableFiles, apiUrl, do
     const domainParam = domain ? `?domain=${encodeURIComponent(domain)}` : '';
     const url = `${apiUrl}/api/chat/log-form/${downloadKey}${domainParam}`;
     // Delegate download to parent via postMessage (iframe sandbox blocks direct downloads)
+    // Must use '*' because the parent is an arbitrary client site whose origin we can't predict.
+    // Security for INCOMING messages is handled by event.source/origin checks in embed-helper.js.
     window.parent.postMessage({ type: 'chatWidgetDownload', url, filename: `${downloadKey}.pdf` }, '*');
   };
 

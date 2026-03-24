@@ -1,12 +1,13 @@
 import express from 'express';
 import supabase from '../../../config/supabase.js';
-import { getAllCompanies, getCompanyById, normalizeDomain } from '../../services/companySchema.js';
+import { getAllCompanies, getCompanyById, normalizeDomain, isValidSchemaName } from '../../services/companySchema.js';
 import {
   createCompanySchema,
   rollbackCompanyCreation,
   softDeleteCompany
 } from '../../services/schemaAutomation.js';
 import { invalidateCompanyCache } from '../../middleware/companyContext.js';
+import { safeErrorDetails } from '../../utils/response.js';
 
 const router = express.Router();
 
@@ -75,6 +76,14 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Validate schema name format before any DB operations
+    if (!isValidSchemaName(schema_name)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid schema_name. Must start with a letter or underscore, contain only lowercase letters, numbers, and underscores.'
+      });
+    }
+
     // Step 1: Insert company into registry
     const { data: company, error } = await supabase
       .from('companies')
@@ -124,7 +133,7 @@ router.post('/', async (req, res) => {
       return res.status(500).json({
         success: false,
         error: 'Failed to create database schema',
-        details: schemaError.message,
+        details: safeErrorDetails(schemaError),
         company_rolled_back: true,
         note: 'Company registry entry has been removed due to schema creation failure'
       });
@@ -134,7 +143,7 @@ router.post('/', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to create company',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -198,7 +207,7 @@ router.put('/:id', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to update company',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -267,7 +276,7 @@ router.delete('/:id', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to delete company',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -305,7 +314,7 @@ router.patch('/:id/status', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to update company status',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -377,7 +386,7 @@ router.patch('/:id/email-config', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to update email configuration',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });

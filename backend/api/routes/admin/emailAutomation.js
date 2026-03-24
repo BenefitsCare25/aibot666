@@ -5,6 +5,7 @@ import fs from 'fs';
 import { supabase } from '../../../config/supabase.js';
 import { requireSuperAdmin } from '../../middleware/authMiddleware.js';
 import { sendAutomationEmail } from '../../services/emailAutomationService.js';
+import { safeErrorDetails } from '../../utils/response.js';
 
 const router = express.Router();
 router.use(requireSuperAdmin);
@@ -127,7 +128,7 @@ router.get('/', async (req, res) => {
     .from('email_automations')
     .select('*')
     .order('portal_name');
-  if (error) return res.status(500).json({ success: false, error: 'Failed to fetch records', details: error.message });
+  if (error) return res.status(500).json({ success: false, error: 'Failed to fetch records', details: safeErrorDetails(error) });
   res.json({ success: true, data });
 });
 
@@ -152,7 +153,7 @@ router.post('/', async (req, res) => {
     .select()
     .single();
 
-  if (error) return res.status(500).json({ success: false, error: 'Failed to create record', details: error.message });
+  if (error) return res.status(500).json({ success: false, error: 'Failed to create record', details: safeErrorDetails(error) });
   res.status(201).json({ success: true, data });
 });
 
@@ -180,14 +181,14 @@ router.put('/:id', async (req, res) => {
     .select()
     .single();
 
-  if (error) return res.status(500).json({ success: false, error: 'Failed to update record', details: error.message });
+  if (error) return res.status(500).json({ success: false, error: 'Failed to update record', details: safeErrorDetails(error) });
   if (!data) return res.status(404).json({ success: false, error: 'Record not found' });
   res.json({ success: true, data });
 });
 
 router.delete('/:id', async (req, res) => {
   const { error } = await supabase.from('email_automations').delete().eq('id', req.params.id);
-  if (error) return res.status(500).json({ success: false, error: 'Failed to delete record', details: error.message });
+  if (error) return res.status(500).json({ success: false, error: 'Failed to delete record', details: safeErrorDetails(error) });
   res.json({ success: true });
 });
 
@@ -200,7 +201,7 @@ router.post('/:id/send', async (req, res) => {
     res.json({ success: true, message: 'Email sent successfully' });
   } catch (err) {
     console.error('[EmailAutomation] Send failed:', err.message);
-    res.status(500).json({ success: false, error: 'Failed to send email', details: err.message });
+    res.status(500).json({ success: false, error: 'Failed to send email', details: safeErrorDetails(err) });
   }
 });
 
@@ -277,7 +278,7 @@ router.post('/import', upload.single('file'), async (req, res) => {
     const allInserts = [...toInsert, ...noName];
     if (allInserts.length > 0) {
       const { error } = await supabase.from('email_automations').insert(allInserts);
-      if (error) return res.status(500).json({ success: false, error: 'Failed to insert records', details: error.message });
+      if (error) return res.status(500).json({ success: false, error: 'Failed to insert records', details: safeErrorDetails(error) });
       inserted = allInserts.length;
     }
 
@@ -294,7 +295,7 @@ router.post('/import', upload.single('file'), async (req, res) => {
     res.json({ success: true, imported: inserted + updated, inserted, updated });
   } catch (err) {
     console.error('[EmailAutomation] Import error:', err);
-    res.status(500).json({ success: false, error: 'Failed to parse Excel file', details: err.message });
+    res.status(500).json({ success: false, error: 'Failed to parse Excel file', details: safeErrorDetails(err) });
   } finally {
     fs.unlink(filePath, () => {});
   }

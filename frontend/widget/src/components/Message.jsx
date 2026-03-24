@@ -34,6 +34,11 @@ export default function Message({ message }) {
           ) : (
             <ReactMarkdown
               components={{
+                a: ({node, href, ...props}) => {
+                  const allowed = /^(https?:|mailto:)/i;
+                  if (href && !allowed.test(href)) return <span {...props} />;
+                  return <a href={href} target="_blank" rel="noopener noreferrer" className="ic-underline" style={{ color: 'var(--color-primary-500)' }} {...props} />;
+                },
                 p: ({node, ...props}) => (
                   <p
                     className="ic-mb-2 ic-last:mb-0 ic-leading-relaxed"

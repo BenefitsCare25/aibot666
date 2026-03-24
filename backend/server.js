@@ -30,7 +30,7 @@ dotenv.config();
 
 // SRI hashes with TTL cache (re-reads from disk every 60s to survive deploys without restart)
 import { readFileSync, existsSync } from 'fs';
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { join } from 'path';
 
 const SRI_CACHE_TTL_MS = 60_000;
@@ -84,12 +84,18 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3001';
 // This allows express-rate-limit to correctly identify user IPs from X-Forwarded-For header
 app.set('trust proxy', 1);
 
+// M1: Generate per-request CSP nonce for inline scripts
+app.use((req, res, next) => {
+  res.locals.cspNonce = randomBytes(16).toString('base64');
+  next();
+});
+
 // Security middleware - Relaxed for widget embedding
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.cspNonce}'`],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: ["'self'"],
@@ -238,7 +244,32 @@ const chatLimiter = rateLimit({
   }
 });
 
+// Strict rate limiter for authentication endpoints (brute force protection)
+const authLimiter = rateLimit({
+  windowMs: 60000,
+  max: 10, // 10 login attempts per minute per IP
+  message: { success: false, error: 'Too many login attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => getCleanIp(req),
+  validate: { ip: false }
+});
+
+// Strict rate limiter for anonymous LOG/callback endpoints (email abuse prevention)
+const anonymousFormLimiter = rateLimit({
+  windowMs: 60000,
+  max: 5, // 5 submissions per minute per IP
+  message: { success: false, error: 'Too many submissions, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => getCleanIp(req),
+  validate: { ip: false }
+});
+
 app.use('/api/', apiLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/chat/anonymous-log-request', anonymousFormLimiter);
+app.use('/api/chat/callback-request', anonymousFormLimiter);
 app.use('/api/chat', chatLimiter);
 
 // Health check endpoint
@@ -292,7 +323,7 @@ app.get('/chat', (req, res) => {
     ? `<script src="${baseUrl}/widget.iife.js" integrity="${jsIntegrity}" crossorigin="anonymous"></script>`
     : `<script src="${baseUrl}/widget.iife.js"></script>`
   }
-  <script>
+  <script nonce="${res.locals.cspNonce}">
     (function() {
       const params = new URLSearchParams(window.location.search);
       const companyId = params.get('company');
@@ -385,22 +416,22 @@ app.use('/api/admin/documents', documentsRoutes);
 app.use('/api/ai-settings', aiSettingsRoutes);
 app.use('/api/reembed', reembedRoutes);
 
-// Root endpoint
+// Root endpoint — minimal info in production
 app.get('/', (req, res) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (isProduction) {
+    return res.json({ name: 'API', status: 'ok' });
+  }
   res.json({
     name: 'Insurance Chatbot API',
     version: '1.0.0',
-    description: 'AI-powered insurance chatbot with RAG capabilities',
     endpoints: {
       health: '/health',
       embedCode: '/embed-code',
       auth: '/api/auth/*',
-      adminUsers: '/api/admin-users/*',
       chat: '/api/chat/*',
-      admin: '/api/admin/*',
-      aiSettings: '/api/ai-settings/*'
-    },
-    documentation: '/api/docs'
+      admin: '/api/admin/*'
+    }
   });
 });
 

@@ -16,6 +16,7 @@ import {
   deactivateEmployeesBulk
 } from '../../services/vectorDB.js';
 import { sanitizeSearchParam } from '../../utils/sanitize.js';
+import { safeErrorDetails } from '../../utils/response.js';
 
 const router = express.Router();
 
@@ -123,7 +124,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to upload employees',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -323,7 +324,7 @@ router.post('/', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to add employee',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -356,7 +357,7 @@ router.put('/:id', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to update employee',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -385,7 +386,7 @@ router.delete('/:id', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to delete employee',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -439,7 +440,7 @@ router.post('/bulk-delete', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to bulk delete employees',
-      details: error.message || 'Unknown error occurred'
+      details: safeErrorDetails(error) || 'Unknown error occurred'
     });
   }
 });
@@ -473,7 +474,7 @@ router.patch('/:id/deactivate', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to deactivate employee',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -499,7 +500,7 @@ router.patch('/:id/reactivate', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to reactivate employee',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -539,7 +540,7 @@ router.post('/bulk-deactivate', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to bulk deactivate employees',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });

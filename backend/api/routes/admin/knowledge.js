@@ -10,6 +10,7 @@ import {
 } from '../../services/vectorDB.js';
 import { sanitizeSearchParam } from '../../utils/sanitize.js';
 import { invalidateCompanyQueryCache } from '../../utils/session.js';
+import { safeErrorDetails } from '../../utils/response.js';
 
 const router = express.Router();
 
@@ -82,7 +83,7 @@ router.post('/', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to add knowledge entry',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -118,7 +119,7 @@ router.post('/batch', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to add knowledge entries',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -199,7 +200,7 @@ router.put('/:id', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to update knowledge entry',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
@@ -274,7 +275,7 @@ router.post('/upload-excel', upload.single('file'), async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Failed to import knowledge base from Excel',
-      details: error.message
+      details: safeErrorDetails(error)
     });
   }
 });
