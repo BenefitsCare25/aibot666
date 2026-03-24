@@ -27,12 +27,23 @@ function validateLogAttachments(attachments, logRoute, logConfig) {
     }
   }
 
+  // Check if at least one file matches an expected LOG document
+  const hasExpectedDoc = attachments.some(att => {
+    const normalized = normalizeFilename(att.name);
+    return !LOG_BLOCKLIST.test(normalized) &&
+      expectedNames.some(exp => normalized.includes(exp) || exp.includes(normalized));
+  });
+
+  // Allow submission if at least one correct LOG document is included
+  if (hasExpectedDoc) return [];
+
+  // Block: no valid LOG document found — flag all files
   const warnings = [];
   for (const att of attachments) {
     const normalized = normalizeFilename(att.name);
     if (LOG_BLOCKLIST.test(normalized)) {
       warnings.push({ filename: att.name, reason: 'blocklist' });
-    } else if (!expectedNames.some(exp => normalized.includes(exp) || exp.includes(normalized))) {
+    } else {
       warnings.push({ filename: att.name, reason: 'no_match' });
     }
   }
