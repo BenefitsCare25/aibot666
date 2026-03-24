@@ -18,10 +18,24 @@ export default function LogRequestForm({
   domain = '',
   fileWarnings = [],
 }) {
-  const handleDownload = (downloadKey) => {
-    if (downloadKey && apiUrl) {
+  const handleDownload = async (downloadKey) => {
+    if (!downloadKey || !apiUrl) return;
+    try {
       const domainParam = domain ? `?domain=${encodeURIComponent(domain)}` : '';
-      window.open(`${apiUrl}/api/chat/log-form/${downloadKey}${domainParam}`, '_blank');
+      const res = await fetch(`${apiUrl}/api/chat/log-form/${downloadKey}${domainParam}`);
+      if (!res.ok) throw new Error('Download failed');
+      const contentDisposition = res.headers.get('content-disposition') || '';
+      const filenameMatch = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      const filename = filenameMatch ? filenameMatch[1] : `${downloadKey}.pdf`;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      console.error('Download error:', err);
     }
   };
 
