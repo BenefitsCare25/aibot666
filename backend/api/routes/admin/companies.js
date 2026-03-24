@@ -414,7 +414,7 @@ router.get('/:id/embed-code', async (req, res) => {
   id="chat-widget-iframe"
   src="${apiUrl}/chat?company=${company.id}&domain=${encodedDomain}&color=%233b82f6"
   style="position: fixed; bottom: 16px; right: 16px; width: 200px; height: 80px; border: none; background: transparent; z-index: 9999;"
-  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
   allow="clipboard-write"
   allowtransparency="true"
   title="${company.name} Chat Widget">

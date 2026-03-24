@@ -87,7 +87,7 @@ function generateStaticIframe(entry) {
   id="chat-widget-iframe"
   src="${API_URL}/chat?company=${entry.companyId}&domain=${encoded}&color=%233b82f6"
   style="position: fixed; bottom: 16px; right: 16px; width: 200px; height: 80px; border: none; background: transparent; z-index: 9999; transition: all 0.3s ease;"
-  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
   allow="clipboard-write"
   allowtransparency="true"
   title="${entry.companyName} Chat Widget">
@@ -117,7 +117,7 @@ ${mapLines}
     iframe.id = "chat-widget-iframe";
     iframe.src = src;
     iframe.style.cssText = "position:fixed;bottom:16px;right:16px;width:200px;height:80px;border:none;background:transparent;z-index:9999;transition:all 0.3s ease;";
-    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups");
+    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups allow-downloads");
     iframe.setAttribute("allow", "clipboard-write");
     iframe.setAttribute("allowtransparency", "true");
     iframe.title = "Chat Widget";

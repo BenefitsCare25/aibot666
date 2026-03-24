@@ -167,7 +167,7 @@ For sites where multiple companies share the same host, distinguished by URL pat
     iframe.id = "chat-widget-iframe";
     iframe.src = src;
     iframe.style.cssText = "position:fixed;bottom:16px;right:16px;width:200px;height:80px;border:none;background:transparent;z-index:9999;transition:all 0.3s ease;";
-    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups");
+    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups allow-downloads");
     iframe.setAttribute("allow", "clipboard-write");
     iframe.setAttribute("allowtransparency", "true");
     iframe.title = "Chat Widget";
@@ -190,7 +190,7 @@ For sites with one company per page. Hardcoded company ID and domain. One snippe
   id="chat-widget-iframe"
   src="https://app-aibot-api.azurewebsites.net/chat?company=<UUID>&domain=<ENCODED_DOMAIN>&color=%233b82f6"
   style="position: fixed; bottom: 16px; right: 16px; width: 200px; height: 80px; border: none; background: transparent; z-index: 9999; transition: all 0.3s ease;"
-  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
   allow="clipboard-write"
   allowtransparency="true"
   title="Company Name Chat Widget">
