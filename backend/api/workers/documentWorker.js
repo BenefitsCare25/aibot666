@@ -1,5 +1,5 @@
 import { Worker } from 'bullmq';
-import { processDocument } from '../services/documentProcessor.js';
+import { processDocument, cleanTitle } from '../services/documentProcessor.js';
 import { getSchemaClient } from '../../config/supabase.js';
 import { parseRedisUrl } from '../../config/redis.js';
 import fs from 'fs/promises';
@@ -63,7 +63,7 @@ async function deleteDocumentChunks(documentId, schemaClient) {
 async function storeChunks(chunks, documentId, category, subcategory, schemaClient) {
   try {
     const entriesWithEmbeddings = chunks.map((chunk, index) => ({
-      title: chunk.heading || chunk.title || `Chunk ${index + 1}`,
+      title: cleanTitle(chunk.heading || chunk.title) || `Chunk ${index + 1}`,
       content: chunk.content,
       category: category,
       subcategory: subcategory || null,

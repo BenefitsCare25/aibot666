@@ -93,8 +93,12 @@ export async function generateEmbeddingsBatch(texts) {
 function createRAGPrompt(query, contexts, employeeData, conversationHistory = [], similarityThreshold = 0.55) {
   const contextText = contexts && contexts.length > 0
     ? contexts.map((ctx, idx) => {
-        // Clean markdown heading artifacts from titles (## / # prefixes)
-        const cleanTitle = (ctx.title || 'N/A').replace(/^#+\s*/, '').trim();
+        // Clean title artifacts: [SECTION: ...] markers, markdown #, bold **
+        const cleanTitle = (ctx.title || 'N/A')
+          .replace(/^\[SECTION:\s*/, '').replace(/\]$/, '')
+          .replace(/^#+\s*/, '')
+          .replace(/\*{1,3}/g, '')
+          .trim() || 'N/A';
         return `[Context ${idx + 1}]\n` +
           `Title: ${cleanTitle}\n` +
           `Category: ${ctx.category}\n` +

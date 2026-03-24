@@ -51,7 +51,7 @@ export function detectFormat(filePath) {
 
 /**
  * Extract text and metadata from PDF file
- * Uses pdf-parse first, falls back to GPT-4o-mini vision for scanned PDFs
+ * Uses vision model for content extraction, pdf-parse only for metadata
  * @param {string} filePath - Path to PDF file
  * @param {Function} onProgress - Progress callback for vision extraction
  * @returns {Promise<Object>} - {text, pageCount, title, metadata, extractionMethod}
@@ -76,7 +76,7 @@ export async function extractPDFContent(filePath, onProgress = null) {
   const pageCount = data.numpages || 1;
   console.log(`[DocumentProcessor] PDF: ${pageCount} pages, title="${title.trim()}"`);
 
-  // Always use GPT-4o-mini vision for PDF extraction
+  // Always use vision model for PDF content extraction
   console.log(`[DocumentProcessor] Using vision extraction for all ${pageCount} pages...`);
   const visionResult = await extractPdfWithVision(dataBuffer, pageCount, onProgress);
 
@@ -172,20 +172,77 @@ export async function extractContent(filePath, onProgress = null) {
 }
 
 /**
- * Detect section headings in text
+ * Clean markdown artifacts from title text
+ * @param {string} rawTitle - Raw title possibly containing markdown/markers
+ * @returns {string} - Cleaned title
+ */
+export function cleanTitle(rawTitle) {
+  if (!rawTitle) return '';
+  let title = rawTitle
+    .replace(/^\[SECTION:\s*/, '').replace(/\]$/, '')  // [SECTION: Title]
+    .replace(/^#{1,6}\s*/, '')                          // ## Heading
+    .replace(/\*{1,3}/g, '')                            // **bold**, *italic*
+    .replace(/^\d+\.\d*\s+/, '')                        // 1. or 1.2
+    .trim();
+  return title.length >= 3 ? title : '';
+}
+
+/**
+ * Clean markdown artifacts from body text (for non-vision or legacy content)
+ * @param {string} text - Raw text with potential markdown
+ * @returns {string} - Cleaned text
+ */
+function cleanText(text) {
+  if (!text) return '';
+  return text
+    .replace(/^#{1,6}\s+/gm, '')                       // heading prefixes
+    .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')           // bold/italic markers
+    .replace(/^-{3,}$/gm, '')                           // horizontal rules
+    .replace(/^\|[-:|\s]+\|$/gm, '')                    // table separator rows |---|---|
+    .replace(/^\|(.+)\|$/gm, (_, row) =>                // table data rows → comma-separated
+      row.split('|').map(c => c.trim()).filter(Boolean).join(', ')
+    )
+    .replace(/\n{3,}/g, '\n\n')                         // collapse multiple blank lines
+    .trim();
+}
+
+/**
+ * Detect section headings in text.
+ * Strategy A: [SECTION: Title] markers from vision prompt (preferred).
+ * Strategy B: Fallback regex patterns for legacy/non-vision text.
  * @param {string} text - Full document text
- * @returns {Array<Object>} - Detected sections
+ * @returns {Array<Object>} - Detected sections with {heading, cleanHeading, startIndex, lineIndex}
  */
 function detectSections(text) {
-  const sections = [];
   const lines = text.split('\n');
 
+  // Strategy A: [SECTION: Title] markers from the new vision prompt
+  const sectionMarkerRegex = /^\[SECTION:\s*(.+?)\]$/;
+  const markerSections = [];
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].trim().match(sectionMarkerRegex);
+    if (match) {
+      const precedingText = lines.slice(0, i).join('\n');
+      markerSections.push({
+        heading: lines[i].trim(),
+        cleanHeading: match[1].trim(),
+        startIndex: precedingText.length + (precedingText.length > 0 ? 1 : 0),
+        lineIndex: i,
+      });
+    }
+  }
+
+  if (markerSections.length >= 2) {
+    return markerSections;
+  }
+
+  // Strategy B: Fallback regex for legacy content (removed over-broad pattern 4)
+  const sections = [];
   const headingPatterns = [
-    /^[A-Z][A-Z\s]{3,}$/,
-    /^\d+\.\s+[A-Z][^.!?]+$/,
-    /^(Section|Chapter|Part)\s+\d+[:\.]?/i,
-    /^[A-Z][^.!?]{3,50}$/,
-    /^#{1,6}\s+.+$/,
+    /^[A-Z][A-Z\s]{3,}$/,                          // ALL CAPS headings
+    /^\d+\.\s+[A-Z][^.!?]+$/,                      // "1. Section Name"
+    /^(Section|Chapter|Part)\s+\d+[:\.]?/i,         // "Section 1:"
+    /^#{1,6}\s+.+$/,                                // Markdown ## headings (legacy)
   ];
 
   for (let i = 0; i < lines.length; i++) {
@@ -196,6 +253,7 @@ function detectSections(text) {
       const precedingText = lines.slice(0, i).join('\n');
       sections.push({
         heading: line,
+        cleanHeading: cleanTitle(line),
         startIndex: precedingText.length + (precedingText.length > 0 ? 1 : 0),
         lineIndex: i,
       });
@@ -205,8 +263,12 @@ function detectSections(text) {
   return sections;
 }
 
+// Minimum content chars for a chunk to be useful for RAG
+const MIN_CONTENT_CHARS = 50;
+
 /**
- * Structure-aware text chunking
+ * Structure-aware text chunking with quality filters.
+ * Separates heading from content body, filters empty chunks, merges duplicates.
  * @param {string} text - Full document text
  * @param {string} title - Document title
  * @returns {Array<Object>} - Array of chunks with metadata
@@ -216,53 +278,90 @@ export function structureAwareChunk(text, title = '') {
     return [];
   }
 
-  const chunks = [];
   const sections = detectSections(text);
 
   if (sections.length === 0) {
-    return simpleChunk(text, title);
+    return simpleChunk(cleanText(text), title);
+  }
+
+  const chunks = [];
+
+  // Capture preamble text before the first section
+  if (sections[0].startIndex > 0) {
+    const preamble = cleanText(text.slice(0, sections[0].startIndex).trim());
+    if (preamble.length >= MIN_CONTENT_CHARS) {
+      chunks.push({
+        content: preamble,
+        heading: '',
+        chunkIndex: 0,
+        metadata: { hasHeading: false, sectionIndex: -1, estimatedTokens: Math.ceil(preamble.length / APPROX_CHARS_PER_TOKEN) },
+      });
+    }
   }
 
   for (let i = 0; i < sections.length; i++) {
     const section = sections[i];
     const nextSection = sections[i + 1];
-
-    const sectionStart = section.startIndex;
     const sectionEnd = nextSection ? nextSection.startIndex : text.length;
-    const sectionText = text.slice(sectionStart, sectionEnd).trim();
 
-    const estimatedTokens = Math.ceil(sectionText.length / APPROX_CHARS_PER_TOKEN);
+    // Slice raw section text then strip the heading line from content body
+    const rawSection = text.slice(section.startIndex, sectionEnd).trim();
+    const headingLine = section.heading;
+    const contentBody = cleanText(
+      rawSection.startsWith(headingLine)
+        ? rawSection.slice(headingLine.length).trim()
+        : rawSection
+    );
+
+    const sectionHeading = section.cleanHeading || cleanTitle(headingLine);
+    const estimatedTokens = Math.ceil(contentBody.length / APPROX_CHARS_PER_TOKEN);
 
     if (estimatedTokens <= MAX_CHUNK_TOKENS) {
       chunks.push({
-        content: sectionText,
-        heading: section.heading,
+        content: contentBody,
+        heading: sectionHeading,
         chunkIndex: chunks.length,
-        metadata: {
-          hasHeading: true,
-          sectionIndex: i,
-          estimatedTokens,
-        }
+        metadata: { hasHeading: true, sectionIndex: i, estimatedTokens },
       });
     } else {
-      const subChunks = splitLargeSection(sectionText, section.heading);
-      subChunks.forEach((chunk, idx) => {
+      const subChunks = splitLargeSection(contentBody, sectionHeading);
+      subChunks.forEach((sub, idx) => {
         chunks.push({
-          content: chunk,
-          heading: section.heading,
+          content: sub.content,
+          heading: sub.heading,
           chunkIndex: chunks.length,
           metadata: {
             hasHeading: true,
             sectionIndex: i,
             subChunkIndex: idx,
-            estimatedTokens: Math.ceil(chunk.length / APPROX_CHARS_PER_TOKEN),
-          }
+            estimatedTokens: Math.ceil(sub.content.length / APPROX_CHARS_PER_TOKEN),
+          },
         });
       });
     }
   }
 
-  return chunks.map((chunk, index) => ({
+  // Merge consecutive chunks with identical headings where the first is short
+  for (let i = chunks.length - 1; i > 0; i--) {
+    const prev = chunks[i - 1];
+    const curr = chunks[i];
+    if (prev.heading && prev.heading === curr.heading && prev.content.length < 200) {
+      curr.content = prev.content + '\n\n' + curr.content;
+      curr.metadata.estimatedTokens = Math.ceil(curr.content.length / APPROX_CHARS_PER_TOKEN);
+      chunks.splice(i - 1, 1);
+    }
+  }
+
+  // Filter out near-empty chunks
+  const filtered = chunks.filter(chunk => {
+    if (chunk.content.trim().length < MIN_CONTENT_CHARS) {
+      console.log(`[Chunker] Skipping near-empty chunk: "${chunk.heading}" (${chunk.content.trim().length} chars)`);
+      return false;
+    }
+    return true;
+  });
+
+  return filtered.map((chunk, index) => ({
     ...chunk,
     title: chunk.heading || title,
     chunkIndex: index,
@@ -314,21 +413,24 @@ function simpleChunk(text, title = '') {
 }
 
 /**
- * Split a large section into smaller chunks while keeping heading context
+ * Split a large section's content body into smaller chunks.
+ * Heading is tracked separately — NOT embedded into content.
+ * @param {string} contentBody - Section content WITHOUT heading line
+ * @param {string} heading - Clean heading text (tracked separately)
+ * @returns {Array<{content: string, heading: string}>}
  */
-function splitLargeSection(sectionText, heading) {
+function splitLargeSection(contentBody, heading) {
   const chunks = [];
   const maxChunkChars = MAX_CHUNK_TOKENS * APPROX_CHARS_PER_TOKEN;
   const overlapChars = CHUNK_OVERLAP_TOKENS * APPROX_CHARS_PER_TOKEN;
 
-  const contentWithoutHeading = sectionText.replace(heading, '').trim();
   let startIndex = 0;
 
-  while (startIndex < contentWithoutHeading.length) {
-    const endIndex = Math.min(startIndex + maxChunkChars, contentWithoutHeading.length);
-    let chunkContent = contentWithoutHeading.slice(startIndex, endIndex);
+  while (startIndex < contentBody.length) {
+    const endIndex = Math.min(startIndex + maxChunkChars, contentBody.length);
+    let chunkContent = contentBody.slice(startIndex, endIndex);
 
-    if (endIndex < contentWithoutHeading.length) {
+    if (endIndex < contentBody.length) {
       const lastPeriod = chunkContent.lastIndexOf('. ');
       const lastNewline = chunkContent.lastIndexOf('\n');
       const breakPoint = Math.max(lastPeriod, lastNewline);
@@ -338,8 +440,7 @@ function splitLargeSection(sectionText, heading) {
       }
     }
 
-    const fullChunk = `${heading}\n\n${chunkContent.trim()}`;
-    chunks.push(fullChunk);
+    chunks.push({ content: chunkContent.trim(), heading });
 
     startIndex += chunkContent.length - overlapChars;
 
@@ -430,10 +531,13 @@ export async function batchGenerateEmbeddings(chunks) {
   try {
     for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
       const batch = chunks.slice(i, i + BATCH_SIZE);
-      // Use heading/title + content for embedding (matches Q&A entry format for consistent similarity)
+      // Prepend heading to content for embedding (matches Q&A entry format for consistent similarity)
       const texts = batch.map(chunk => {
-        const heading = chunk.heading || chunk.title || '';
-        return heading ? `${heading}\n\n${chunk.content}` : chunk.content;
+        const heading = cleanTitle(chunk.heading || chunk.title || '');
+        const content = chunk.content;
+        // Safety: prevent double-heading if content already starts with the heading
+        const alreadyHasHeading = heading && content.trimStart().toLowerCase().startsWith(heading.toLowerCase());
+        return alreadyHasHeading ? content : (heading ? `${heading}\n\n${content}` : content);
       });
 
       console.log(`Generating embeddings for batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(chunks.length / BATCH_SIZE)}`);
@@ -548,5 +652,6 @@ export default {
   processDocument,
   generateFileHash,
   detectFormat,
+  cleanTitle,
   SUPPORTED_FORMATS,
 };

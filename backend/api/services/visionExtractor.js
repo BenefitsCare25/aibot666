@@ -5,15 +5,16 @@ dotenv.config();
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const VISION_MODEL = process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini';
+const VISION_MODEL = process.env.OPENAI_VISION_MODEL || 'gpt-4.1-mini';
 const VISION_CONCURRENCY = parseInt(process.env.VISION_CONCURRENCY) || 3;
 const VISION_MAX_PAGES = parseInt(process.env.VISION_MAX_PAGES) || 50;
 
 /**
- * Extract text from a single page image using GPT-4o-mini vision
+ * Extract and interpret text from a single page image using vision model.
+ * Converts tables/charts into natural language. Uses [SECTION: Title] markers.
  * @param {Buffer} imageBuffer - PNG image buffer
  * @param {number} pageNum - Page number (for logging)
- * @returns {Promise<string>} Extracted text
+ * @returns {Promise<string>} Extracted and interpreted text
  */
 async function extractPageWithVision(imageBuffer, pageNum) {
   const base64 = imageBuffer.toString('base64');
@@ -25,12 +26,19 @@ async function extractPageWithVision(imageBuffer, pageNum) {
       content: [
         {
           type: 'text',
-          text: `Extract ALL text from this document page. Rules:
-- Preserve structure: headings, bullet points, numbered lists, paragraphs
-- Reproduce tables as markdown tables with | separators
-- Keep the original reading order (top to bottom, left to right)
-- Do NOT add commentary, summaries, or descriptions of images/logos
-- Return ONLY the extracted text content`
+          text: `Extract and INTERPRET all text from this document page into clear, readable natural language.
+
+RULES:
+1. SECTION MARKERS: When you encounter a heading, title, or new topic section, output it on its own line as: [SECTION: Exact Title Here]
+2. NO MARKDOWN: Do not use #, ##, **, ***, ---, or | table syntax. Output plain text only.
+3. TABLES TO SENTENCES: Convert every table into natural language sentences that preserve ALL exact figures, amounts, and column relationships. Example: "For Plan A, the annual limit is $500 and the co-payment is 20%."
+4. CHARTS AND DIAGRAMS: Describe what the chart or diagram shows using specific data points and figures from it.
+5. LISTS: Use simple "- " prefix for list items. Keep them as individual lines.
+6. PRESERVE FACTS: Keep exact dollar amounts, percentages, dates, policy names, coverage limits, medical terms, and proper nouns verbatim. Do not round, paraphrase, or approximate any number.
+7. READING ORDER: Process content top to bottom, left to right.
+8. NO COMMENTARY: Do not add summaries, opinions, interpretations beyond what is written, or descriptions of logos/images/decorative elements.
+9. SELF-CONTAINED: Write each paragraph so it can be understood on its own without needing context from other pages.
+10. CONTINUATIONS: If a section clearly continues from a previous page (no new heading at the top), begin the output directly with the content — do not invent a section marker.`
         },
         {
           type: 'image_url',
@@ -81,7 +89,6 @@ export async function extractPdfWithVision(pdfBuffer, pageCount, onProgress = nu
 
   const pageTexts = [];
   let batch = [];
-  let batchStartIdx = 0;
   let pageIdx = 0;
 
   const doc = await pdfModule.pdf(pdfBuffer, { scale: 2 });

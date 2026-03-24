@@ -44,8 +44,8 @@ backend/
 │   │   ├── callbackService.js         # Callback email + Telegram notifications
 │   │   ├── emailAutomationService.js  # resolveTemplateVars, buildAutomationEmail, sendAutomationEmail, runScheduledCheck
 │   │   ├── companySchema.js           # Company lookup (indexed: exact → ilike → additional_domains)
-│   │   ├── documentProcessor.js       # Multi-format extraction (PDF/DOCX/TXT/CSV), vision fallback for scanned PDFs, chunking, embedding
-│   │   ├── visionExtractor.js         # GPT-4o-mini vision extraction for scanned PDFs (page→image→OCR)
+│   │   ├── documentProcessor.js       # Multi-format extraction (PDF/DOCX/TXT/CSV), cleanTitle/cleanText utilities, structure-aware chunking with quality filters, embedding
+│   │   ├── visionExtractor.js         # GPT-4.1-mini vision interpretation for PDFs (page→image→natural language with [SECTION:] markers)
 │   │   ├── jobQueue.js               # BullMQ document processing queue
 │   │   ├── telegram.js               # Telegram bot notifications
 │   │   └── excel.js                  # Excel import/export
@@ -481,12 +481,20 @@ extracting → chunking → categorizing → embedding → storing → completed
 ```
 
 ### PDF Extraction: Vision-First (visionExtractor.js + documentProcessor.js)
-- **All PDFs use GPT-4o-mini vision** — pages converted to PNG images via `pdf-to-img` v5, each page sent to vision API for structured text extraction
+- **All PDFs use GPT-4.1-mini vision** — pages converted to PNG images via `pdf-to-img` v5, each page sent to vision API for **interpretation** (not transcription)
+- Vision model **interprets** content into natural language: tables → sentences, charts → descriptions, preserving exact figures. Uses `[SECTION: Title]` markers instead of markdown headings
 - `pdf-parse` retained only for metadata (title, author, page count) — NOT used for content extraction
 - `pdf-to-img` v5 uses `pdf()` named export (not `convert` from v4), has built-in renderer (no `canvas` native dep needed)
-- Vision preserves structure: headings, bullet points, tables, reading order — critical for PPT-style PDFs
 - Falls back to pdf-parse text only if vision extraction returns empty
-- Env vars: `OPENAI_VISION_MODEL` (default gpt-4o-mini), `VISION_CONCURRENCY` (default 3), `VISION_MAX_PAGES` (default 50)
+- Env vars: `OPENAI_VISION_MODEL` (default gpt-4.1-mini), `VISION_CONCURRENCY` (default 3), `VISION_MAX_PAGES` (default 50)
+
+### Chunking Quality Pipeline (documentProcessor.js)
+- **`cleanTitle(rawTitle)`** (exported) — strips `[SECTION:]` markers, `#` prefixes, `**` bold, leading numbers. Used by documentWorker and openai.js
+- **`cleanText(text)`** — strips markdown heading prefixes, bold/italic, horizontal rules, converts markdown table rows to comma-separated text, collapses blank lines. Applied to section content bodies after heading detection
+- **`detectSections(text)`** — two-strategy approach: Strategy A detects `[SECTION: Title]` markers from vision output (preferred when 2+ found); Strategy B uses fallback regex (ALL-CAPS, numbered headings, Section/Chapter keywords, markdown `#`) for legacy content. Over-broad sentence-matching pattern removed
+- **`structureAwareChunk(text, title)`** — heading/content separated (no duplication), preamble before first section captured, `cleanText()` applied per-section, min-content filter (< 50 chars skipped), consecutive duplicate-heading merge (short chunks combined)
+- **`splitLargeSection(contentBody, heading)`** — accepts pre-stripped content body, returns `{content, heading}` objects (heading NOT embedded in content)
+- **Embedding text** = `cleanTitle(heading) + \n\n + content` with double-heading safety check
 
 ### BullMQ Queue Tuning (jobQueue.js + documentWorker.js)
 - `attempts: 1` — no retries (uploaded file is deleted after first attempt; retries cause ENOENT)
