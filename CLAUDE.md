@@ -88,6 +88,8 @@ All other admin routes get `companyContextMiddleware` (tenant schema).
 - **Error messages**: Hidden in production (`NODE_ENV=production`)
 - **Domain spoofing**: Origin mismatch logged as warning
 - **Color param XSS**: Validated against `/^#[0-9a-fA-F]{3,8}$/`
+- **X-Frame-Options**: `DENY` on all routes except `/chat` (iframe embed) and `/api/chat/log-form/*` (file downloads opened in new tabs)
+- **LOG upload validation**: Client-side filename matching blocks claims/receipts from being submitted as LOG documents
 
 ### Performance Features
 
@@ -407,7 +409,16 @@ Per-company LOG request routes stored in `company.settings.logConfig` JSONB. Man
    - **1 route** → auto-selected, document checklist shown above form
    - **2+ routes** → LogRouteSelector shown first → user picks → then form with docs
 5. `LogRequestForm.jsx` displays route label, required document checklist, and download links when `logRoute` prop is present
-6. `POST /api/chat/anonymous-log-request` accepts optional `logRoute` field → stored in `metadata.logRoute` → route label included in support email
+6. `POST /api/chat/anonymous-log-request` accepts optional `logRoute` field → stored in `metadata.logRoute` → route label included in support email (includes company name in subject and body)
+
+**Document upload validation (2026-03-24):**
+When a LOG route has `requiredDocuments`, uploaded files are validated client-side via filename partial matching:
+- Expected filenames derived from `requiredDocuments[].name` + `downloadableFiles[].fileName` (normalized: lowercase, `_-` → space, extension stripped)
+- Blocklist regex catches wrong documents: `receipt|claim|invoice|reimburse|\bmc\b|medical.cert|payment`
+- If any file is flagged → submit button disabled, amber warning: "For other claims, please submit through the portal."
+- Validation runs via `useEffect` on attachment changes — instant feedback
+- No validation when `requiredDocuments` is absent (backward compatible)
+- Logic in `validateLogAttachments()` helper in `LoginForm.jsx`
 
 **Backend endpoints:**
 | Method | Path | Description |

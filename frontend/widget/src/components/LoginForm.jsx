@@ -10,6 +10,35 @@ import CallbackForm from './login/CallbackForm';
 import SuccessScreen from './login/SuccessScreen';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 
+const LOG_BLOCKLIST = /receipt|claim|invoice|reimburse|\bmc\b|medical.cert|payment/i;
+
+function normalizeFilename(name) {
+  return name.replace(/\.[^.]+$/, '').replace(/[_\-]/g, ' ').toLowerCase().trim();
+}
+
+function validateLogAttachments(attachments, logRoute, logConfig) {
+  if (!logRoute?.requiredDocuments?.length || !attachments.length) return [];
+
+  const expectedNames = [];
+  for (const doc of logRoute.requiredDocuments) {
+    expectedNames.push(normalizeFilename(doc.name));
+    if (doc.downloadKey && logConfig?.downloadableFiles?.[doc.downloadKey]?.fileName) {
+      expectedNames.push(normalizeFilename(logConfig.downloadableFiles[doc.downloadKey].fileName));
+    }
+  }
+
+  const warnings = [];
+  for (const att of attachments) {
+    const normalized = normalizeFilename(att.name);
+    if (LOG_BLOCKLIST.test(normalized)) {
+      warnings.push({ filename: att.name, reason: 'blocklist' });
+    } else if (!expectedNames.some(exp => normalized.includes(exp) || exp.includes(normalized))) {
+      warnings.push({ filename: att.name, reason: 'no_match' });
+    }
+  }
+  return warnings;
+}
+
 export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded = false, isMobileFullScreen = false, isInIframe = false, companyFeatures = { showChat: true, showLog: true } }) {
   const containerStyle = isMobileFullScreen
     ? {
@@ -79,6 +108,13 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
       setSelectedLogRoute(logConfig.routes[0]);
     }
   }, [selectedOption, logConfig, selectedLogRoute]);
+
+  // --- LOG attachment validation ---
+  const [fileWarnings, setFileWarnings] = useState([]);
+
+  useEffect(() => {
+    setFileWarnings(validateLogAttachments(logAttachments, selectedLogRoute, logConfig));
+  }, [logAttachments, selectedLogRoute, logConfig]);
 
   const getDomain = () => companyDomain || window.location.hostname;
 
@@ -411,6 +447,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
             logRoute={selectedLogRoute}
             apiUrl={apiUrl}
             domain={getDomain()}
+            fileWarnings={fileWarnings}
           />
         )}
 

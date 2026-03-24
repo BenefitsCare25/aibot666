@@ -131,6 +131,7 @@ export async function sendLogRequestEmail(data) {
       requestMessage,
       attachments = [],
       companyConfig = {},
+      companyName = null,
       customSubject = null,
       customHeader = null
     } = data;
@@ -155,7 +156,7 @@ export async function sendLogRequestEmail(data) {
     const client = getGraphClient();
 
     // Prepare email subject - use custom subject if provided, otherwise use default
-    const subject = customSubject || `🚨 LOG Request - ${employee.name}`;
+    const subject = customSubject || `🚨 LOG Request - ${employee.name}${companyName ? ` (${companyName})` : ''}`;
 
     // Format conversation history
     const conversationHTML = formatConversationHTML(conversationHistory);
@@ -183,6 +184,16 @@ export async function sendLogRequestEmail(data) {
           </div>
 
           <div class="content">
+            <!-- Company Information -->
+            ${companyName ? `
+            <div class="section">
+              <h3 style="color: #1976D2; border-bottom: 2px solid #1976D2; padding-bottom: 5px;">🏢 Company</h3>
+              <div class="info-box">
+                <p style="margin: 0; font-size: 16px; font-weight: bold;">${companyName}</p>
+              </div>
+            </div>
+            ` : ''}
+
             <!-- Employee Information -->
             <div class="section">
               <h3 style="color: #1976D2; border-bottom: 2px solid #1976D2; padding-bottom: 5px;">👤 Employee Information</h3>

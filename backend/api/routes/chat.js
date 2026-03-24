@@ -464,7 +464,8 @@ router.post('/request-log', async (req, res) => {
       requestType: 'button',
       requestMessage: message || 'User requested LOG via button',
       attachments,
-      companyConfig
+      companyConfig,
+      companyName: req.company?.name || null
     });
 
     // Send acknowledgment email to user (if email provided)
@@ -635,11 +636,12 @@ router.post('/anonymous-log-request', async (req, res) => {
           employee_id: employeeId?.trim() || 'Not provided'
         },
         conversationHistory: [],
-        conversationId: logRequest.id, // Use LOG request ID as reference
+        conversationId: logRequest.id,
         requestType: 'anonymous',
         requestMessage: (logRouteLabel ? `[${logRouteLabel}] ` : '') + (description?.trim() || 'Anonymous LOG request submitted via widget'),
-        attachments: attachments, // Pass base64-encoded attachments from frontend
-        companyConfig
+        attachments: attachments,
+        companyConfig,
+        companyName: req.company?.name || company?.name || null
       });
 
       emailSent = true;

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Loader2, Upload, Paperclip, X, Download, FileText, ArrowLeft } from 'lucide-react';
+import { Loader2, Upload, Paperclip, X, Download, FileText, AlertTriangle } from 'lucide-react';
 
 export default function LogRequestForm({
   logEmail,
@@ -16,6 +16,7 @@ export default function LogRequestForm({
   logRoute = null,
   apiUrl = '',
   domain = '',
+  fileWarnings = [],
 }) {
   const handleDownload = (downloadKey) => {
     if (downloadKey && apiUrl) {
@@ -228,9 +229,36 @@ export default function LogRequestForm({
         )}
       </div>
 
+      {/* Document validation warning */}
+      {fileWarnings.length > 0 && (
+        <div
+          className="ic-rounded-xl ic-p-3"
+          style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b' }}
+        >
+          <div className="ic-flex ic-items-start ic-gap-2">
+            <AlertTriangle className="ic-w-4 ic-h-4 ic-flex-shrink-0 ic-mt-0.5" style={{ color: '#d97706' }} strokeWidth={2} />
+            <div>
+              <p className="ic-text-xs ic-font-semibold" style={{ color: '#92400e' }}>
+                Invalid Document Detected
+              </p>
+              <ul className="ic-mt-1 ic-space-y-0.5">
+                {fileWarnings.map((w, i) => (
+                  <li key={i} className="ic-text-xs" style={{ color: '#92400e' }}>
+                    &bull; {w.filename}
+                  </li>
+                ))}
+              </ul>
+              <p className="ic-text-xs ic-mt-2 ic-font-medium" style={{ color: '#92400e' }}>
+                For other claims, please submit through the portal.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <motion.button
         type="submit"
-        disabled={isLoading || uploadingFile}
+        disabled={isLoading || uploadingFile || fileWarnings.length > 0}
         className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-soft-lg"
         style={{ background: 'var(--gradient-primary)' }}
         whileHover={{ scale: 1.02 }}
