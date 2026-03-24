@@ -17,7 +17,8 @@ function normalizeFilename(name) {
 }
 
 function validateLogAttachments(attachments, logRoute, logConfig) {
-  if (!logRoute?.requiredDocuments?.length || !attachments.length) return [];
+  if (!logRoute?.requiredDocuments?.length) return [];
+  if (!attachments.length) return [{ reason: 'required' }];
 
   const expectedNames = [];
   for (const doc of logRoute.requiredDocuments) {
@@ -120,12 +121,13 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
     }
   }, [selectedOption, logConfig, selectedLogRoute]);
 
-  // --- LOG attachment validation ---
+  // --- LOG attachment validation (on submit) ---
   const [fileWarnings, setFileWarnings] = useState([]);
 
+  // Clear warnings when user changes attachments
   useEffect(() => {
-    setFileWarnings(validateLogAttachments(logAttachments, selectedLogRoute, logConfig));
-  }, [logAttachments, selectedLogRoute, logConfig]);
+    if (fileWarnings.length > 0) setFileWarnings([]);
+  }, [logAttachments]);
 
   const getDomain = () => companyDomain || window.location.hostname;
 
@@ -280,6 +282,11 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
       setError('Please enter a valid email address');
       return;
     }
+
+    // Validate LOG attachments before submitting
+    const warnings = validateLogAttachments(logAttachments, selectedLogRoute, logConfig);
+    setFileWarnings(warnings);
+    if (warnings.length > 0) return;
 
     setIsLoading(true);
 

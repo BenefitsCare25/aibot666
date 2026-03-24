@@ -252,19 +252,15 @@ export default function LogRequestForm({
           <div className="ic-flex ic-items-start ic-gap-2">
             <AlertTriangle className="ic-w-4 ic-h-4 ic-flex-shrink-0 ic-mt-0.5" style={{ color: '#d97706' }} strokeWidth={2} />
             <div>
-              <p className="ic-text-xs ic-font-semibold" style={{ color: '#92400e' }}>
-                Invalid Document Detected
-              </p>
-              <ul className="ic-mt-1 ic-space-y-0.5">
-                {fileWarnings.map((w, i) => (
-                  <li key={i} className="ic-text-xs" style={{ color: '#92400e' }}>
-                    &bull; {w.filename}
-                  </li>
-                ))}
-              </ul>
-              <p className="ic-text-xs ic-mt-2 ic-font-medium" style={{ color: '#92400e' }}>
-                For other claims, please submit through the portal.
-              </p>
+              {fileWarnings[0]?.reason === 'required' ? (
+                <p className="ic-text-xs ic-font-semibold" style={{ color: '#92400e' }}>
+                  Please upload the required LOG document(s) before submitting.
+                </p>
+              ) : (
+                <p className="ic-text-xs ic-font-semibold" style={{ color: '#92400e' }}>
+                  Please submit other claims on the portal.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -272,7 +268,7 @@ export default function LogRequestForm({
 
       <motion.button
         type="submit"
-        disabled={isLoading || uploadingFile || fileWarnings.length > 0}
+        disabled={isLoading || uploadingFile}
         className="ic-w-full ic-text-white ic-py-3 ic-px-4 ic-rounded-xl ic-font-semibold ic-transition-all disabled:ic-opacity-50 disabled:ic-cursor-not-allowed hover:ic-shadow-soft-lg"
         style={{ background: 'var(--gradient-primary)' }}
         whileHover={{ scale: 1.02 }}
