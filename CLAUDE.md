@@ -692,6 +692,13 @@ Ensure closed state iframe dimensions include padding (300x88px).
 ### Large gap at bottom of widget
 Check height calculation — button is hidden when open, use `contentHeight + 8` not `+ 80`.
 
+### Widget covers full page on Safari/Mac (fullscreen takeover)
+**Cause:** Race condition — inside the 200px iframe, `window.innerWidth = 200` so widget sets `isMobile = true`. If user opens widget before `chatWidgetParentInfo` message arrives from parent, widget sends `width: '100vw', height: '100vh'` (string). Safari is more affected because cross-origin postMessage delivery is slower than Chrome.
+
+**Fix (already applied in `embed-helper.js`):** Desktop path only applies **numeric pixel dimensions**. String values like `'100vw'`/`'100vh'` are ignored — once the parent sends `chatWidgetParentInfo` a few ms later, `isMobile` corrects to `false` and the widget resends proper pixel values.
+
+**Rule:** `embed-helper.js` desktop branch must use `if (typeof w === 'number')` guards. Never apply viewport-unit strings on the desktop path. Mobile fullscreen is handled by the `isFullscreen=true` branch which runs first anyway.
+
 ## Client Communication
 
 **Clients do NOT need to update their code for:** Bug fixes, UI improvements, mobile optimizations, new features (without new parameters).
