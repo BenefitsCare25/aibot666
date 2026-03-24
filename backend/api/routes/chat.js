@@ -967,7 +967,9 @@ router.post('/message', async (req, res) => {
         consecutiveEscalations: (currentState.consecutiveEscalations || 0) + 1
       });
 
-      await handleEscalation(session, message, response, employee, escalationReason, req.supabase, req.company.schemaName);
+      const companySettings = req.company?.settings || {};
+      const sendTelegram = companySettings.telegramEscalation !== false;
+      await handleEscalation(session, message, response, employee, escalationReason, req.supabase, req.company.schemaName, { sendTelegram });
 
       await updateConversationState(sessionId, {
         lastBotAction: 'escalated',

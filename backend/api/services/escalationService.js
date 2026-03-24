@@ -59,7 +59,7 @@ export async function getPendingEscalation(conversationId, supabaseClient) {
  * @param {object} employee - The employee record
  * @param {object} supabaseClient - Company-scoped Supabase client
  */
-export async function updateEscalationWithContact(escalationId, contactInfo, employee, supabaseClient) {
+export async function updateEscalationWithContact(escalationId, contactInfo, employee, supabaseClient, options = {}) {
   try {
     // First, fetch the current escalation to get the context
     const { data: currentEscalation, error: fetchError } = await supabaseClient
@@ -91,7 +91,9 @@ export async function updateEscalationWithContact(escalationId, contactInfo, emp
       console.error('Error updating escalation with contact:', error);
     } else {
       // Notify Telegram that contact information was provided
-      await notifyContactProvided(escalationId, contactInfo, employee);
+      if (options.sendTelegram !== false) {
+        await notifyContactProvided(escalationId, contactInfo, employee);
+      }
     }
   } catch (error) {
     console.error('Error in updateEscalationWithContact:', error);
@@ -108,7 +110,7 @@ export async function updateEscalationWithContact(escalationId, contactInfo, emp
  * @param {object} supabaseClient - Company-scoped Supabase client
  * @param {string|null} schemaName - The tenant schema name for multi-tenant routing
  */
-export async function handleEscalation(session, query, response, employee, reason, supabaseClient, schemaName = null) {
+export async function handleEscalation(session, query, response, employee, reason, supabaseClient, schemaName = null, options = {}) {
   try {
     // Check if user is providing contact information after previous escalation
     const isContact = isContactInformation(query);
@@ -117,7 +119,7 @@ export async function handleEscalation(session, query, response, employee, reaso
     // If user is providing contact info and there's already a pending escalation,
     // update the existing escalation instead of creating a new one
     if (isContact && pendingEscalation) {
-      await updateEscalationWithContact(pendingEscalation.id, query, employee, supabaseClient);
+      await updateEscalationWithContact(pendingEscalation.id, query, employee, supabaseClient, options);
       return; // Don't create a new escalation
     }
 
@@ -172,7 +174,9 @@ export async function handleEscalation(session, query, response, employee, reaso
     }
 
     // Notify via Telegram with AI response, conversation history, and schema name for multi-tenant routing
-    await notifyTelegramEscalation(escalation, query, employee, response, recentMessages || [], schemaName);
+    if (options.sendTelegram !== false) {
+      await notifyTelegramEscalation(escalation, query, employee, response, recentMessages || [], schemaName);
+    }
 
     // Mark message as escalated
     if (lastMessage) {

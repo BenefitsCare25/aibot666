@@ -73,7 +73,8 @@
       "Bash(npx -y vite build --mode development)",
       "Bash(OPENAI_API_KEY=dummy node --input-type=module <<'EOF':*)",
       "Bash(grep '\"\"pdf-parse\"\"' package.json)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(node -e \":*)"
     ],
     "deny": [],
     "ask": []

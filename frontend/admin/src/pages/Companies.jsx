@@ -25,7 +25,8 @@ export default function Companies() {
     status: 'active',
     settings: '{}',
     showChat: true,
-    showLog: true
+    showLog: true,
+    telegramEscalation: true
   });
 
   useEffect(() => {
@@ -69,7 +70,8 @@ export default function Companies() {
         settings: {
           ...baseSettings,
           showChat: formData.showChat,
-          showLog: formData.showLog
+          showLog: formData.showLog,
+          telegramEscalation: formData.telegramEscalation
         }
       };
 
@@ -122,7 +124,8 @@ export default function Companies() {
       status: company.status || 'active',
       settings: JSON.stringify(parsedSettings, null, 2),
       showChat: parsedSettings.showChat !== false,
-      showLog: parsedSettings.showLog !== false
+      showLog: parsedSettings.showLog !== false,
+      telegramEscalation: parsedSettings.telegramEscalation !== false
     });
     setShowForm(true);
   };
@@ -205,7 +208,8 @@ export default function Companies() {
       status: 'active',
       settings: '{}',
       showChat: true,
-      showLog: true
+      showLog: true,
+      telegramEscalation: true
     });
   };
 
@@ -384,6 +388,27 @@ export default function Companies() {
                     />
                     <span className="text-sm text-gray-700">Show "Request Letter of Guarantee" option</span>
                   </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Escalation Options</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.telegramEscalation}
+                      onChange={(e) => {
+                        const newVal = e.target.checked;
+                        let base = {};
+                        try { base = JSON.parse(formData.settings); } catch { base = {}; }
+                        setFormData({ ...formData, telegramEscalation: newVal, settings: JSON.stringify({ ...base, showChat: formData.showChat, showLog: formData.showLog, telegramEscalation: newVal }, null, 2) });
+                      }}
+                      className="w-4 h-4 rounded border-gray-300 text-primary-600"
+                    />
+                    <span className="text-sm text-gray-700">Send escalation notifications to Telegram</span>
+                  </label>
+                  <p className="text-xs text-gray-500 ml-6">When disabled, escalations are still recorded in the database but no Telegram message is sent</p>
                 </div>
               </div>
 

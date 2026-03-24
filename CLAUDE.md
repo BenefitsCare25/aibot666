@@ -371,6 +371,7 @@ Per-company toggles stored in `company.settings` JSONB. Controlled via Admin Por
 |-------------|---------|--------|
 | `showChat` | `true` | Shows "Send us a message" option in OptionSelector |
 | `showLog` | `true` | Shows "Request Letter of Guarantee" option in OptionSelector |
+| `telegramEscalation` | `true` | Sends escalation notifications to Telegram group chat |
 
 **How it works:**
 1. `GET /api/chat/config` reads `req.company.settings` and returns `{ features: { showChat, showLog } }` (both default `true`)
@@ -384,6 +385,22 @@ Per-company toggles stored in `company.settings` JSONB. Controlled via Admin Por
 - Only Chat enabled → auto-selects chat form, skips option screen
 - Only LOG enabled → auto-selects LOG form, skips option screen
 - Network error on `/config` → defaults to both enabled
+
+## Telegram Escalation Toggle (Per-Company)
+
+Per-company toggle stored in `company.settings.telegramEscalation` JSONB. Controlled via Admin Portal → Company Management → Edit → **Escalation Options** checkbox.
+
+**How it works:**
+1. Admin toggles "Send escalation notifications to Telegram" checkbox (default: enabled)
+2. `chat.js` reads `req.company.settings.telegramEscalation` before calling `handleEscalation()`
+3. Passes `{ sendTelegram }` option to `escalationService.handleEscalation()`
+4. When `false`: escalation DB record is still created, but `notifyTelegramEscalation()` and `notifyContactProvided()` are skipped
+5. LOG request Telegram notifications (`notifyLogRequest`) are unaffected by this toggle
+
+**Edge cases:**
+- Setting absent or `true` → Telegram notifications sent (backward compatible)
+- Setting `false` → DB escalation recorded, no Telegram message
+- Contact-provided follow-up notifications also respect the toggle
 
 ## LOG Route Configuration (Per-Company)
 
