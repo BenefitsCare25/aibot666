@@ -11,34 +11,56 @@ import SuccessScreen from './login/SuccessScreen';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 
 const LOG_BLOCKLIST = /receipt|claim|invoice|reimburse|\bmc\b|medical.cert|payment/i;
+const LOG_STOPWORDS = new Set([
+  'the', 'and', 'or', 'of', 'from', 'for', 'in', 'on', 'at', 'to', 'a', 'an',
+  'this', 'that', 'with', 'when', 'applicable', 'download', 'chat', 'widget',
+  'obtained', 'complete', 'pte', 'ltd', 'asia', 'pacific'
+]);
 
 function normalizeFilename(name) {
   return name.replace(/\.[^.]+$/, '').replace(/[_\-]/g, ' ').toLowerCase().trim();
+}
+
+function extractKeyTokens(name) {
+  return normalizeFilename(name)
+    .replace(/[()]/g, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 2 && !LOG_STOPWORDS.has(t) && !/^\d+$/.test(t));
+}
+
+function isLogDocumentMatch(fileTokens, expectedTokenSets) {
+  return expectedTokenSets.some(expTokens => {
+    const overlap = expTokens.filter(t => fileTokens.has(t)).length;
+    return overlap >= Math.min(2, expTokens.length);
+  });
 }
 
 function validateLogAttachments(attachments, logRoute, logConfig) {
   if (!logRoute?.requiredDocuments?.length) return [];
   if (!attachments.length) return [{ reason: 'required' }];
 
-  const expectedNames = [];
+  // Build token sets from each expected document name + downloadable filename
+  const expectedTokenSets = [];
   for (const doc of logRoute.requiredDocuments) {
-    expectedNames.push(normalizeFilename(doc.name));
+    const tokens = extractKeyTokens(doc.name);
+    if (tokens.length) expectedTokenSets.push(tokens);
     if (doc.downloadKey && logConfig?.downloadableFiles?.[doc.downloadKey]?.fileName) {
-      expectedNames.push(normalizeFilename(logConfig.downloadableFiles[doc.downloadKey].fileName));
+      const fileTokens = extractKeyTokens(logConfig.downloadableFiles[doc.downloadKey].fileName);
+      if (fileTokens.length) expectedTokenSets.push(fileTokens);
     }
   }
 
   // Check if at least one file matches an expected LOG document
   const hasExpectedDoc = attachments.some(att => {
     const normalized = normalizeFilename(att.name);
-    return !LOG_BLOCKLIST.test(normalized) &&
-      expectedNames.some(exp => normalized.includes(exp) || exp.includes(normalized));
+    if (LOG_BLOCKLIST.test(normalized)) return false;
+    const fileTokens = new Set(normalized.split(/\s+/).filter(t => t.length > 2));
+    return isLogDocumentMatch(fileTokens, expectedTokenSets);
   });
 
-  // Allow submission if at least one correct LOG document is included
   if (hasExpectedDoc) return [];
 
-  // Block: no valid LOG document found — flag all files
+  // Block: no valid LOG document found
   const warnings = [];
   for (const att of attachments) {
     const normalized = normalizeFilename(att.name);

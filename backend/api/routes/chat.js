@@ -29,6 +29,7 @@ import fs from 'fs/promises';
 import { groupQuestionsByCategory } from '../utils/quickQuestionUtils.js';
 import { isContactInformation, handleEscalation, getPendingEscalation, updateEscalationWithContact } from '../services/escalationService.js';
 import { sendCallbackNotificationEmail, sendCallbackTelegramNotification } from '../services/callbackService.js';
+import { validateLogAttachments } from '../utils/logAttachmentValidation.js';
 
 const router = express.Router();
 
@@ -563,6 +564,26 @@ router.post('/anonymous-log-request', async (req, res) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
       return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Validate LOG attachments against route requirements (server-side)
+    if (logRoute) {
+      const logCfg = company?.settings?.logConfig || null;
+      const matchedRoute = (logCfg?.routes || []).find(r => r.id === logRoute);
+      if (matchedRoute) {
+        const warnings = validateLogAttachments(attachments, matchedRoute, logCfg);
+        if (warnings.length > 0) {
+          const reason = warnings[0]?.reason;
+          return res.status(400).json({
+            error: reason === 'required'
+              ? 'Please upload the required LOG document(s) before submitting.'
+              : 'Please submit other claims on the portal.',
+            code: reason === 'required' ? 'ATTACHMENT_REQUIRED'
+              : reason === 'blocklist' ? 'ATTACHMENT_BLOCKLIST'
+              : 'ATTACHMENT_NO_MATCH'
+          });
+        }
+      }
     }
 
     // Try to find employee if employeeId is provided
