@@ -62,31 +62,16 @@
   window.addEventListener('message', function(event) {
     if (!event.data) return;
 
-    // Handle file download requests from widget (parent is NOT sandboxed, so downloads work)
+    // Handle file download requests from widget
+    // Uses <a> navigation (not fetch) to avoid parent page CSP connect-src restrictions
+    // Server returns Content-Disposition: attachment, so browser downloads without navigating away
     if (event.data.type === 'chatWidgetDownload') {
-      var url = event.data.url;
-      var fallbackName = event.data.filename || 'download.pdf';
-      fetch(url)
-        .then(function(res) {
-          if (!res.ok) throw new Error('Download failed: ' + res.status);
-          var cd = res.headers.get('content-disposition') || '';
-          var match = cd.match(/filename="?([^";\n]+)"?/);
-          if (match) fallbackName = match[1];
-          return res.blob();
-        })
-        .then(function(blob) {
-          var blobUrl = URL.createObjectURL(blob);
-          var a = document.createElement('a');
-          a.href = blobUrl;
-          a.download = fallbackName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 10000);
-        })
-        .catch(function(err) {
-          console.error('[ChatWidget] Download error:', err);
-        });
+      var a = document.createElement('a');
+      a.href = event.data.url;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       return;
     }
 
