@@ -3,8 +3,13 @@ import apiClient from './client';
 export const knowledgeApi = {
   // Get all knowledge entries
   getAll: async (params = {}) => {
-    const { page = 1, limit = 50, category = '', search = '' } = params;
-    return apiClient.get('/api/admin/knowledge', { params: { page, limit, category, search } });
+    const { page = 1, limit = 50, category = '', search = '', created_date = '' } = params;
+    return apiClient.get('/api/admin/knowledge', { params: { page, limit, category, search, created_date } });
+  },
+
+  // Get filter options (categories and dates)
+  getFilters: async () => {
+    return apiClient.get('/api/admin/knowledge/filters');
   },
 
   // Create knowledge entry

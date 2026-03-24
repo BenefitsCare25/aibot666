@@ -26,6 +26,11 @@ export default function KnowledgeBase() {
     subcategory: ''
   });
   const [savingId, setSavingId] = useState(null);
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterSearch, setFilterSearch] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterCategories, setFilterCategories] = useState([]);
+  const [filterDates, setFilterDates] = useState([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadFile, setUploadFile] = useState(null);
   const [replaceExisting, setReplaceExisting] = useState(false);
@@ -48,16 +53,34 @@ export default function KnowledgeBase() {
   useEffect(() => {
     loadEntries();
     loadDocuments();
+    loadFilters();
   }, []);
 
-  const loadEntries = async () => {
+  const loadEntries = async (overrides = {}) => {
     try {
-      const response = await knowledgeApi.getAll({ limit: 100 });
+      const params = {
+        limit: 100,
+        category: overrides.category ?? filterCategory,
+        search: overrides.search ?? filterSearch,
+        created_date: overrides.created_date ?? filterDate
+      };
+      const response = await knowledgeApi.getAll(params);
       setEntries(response.data.entries);
     } catch (error) {
       toast.error('Failed to load knowledge base');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadFilters = async () => {
+    try {
+      const response = await knowledgeApi.getFilters();
+      const data = response.data?.data || response.data || {};
+      setFilterCategories(data.categories || []);
+      setFilterDates(data.dates || []);
+    } catch (error) {
+      console.error('Failed to load filters:', error);
     }
   };
 
@@ -84,6 +107,7 @@ export default function KnowledgeBase() {
       setShowModal(false);
       setFormData({ title: '', content: '', category: 'benefits', subcategory: '' });
       loadEntries();
+      loadFilters();
     } catch (error) {
       toast.error('Failed to create entry');
     }
@@ -134,6 +158,7 @@ export default function KnowledgeBase() {
       await knowledgeApi.delete(id);
       toast.success('Entry deleted');
       loadEntries();
+      loadFilters();
     } catch (error) {
       toast.error('Failed to delete entry');
     }
@@ -166,6 +191,7 @@ export default function KnowledgeBase() {
       setUploadFile(null);
       setReplaceExisting(false);
       loadEntries();
+      loadFilters();
     } catch (error) {
       console.error('Error uploading Excel file:', error);
       const errorMessage = error.message || error.response?.data?.details || 'Failed to upload Excel file';
@@ -449,6 +475,73 @@ export default function KnowledgeBase() {
       {/* Knowledge Entries Tab */}
       {activeTab === 'entries' && (
         <>
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={filterCategory}
+              onChange={(e) => {
+                setFilterCategory(e.target.value);
+                loadEntries({ category: e.target.value });
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">All Categories</option>
+              {filterCategories.map(cat => (
+                <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+              ))}
+            </select>
+
+            <select
+              value={filterDate}
+              onChange={(e) => {
+                setFilterDate(e.target.value);
+                loadEntries({ created_date: e.target.value });
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">All Dates</option>
+              {filterDates.map(date => (
+                <option key={date} value={date}>
+                  {new Date(date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </option>
+              ))}
+            </select>
+
+            <div className="flex-1 min-w-[200px]">
+              <input
+                type="text"
+                value={filterSearch}
+                onChange={(e) => setFilterSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') loadEntries();
+                }}
+                placeholder="Search title or content..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+
+            <button
+              onClick={() => loadEntries()}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium"
+            >
+              Search
+            </button>
+
+            {(filterCategory || filterSearch || filterDate) && (
+              <button
+                onClick={() => {
+                  setFilterCategory('');
+                  setFilterSearch('');
+                  setFilterDate('');
+                  loadEntries({ category: '', search: '', created_date: '' });
+                }}
+                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>

@@ -130,7 +130,7 @@ router.post('/batch', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit: rawKbLimit = 50, category = '', search = '' } = req.query;
+    const { page = 1, limit: rawKbLimit = 50, category = '', search = '', created_date = '' } = req.query;
     const limit = Math.min(parseInt(rawKbLimit) || 50, 200);
     const offset = (page - 1) * limit;
 
@@ -147,6 +147,12 @@ router.get('/', async (req, res) => {
     const safeKbSearch = sanitizeSearchParam(search);
     if (safeKbSearch) {
       query = query.or(`title.ilike.%${safeKbSearch}%,content.ilike.%${safeKbSearch}%`);
+    }
+
+    // Filter by created date (YYYY-MM-DD)
+    if (created_date && /^\d{4}-\d{2}-\d{2}$/.test(created_date)) {
+      query = query.gte('created_at', `${created_date}T00:00:00`)
+                   .lt('created_at', `${created_date}T23:59:59.999`);
     }
 
     query = query
@@ -175,6 +181,31 @@ router.get('/', async (req, res) => {
       success: false,
       error: 'Failed to fetch knowledge entries'
     });
+  }
+});
+
+/**
+ * GET /api/admin/knowledge/filters
+ * Get distinct categories and created dates for filter dropdowns
+ */
+router.get('/filters', async (req, res) => {
+  try {
+    // Fetch all entries' category and created_at (lightweight — only two columns)
+    const { data, error } = await req.supabase
+      .from('knowledge_base')
+      .select('category, created_at');
+
+    if (error) throw error;
+
+    const categories = [...new Set((data || []).map(e => e.category).filter(Boolean))].sort();
+    const dates = [...new Set(
+      (data || []).map(e => e.created_at ? e.created_at.substring(0, 10) : null).filter(Boolean)
+    )].sort().reverse();
+
+    res.json({ success: true, data: { categories, dates } });
+  } catch (error) {
+    console.error('Error fetching knowledge filters:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch filters' });
   }
 });
 
