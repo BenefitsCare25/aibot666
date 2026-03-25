@@ -760,12 +760,15 @@ Check height calculation — button is hidden when open, use `contentHeight + 8`
 
 **Rule:** Never attempt direct downloads from within the iframe. Always use the postMessage delegation pattern through `embed-helper.js`.
 
-### Widget covers full page on Safari/Mac (fullscreen takeover)
-**Cause:** Race condition — inside the 200px iframe, `window.innerWidth = 200` so widget sets `isMobile = true`. If user opens widget before `chatWidgetParentInfo` message arrives from parent, widget sends `width: '100vw', height: '100vh'` (string). Safari is more affected because cross-origin postMessage delivery is slower than Chrome.
+### Widget opens but shows only top portion on Safari (partial render)
+**Cause:** Race condition — widget loads inside a 200px iframe so `window.innerWidth = 200 → isMobile = true`. If the user opens the widget before `chatWidgetParentInfo` arrives from the parent, the widget sends `{ width: '100vw', height: '100vh' }` (strings). `embed-helper.js` correctly ignores string dimensions on desktop, so the iframe stays at its closed height (88px) — showing only the "Hi there 👋" header of the open widget. Safari is more affected because cross-origin postMessage delivery is slower than Chrome.
 
-**Fix (already applied in `embed-helper.js`):** Desktop path only applies **numeric pixel dimensions**. String values like `'100vw'`/`'100vh'` are ignored — once the parent sends `chatWidgetParentInfo` a few ms later, `isMobile` corrects to `false` and the widget resends proper pixel values.
+**Fix (applied 2026-03-25):** Two-part handshake:
+1. Widget sends `chatWidgetReady` postMessage as soon as its message listener is registered (in `ChatWidget.jsx` useEffect)
+2. `embed-helper.js` handles `chatWidgetReady` by calling `sendParentInfo()` immediately — no guessing with fixed timeouts
+3. Fallback timeouts added at 100ms / 500ms / 1500ms for edge cases
 
-**Rule:** `embed-helper.js` desktop branch must use `if (typeof w === 'number')` guards. Never apply viewport-unit strings on the desktop path. Mobile fullscreen is handled by the `isFullscreen=true` branch which runs first anyway.
+**Rule:** `embed-helper.js` desktop branch uses `if (typeof w === 'number')` guards — never apply viewport-unit strings. Mobile fullscreen is handled by the `isFullscreen=true` branch. Do not remove the `chatWidgetReady` handshake — it is what makes Safari reliable.
 
 ## Client Communication
 

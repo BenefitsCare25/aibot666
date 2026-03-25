@@ -83,7 +83,6 @@
     // This is more reliable than a fixed timeout, especially on Safari where
     // cross-origin postMessage delivery is slower.
     if (event.data.type === 'chatWidgetReady') {
-      console.log('[CW:debug] chatWidgetReady received → sending parentInfo (isMobile:', isParentMobile, ')');
       sendParentInfo();
       return;
     }
@@ -116,12 +115,6 @@
     var w = event.data.width;
     var h = event.data.height;
     var isFullscreen = state === 'open' && isParentMobile;
-
-    console.log('[CW:debug] resize msg → state:', state,
-      '| w:', w, '(type:', typeof w, ')',
-      '| h:', h, '(type:', typeof h, ')',
-      '| isParentMobile:', isParentMobile,
-      '| isFullscreen:', isFullscreen);
 
     // Track state changes (no transition - instant resize)
     lastState = state;
@@ -183,5 +176,5 @@
     }
   });
 
-  console.log('[CW:debug] embed-helper loaded | window.innerWidth:', window.innerWidth, '| isParentMobile:', isParentMobile);
+  console.log('[ChatWidget] Embed helper loaded successfully');
 })();
