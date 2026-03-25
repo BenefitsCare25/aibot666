@@ -64,7 +64,9 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === 'undefined') return false;
     // Initial detection based on window size (will be overridden by parent message if in iframe)
-    return window.innerWidth < 640;
+    const initial = window.innerWidth < 640;
+    console.log('[CW:debug] Initial isMobile:', initial, '| window.innerWidth:', window.innerWidth, '| isInIframe:', window.parent !== window);
+    return initial;
   });
 
   useEffect(() => {
@@ -74,11 +76,13 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         // SECURITY: Only accept messages from the parent window
         if (event.source !== window.parent) return;
         if (event.data && event.data.type === 'chatWidgetParentInfo') {
+          console.log('[CW:debug] Received chatWidgetParentInfo:', event.data, '→ isMobile set to:', event.data.isMobile);
           setIsMobile(event.data.isMobile);
         }
       };
       window.addEventListener('message', handleParentMessage);
 
+      console.log('[CW:debug] In iframe — registering parentInfo listener, sending chatWidgetReady');
       // Signal to parent that the widget is ready to receive viewport info.
       // This ensures embed-helper.js sends chatWidgetParentInfo at the right moment
       // rather than relying on a fixed timeout (which can be too short on Safari).
@@ -168,6 +172,7 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
 
     // Mobile fullscreen
     if (isMobile) {
+      console.log('[CW:debug] isMobile=true → sending 100vw/100vh (strings). Parent may ignore these on desktop.');
       window.parent.postMessage({
         type: 'chatWidgetResize',
         width: '100vw',
@@ -201,6 +206,10 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
       // Small padding for visual breathing room (button is hidden when open)
       // Min 280 for teaser, max 850 for longer forms (LOG request)
       const height = Math.min(Math.max(contentHeight + 8, 280), 850);
+
+      console.log('[CW:debug] sendSize → contentContainer:', !!contentContainer,
+        '| scrollHeight:', contentHeight, '| clamped height:', height,
+        '| widgetRoot.scrollHeight:', widgetRoot.scrollHeight);
 
       window.parent.postMessage({
         type: 'chatWidgetResize',
