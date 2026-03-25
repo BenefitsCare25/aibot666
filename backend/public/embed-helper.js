@@ -46,8 +46,11 @@
   // Send parent info when iframe loads
   iframe.addEventListener('load', sendParentInfo);
 
-  // Also send immediately in case iframe is already loaded
+  // Fallback timeouts in case the load event fires before the widget's
+  // message listener is registered (common on slower browsers like Safari)
   setTimeout(sendParentInfo, 100);
+  setTimeout(sendParentInfo, 500);
+  setTimeout(sendParentInfo, 1500);
 
   // Update mobile detection when parent window resizes (not the iframe)
   window.addEventListener('resize', function() {
@@ -72,6 +75,15 @@
 
     // SECURITY: Validate message origin matches the widget iframe origin
     if (widgetOrigin && event.origin !== widgetOrigin) {
+      return;
+    }
+
+    // Widget signals it has mounted and is ready to receive viewport info.
+    // Respond immediately with parent viewport dimensions.
+    // This is more reliable than a fixed timeout, especially on Safari where
+    // cross-origin postMessage delivery is slower.
+    if (event.data.type === 'chatWidgetReady') {
+      sendParentInfo();
       return;
     }
 

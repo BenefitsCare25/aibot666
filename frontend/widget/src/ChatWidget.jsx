@@ -78,6 +78,12 @@ export default function ChatWidget({ apiUrl, position = 'bottom-right', primaryC
         }
       };
       window.addEventListener('message', handleParentMessage);
+
+      // Signal to parent that the widget is ready to receive viewport info.
+      // This ensures embed-helper.js sends chatWidgetParentInfo at the right moment
+      // rather than relying on a fixed timeout (which can be too short on Safari).
+      window.parent.postMessage({ type: 'chatWidgetReady' }, '*');
+
       return () => window.removeEventListener('message', handleParentMessage);
     } else {
       // Not in iframe: use normal resize detection
