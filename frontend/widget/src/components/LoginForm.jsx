@@ -228,6 +228,9 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
       }
 
       if (!response.ok) {
+        if (response.status === 429 || data.code === 'CALLBACK_RATE_LIMITED') {
+          throw new Error("You've already requested a callback with this number today. Our team will reach out within the next working day.");
+        }
         throw new Error(data.error || `Server error: ${response.status} ${response.statusText}`);
       }
 

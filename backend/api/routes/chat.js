@@ -31,6 +31,7 @@ import { groupQuestionsByCategory } from '../utils/quickQuestionUtils.js';
 import { isContactInformation, handleEscalation, getPendingEscalation, updateEscalationWithContact } from '../services/escalationService.js';
 import { sendCallbackNotificationEmail, sendCallbackTelegramNotification } from '../services/callbackService.js';
 import { validateLogAttachments } from '../utils/logAttachmentValidation.js';
+import { redis } from '../utils/redisClient.js';
 
 const router = express.Router();
 
@@ -1363,6 +1364,22 @@ router.post('/callback-request', async (req, res) => {
       return res.status(400).json({ error: 'Invalid contact number format' });
     }
 
+    // 24hr rate limit per contact number per company
+    const normalizedPhone = contactNumber.trim().replace(/[\s\-()]/g, '');
+    const companyId = company?.id || 'unknown';
+    const rateLimitKey = `callback:ratelimit:${companyId}:${normalizedPhone}`;
+    try {
+      const existing = await redis.get(rateLimitKey);
+      if (existing) {
+        return res.status(429).json({
+          error: "You've already requested a callback with this number today. Our team will reach out within the next working day.",
+          code: 'CALLBACK_RATE_LIMITED'
+        });
+      }
+    } catch (redisErr) {
+      console.warn('Redis rate limit check failed, proceeding:', redisErr.message);
+    }
+
     // Store the identifier that was provided (for reference)
     const identifierUsed = employeeId || userId || email || 'Not provided';
     const identifierType = employeeId ? 'employee_id' : (userId ? 'user_id' : (email ? 'email' : 'none'));
@@ -1388,6 +1405,13 @@ router.post('/callback-request', async (req, res) => {
     if (insertError) {
       console.error('Failed to insert callback request:', insertError);
       return res.status(500).json({ error: 'Failed to create callback request' });
+    }
+
+    // Set 24hr rate limit after successful insert
+    try {
+      await redis.set(rateLimitKey, callbackRequest.id, 'EX', 86400);
+    } catch (redisErr) {
+      console.warn('Failed to set callback rate limit:', redisErr.message);
     }
 
     // Send email notification to support team

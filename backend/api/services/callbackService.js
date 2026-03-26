@@ -41,7 +41,7 @@ export async function sendCallbackNotificationEmail(data) {
     requestMessage: `Callback requested - Contact number: ${contactNumber}, ${identifierLabel}: ${employeeId}`,
     attachments: [],
     companyConfig,
-    customSubject: '📞 Invalid ID, Callback Request',
+    customSubject: `📞 ${company?.name ? `[${company.name}] ` : ''}Invalid ID, Callback Request`,
     customHeader: '📞 Callback Request Received'
   };
 
