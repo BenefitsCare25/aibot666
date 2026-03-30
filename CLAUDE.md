@@ -129,7 +129,7 @@ frontend/widget/src/
 │   ├── QuickQuestions.jsx             # Quick question cards
 │   └── FileAttachment.jsx            # File upload (uses onError callback, no alert())
 └── store/
-    └── chatStore.js                   # Zustand state (crypto.randomUUID IDs, error state, companyFeatures, logConfig)
+    └── chatStore.js                   # Zustand state (crypto.randomUUID IDs, error state, companyFeatures, logConfig, post-LOG AI response)
 ```
 
 ## Widget Deployment
@@ -151,33 +151,6 @@ Two implementation types are available:
 #### Dynamic (SPA / multi-company hosts)
 For sites where multiple companies share the same host, distinguished by URL path (e.g. Inspro vendor portal). Uses `window.location.hostname` at runtime — **one snippet works on both production and staging automatically**. No hardcoded host in the snippet.
 
-```html
-<script>
-  (function() {
-    var companyMap = {
-      "/cbre": { id: "<CBRE_UUID>", color: "%233b82f6" },
-      "/stm":  { id: "<STM_UUID>",  color: "%233b82f6" }
-    };
-    var path = window.location.pathname.replace(/\/$/, "");
-    var company = companyMap[path];
-    if (!company) return;
-    var domain = encodeURIComponent(window.location.hostname + path);
-    var src = "https://app-aibot-api.azurewebsites.net/chat"
-      + "?company=" + company.id + "&domain=" + domain + "&color=" + company.color;
-    var iframe = document.createElement("iframe");
-    iframe.id = "chat-widget-iframe";
-    iframe.src = src;
-    iframe.style.cssText = "position:fixed;bottom:16px;right:16px;width:200px;height:80px;border:none;background:transparent;z-index:9999;transition:all 0.3s ease;";
-    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups allow-downloads");
-    iframe.setAttribute("allow", "clipboard-write");
-    iframe.setAttribute("allowtransparency", "true");
-    iframe.title = "Chat Widget";
-    document.body.appendChild(iframe);
-  })();
-</script>
-<script src="https://app-aibot-api.azurewebsites.net/embed-helper.js"></script>
-```
-
 - **`companyMap`** is auto-generated with real UUIDs and paths from all registered companies
 - **`window.location.hostname`** resolves to the actual host at runtime (production or staging)
 - Backend matches the domain against primary domain or additional domains to find the company
@@ -185,19 +158,6 @@ For sites where multiple companies share the same host, distinguished by URL pat
 
 #### Static (standalone pages)
 For sites with one company per page. Hardcoded company ID and domain. One snippet per company per domain (production and staging shown separately in the modal).
-
-```html
-<iframe
-  id="chat-widget-iframe"
-  src="https://app-aibot-api.azurewebsites.net/chat?company=<UUID>&domain=<ENCODED_DOMAIN>&color=%233b82f6"
-  style="position: fixed; bottom: 16px; right: 16px; width: 200px; height: 80px; border: none; background: transparent; z-index: 9999; transition: all 0.3s ease;"
-  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
-  allow="clipboard-write"
-  allowtransparency="true"
-  title="Company Name Chat Widget">
-</iframe>
-<script src="https://app-aibot-api.azurewebsites.net/embed-helper.js"></script>
-```
 
 ### Embed Code UI (`EmbedCodeModal.jsx`)
 
@@ -386,18 +346,14 @@ Per-company toggles stored in `company.settings` JSONB. Controlled via Admin Por
 - Only LOG enabled → auto-selects LOG form, skips option screen
 - Network error on `/config` → defaults to both enabled
 
-## Telegram Escalation Toggle (Per-Company)
-
-Per-company toggle stored in `company.settings.telegramEscalation` JSONB. Controlled via Admin Portal → Company Management → Edit → **Escalation Options** checkbox.
-
-**How it works:**
+**Telegram escalation toggle (`telegramEscalation`) — how it works:**
 1. Admin toggles "Send escalation notifications to Telegram" checkbox (default: enabled)
 2. `chat.js` reads `req.company.settings.telegramEscalation` before calling `handleEscalation()`
 3. Passes `{ sendTelegram }` option to `escalationService.handleEscalation()`
 4. When `false`: escalation DB record is still created, but `notifyTelegramEscalation()` and `notifyContactProvided()` are skipped
 5. LOG request Telegram notifications (`notifyLogRequest`) are unaffected by this toggle
 
-**Edge cases:**
+**Telegram edge cases:**
 - Setting absent or `true` → Telegram notifications sent (backward compatible)
 - Setting `false` → DB escalation recorded, no Telegram message
 - Contact-provided follow-up notifications also respect the toggle
@@ -450,9 +406,7 @@ When a LOG route has `requiredDocuments`, uploaded files are validated on **both
 - No validation when `requiredDocuments` is absent or `logRoute` is null (backward compatible)
 
 **LOG form PDF download (postMessage delegation):**
-Downloads from within a sandboxed cross-origin iframe are blocked by browsers — the `allow-downloads` sandbox flag is required, and **modifying the sandbox attribute at runtime does NOT retroactively apply to already-loaded content** (HTML spec limitation — only affects future navigations).
-
-Solution: Widget delegates downloads to the parent page via `postMessage`:
+Widget delegates downloads to the parent page via `postMessage`:
 1. Widget sends `{ type: 'chatWidgetDownload', url, filename }` to `window.parent`
 2. `embed-helper.js` (running in the unsandboxed parent) catches the message, creates a hidden `<a>` element with `href` pointing to the download URL, and clicks it programmatically
 3. Server returns `Content-Disposition: attachment` → browser downloads the file without navigating away
@@ -600,25 +554,25 @@ domain_question/follow_up/meta_request → KB search → RAG → 2-attempt escal
 | `meta_request` | Yes | Yes (after 2nd attempt) | "forgot username", "can't login" |
 | `follow_up` | Yes | Yes (after 2nd attempt) | "what about dental?" after medical |
 
-**AI-driven escalation (single-layer model — 2026-03-23)**: The AI prompt's `<escalation_and_state_management>` XML rules handle all escalation decisions (2-attempt flow: ask to elaborate first, then escalate). Backend only **detects** the AI's escalation phrases via substring matching and triggers side effects (DB record, Telegram notification). No backend confidence override — the AI is the single source of truth for when to escalate.
+**AI-driven escalation (single-layer model — 2026-03-30)**: The AI prompt's `<escalation_and_state_management>` XML rules handle all escalation decisions (2-attempt flow: ask to elaborate first, then escalate). Backend tracks `failedKBAttempts` in Redis session state — incremented when KB search returns empty for a `domain_question`, passed into the system prompt so the AI knows the attempt count. Backend only **detects** the AI's escalation phrases via substring matching and triggers side effects (DB record, Telegram notification). No backend confidence override — the AI is the single source of truth for when to escalate.
 
 **Escalation detection** (`chat.js`): Normalized substring matching on AI response text (stripped markdown, collapsed whitespace). Checks for English phrases ("check back with the team", "leave your contact") and Chinese equivalents. Sets `awaitingContactInfo` state in Redis so next user message is treated as contact data.
 
 **Contact info flow**: When `awaitingContactInfo` is true and user sends contact info (detected via regex + LLM intent), backend updates the existing escalation record with contact data and sends a follow-up Telegram notification — no new escalation created.
 
+**Contact info misclassification guard** (chat.js — 2026-03-30): If LLM classifies as `contact_info` but all three conditions are false (`awaitingContactInfo`, `wasEscalation`, `isContactInformation()` regex), reclassifies to `meta_request`. Prevents messages like "how to change my contact number" from being treated as raw contact data. LLM prompt also includes examples distinguishing *providing* contact info ("88399967") from *asking about* contacts ("how to change my number").
+
 **Smart contact detection** (`escalationService.js`): Regex recognizes domain-style identifiers (e.g., `name.company.com`) in addition to emails and phone numbers. LLM intent also catches contact info contextually.
 
 **`calculateConfidence()`** (`openai.js`): Simplified to purely informational (for caching/metadata). Non-KB intents return 0.9. KB intents: `0.4 + (avgSimilarity * 0.5)`. Not used for escalation decisions.
 
-**Anti-hallucination (openai.js — 2026-03-01)**: When KB returns no results, the context section is replaced with an explicit `[NO KNOWLEDGE BASE DATA AVAILABLE FOR THIS QUERY]` marker. System prompt instruction #3 explicitly forbids answering benefits/coverage/policy questions from GPT training knowledge.
+**Anti-hallucination (openai.js — 2026-03-30)**: When KB returns no results, the context section is replaced with an explicit `[NO KNOWLEDGE BASE DATA AVAILABLE FOR THIS QUERY]` marker. System prompt instruction #3 explicitly forbids answering benefits/coverage/policy questions from GPT training knowledge. Rule #4 (RELEVANCE JUDGMENT) tells the AI to treat irrelevant KB results (similar keywords but different topic) as empty KB and follow escalation rules. Rule #5 (PORTAL REFERRAL) guides users to their employee benefits portal for plan-specific coverage/limits not found in KB.
 
 **Escalation guard**: `canEscalate && aiEscalated && ESCALATE_ON_NO_KNOWLEDGE` — only domain_question, follow_up, and meta_request intents can trigger escalation side effects.
 
 **Similarity threshold** (`similarity_threshold`): Default `0.55`. This is the pgvector database-level filter that gates which KB entries reach the AI. Company-level override via `ai_settings.similarity_threshold`. This is NOT an escalation threshold — it controls KB retrieval quality.
 
-**System prompt updates (openai.js — 2026-03-17)**: Instructions 3b (elaboration before escalation) and 3c (non-benefits message handling) added. Context awareness extended with correction handling and domain-style identifier recognition.
-
-**System prompt management (2026-03-23)**: The AI system prompt is now **exclusively managed in the backend** (`createRAGPrompt()` in `openai.js`). The admin portal AI Settings page no longer has a prompt textarea — it only controls tuning parameters (model, temperature, similarity threshold, top K). Custom `system_prompt` values in `ai_settings` JSONB are ignored by the backend. The `injectVariablesIntoPrompt()` function was removed. This prevents frontend prompt overrides from silently dropping KB context, conversation history, or escalation logic.
+**System prompt management**: The AI system prompt is now **exclusively managed in the backend** (`createRAGPrompt()` in `openai.js`). The admin portal AI Settings page no longer has a prompt textarea — it only controls tuning parameters (model, temperature, similarity threshold, top K). Custom `system_prompt` values in `ai_settings` JSONB are ignored by the backend. The `injectVariablesIntoPrompt()` function was removed. This prevents frontend prompt overrides from silently dropping KB context, conversation history, or escalation logic.
 
 ### Query Cache + Semantic Cache (chat.js + session.js — 2026-03-09)
 
@@ -741,24 +695,8 @@ Schema not exposed to PostgREST. Check `pgrst_config.db_schemas` table includes 
 1. **SRI hash mismatch**: Check Azure logs for `[SRI] MISMATCH` errors. Fix: rebuild widget (`npm run build-widget`) or wait 60s for TTL cache to refresh after deploy.
 2. **Domain mismatch**: Verify `domain` param in embed URL, check company's registered domain.
 
-### Mobile input area cut off
-Add `paddingBottom: env(safe-area-inset-bottom)` to input container.
-
-### Iframe not going fullscreen on mobile
-Update `embed-helper.js` — ensure `top: 0; left: 0; right: 0; bottom: 0` all set.
-
-### Chat button icon clipped
-Ensure closed state iframe dimensions include padding (300x88px).
-
-### Large gap at bottom of widget
-Check height calculation — button is hidden when open, use `contentHeight + 8` not `+ 80`.
-
 ### File download not working from widget (LOG form PDF)
-**Cause:** The widget runs inside a sandboxed cross-origin iframe. Browsers block all download mechanisms (`fetch+blob`, `window.open`, `<a download>`) from sandboxed iframes unless `allow-downloads` is in the sandbox attribute. Even if `allow-downloads` is added at runtime via `embed-helper.js`, it only applies to future navigations — the already-loaded widget content retains the original sandbox permissions.
-
-**Fix:** Downloads must be delegated to the parent page via `postMessage`. The widget sends `{ type: 'chatWidgetDownload', url, filename }` and `embed-helper.js` (running in the unsandboxed parent) creates a hidden `<a>` element pointing to the download URL and clicks it. See LOG form PDF download section above.
-
-**Rule:** Never attempt direct downloads from within the iframe. Always use the postMessage delegation pattern through `embed-helper.js`.
+Downloads must be delegated to the parent page via `postMessage`. The widget sends `{ type: 'chatWidgetDownload', url, filename }` and `embed-helper.js` (running in the unsandboxed parent) creates a hidden `<a>` element pointing to the download URL and clicks it. See LOG form PDF download section above for full details and the `<a>` navigation rationale.
 
 ### Widget opens but shows only top portion on Safari (partial render)
 **Cause:** Race condition — widget loads inside a 200px iframe so `window.innerWidth = 200 → isMobile = true`. If the user opens the widget before `chatWidgetParentInfo` arrives from the parent, the widget sends `{ width: '100vw', height: '100vh' }` (strings). `embed-helper.js` correctly ignores string dimensions on desktop, so the iframe stays at its closed height (88px) — showing only the "Hi there 👋" header of the open widget. Safari is more affected because cross-origin postMessage delivery is slower than Chrome.

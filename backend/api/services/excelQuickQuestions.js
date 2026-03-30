@@ -88,12 +88,18 @@ export async function parseQuickQuestionsExcel(filePath, schemaName) {
         return;
       }
 
+      // Skip questions with no answer — prevents "Answer not provided" responses
+      if (!answerText) {
+        console.warn(`[QuickQuestions] Skipping question with no answer: "${questionText.substring(0, 60)}"`);
+        return;
+      }
+
       questions.push({
         category_id: currentCategoryId,
         category_title: currentCategory,
         category_icon: currentCategoryIcon,
         question: questionText,
-        answer: answerText || 'Answer not provided',
+        answer: answerText,
         display_order: displayOrder++,
         is_active: true
       });

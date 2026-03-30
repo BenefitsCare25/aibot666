@@ -90,7 +90,7 @@ export async function generateEmbeddingsBatch(texts) {
  * @param {number} similarityThreshold - The threshold used for knowledge search
  * @returns {string} - Formatted system prompt (query injected separately via user message)
  */
-function createRAGPrompt(query, contexts, employeeData, conversationHistory = [], similarityThreshold = 0.55) {
+function createRAGPrompt(query, contexts, employeeData, conversationHistory = [], similarityThreshold = 0.55, failedKBAttempts = 0) {
   const contextText = contexts && contexts.length > 0
     ? contexts.map((ctx, idx) => {
         // Clean title artifacts: [SECTION: ...] markers, markdown #, bold **
@@ -127,6 +127,8 @@ You are an AI assistant for an employee insurance benefits portal. Your primary 
 1. PRIMARY SOURCE TRUTH: You must answer using ONLY the context provided in <knowledge_base> and <employee_information>.
 2. EXACT ANSWERS: If a <knowledge_base> entry contains a "Title" and "Content" field that matches the user's intent, use the facts from the "Content" field DIRECTLY. You may rephrase for conversational flow, but do not alter the facts.
 3. NO HALLUCINATION: Never make assumptions about coverage, policies, or claims not explicitly stated in the provided context. You do not have web search capabilities.
+4. RELEVANCE JUDGMENT: If <knowledge_base> contains results but they do NOT actually answer the user's question (e.g., similar keywords but different topic), treat it as if the knowledge base is empty and follow the escalation rules. Do NOT fabricate an answer from unrelated context.
+5. PORTAL REFERRAL: For questions about specific plan coverage, benefits limits, claim amounts, or policy details that are not found in the <knowledge_base>, guide the user to check their employee benefits portal for their plan-specific details (e.g., "For your specific plan coverage and limits, you may refer to your employee benefits portal."). Include this alongside the escalation message when applicable.
 </operational_rules>
 
 <privacy_and_security>
@@ -139,10 +141,14 @@ CRITICAL: You are operating in a strict data privacy environment.
 </privacy_and_security>
 
 <escalation_and_state_management>
-Follow these rules based on the state of the conversation and the <knowledge_base>:
+The current failed KB attempt count is: ${failedKBAttempts}
 
-1. MISSING KNOWLEDGE BASE (First Attempt): If the <knowledge_base> is empty for a benefits/coverage/claims question, ask the user to elaborate (e.g., "Could you provide more details about what you're looking for?").
-2. MISSING KNOWLEDGE BASE (Second Attempt): If the user has already elaborated, but the <knowledge_base> is STILL empty, you must escalate.
+"No useful KB" means: the <knowledge_base> is either empty OR contains results that do NOT actually answer the user's question (similar keywords but different topic).
+
+Follow these rules:
+
+1. NO USEFUL KB (attempt count <= 1, first time for this topic): Ask the user to elaborate once (e.g., "Could you provide more details about what you're looking for?").
+2. NO USEFUL KB (attempt count >= 2, OR you already asked to elaborate in the <conversation_history> for this same topic): You MUST escalate immediately. Do NOT ask for more details again.
 3. ESCALATION MESSAGES:
    - English: "For such a query, let us check back with the team. You may leave your contact or email address for our team to follow up with you. Thank you."
    - Chinese: "对于此类查询，我们需要与团队核实。您可以留下您的联系方式或电子邮箱，我们的团队会尽快与您联系。谢谢。"
@@ -188,7 +194,7 @@ ${query}
  * @param {Object} customSettings - Optional custom AI settings from company config
  * @returns {Promise<Object>} - Response with answer and metadata
  */
-export async function generateRAGResponse(query, contexts, employeeData, conversationHistory = [], customSettings = null, messageIntent = null) {
+export async function generateRAGResponse(query, contexts, employeeData, conversationHistory = [], customSettings = null, messageIntent = null, failedKBAttempts = 0) {
   try {
     // Use custom settings if provided, otherwise use environment defaults
     const model = customSettings?.model || CHAT_MODEL;
@@ -199,7 +205,7 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
 
 
     // Always use backend-managed prompt — frontend no longer overrides
-    const systemPrompt = createRAGPrompt(query, contexts, employeeData, conversationHistory, similarityThreshold);
+    const systemPrompt = createRAGPrompt(query, contexts, employeeData, conversationHistory, similarityThreshold, failedKBAttempts);
 
     // System prompt contains all context (employee, KB, history, query) in XML structure
     // Send as single system message + one user message for the current query

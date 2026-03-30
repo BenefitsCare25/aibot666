@@ -886,6 +886,11 @@ router.post('/message', async (req, res) => {
     const isContactInfo = isContactInformation(message);
     const awaitingContact = conversationState?.awaitingContactInfo === true;
 
+    // Guard: If LLM says contact_info but there's no pending escalation and message looks like a question, reclassify
+    if (messageIntent === 'contact_info' && !awaitingContact && !wasEscalation && !isContactInfo) {
+      messageIntent = 'meta_request';
+    }
+
     // Handle contact_info intent: LLM-classified OR regex-detected after escalation
     if (messageIntent === 'contact_info' || ((wasEscalation || awaitingContact) && isContactInfo)) {
       messageToProcess = `[User is providing contact information in response to escalation request] ${message}`;
@@ -914,6 +919,17 @@ router.post('/message', async (req, res) => {
       });
     }
 
+    // Track failed KB attempts for escalation flow
+    let failedKBAttempts = conversationState?.failedKBAttempts || 0;
+    if (needsKBSearch && (!contexts || contexts.length === 0)) {
+      failedKBAttempts += 1;
+      await updateConversationState(sessionId, {
+        failedKBAttempts,
+        askedToElaborate: failedKBAttempts === 1,
+        lastFailedQuery: message.substring(0, 200)
+      });
+    }
+
     // Generate RAG response with company-specific AI settings + intent
     const response = await generateRAGResponse(
       messageToProcess,
@@ -921,7 +937,8 @@ router.post('/message', async (req, res) => {
       employee,
       formattedHistory,
       companyAISettings,
-      messageIntent
+      messageIntent,
+      failedKBAttempts
     );
 
     // Non-KB intents get high confidence (greetings, corrections, contact_info, conversational)
@@ -1282,10 +1299,16 @@ Categories: domain_question, correction, contact_info, meta_request, follow_up
 
 Rules:
 - correction: user corrects previous input ("ignore that", "wrong email", "I meant...", "forget that")
-- contact_info: email address, phone number, or domain-style identifier (name.company.com)
-- meta_request: account help, login issues, forgot username/password
+- contact_info: user is PROVIDING their actual contact details (a raw email address, phone number, or domain-style identifier like name.company.com) in response to a previous request. NOT questions ABOUT changing/updating contact info — those are meta_request.
+- meta_request: account help, login issues, forgot username/password, requests to change/update contact number or email, portal navigation questions
 - follow_up: short question referencing previous topic ("what about dental?", "and for outpatient?")
 - domain_question: benefits/coverage/policy/claims questions, or anything else
+
+Examples:
+- "88399967" → contact_info (raw phone number)
+- "john@email.com" → contact_info (raw email)
+- "how to change my contact number" → meta_request (asking about a process)
+- "i want to update my old number" → meta_request (requesting an action)
 
 Last bot message: "${truncatedLast}"
 User message: "${truncatedMsg}"

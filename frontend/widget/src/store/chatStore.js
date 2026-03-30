@@ -454,6 +454,39 @@ Alternatively, you may provide the following information:
           }]
         }));
 
+        // If the user typed a message with the LOG request,
+        // also send it through the AI so they get an immediate answer
+        if (userMessageContent) {
+          try {
+            set({ isLoading: true });
+            const aiRes = await axios.post(`${apiUrl}/api/chat/message`, {
+              sessionId,
+              message: userMessageContent
+            }, {
+              headers: { 'X-Widget-Domain': domain }
+            });
+
+            if (aiRes.data.success) {
+              const { answer, confidence, sources, escalated } = aiRes.data.data;
+              set(state => ({
+                messages: [...state.messages, {
+                  id: crypto.randomUUID(),
+                  role: 'assistant',
+                  content: answer,
+                  confidence,
+                  sources,
+                  escalated,
+                  timestamp: new Date().toISOString()
+                }]
+              }));
+            }
+          } catch {
+            // Silently ignore — LOG was already sent successfully
+          } finally {
+            set({ isLoading: false });
+          }
+        }
+
       }
     } catch (error) {
       console.error('Error requesting LOG:', error);
