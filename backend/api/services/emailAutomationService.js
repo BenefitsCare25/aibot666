@@ -12,9 +12,11 @@ export function resolveTemplateVars(text) {
   const now = new Date();
   const month = now.toLocaleString('en-SG', { month: 'long', timeZone: 'Asia/Singapore' });
   const year = String(now.getFullYear());
+  // Match both plain <<...>> (legacy plain-text records) and
+  // HTML-encoded &lt;&lt;...&gt;&gt; (records saved through Quill editor)
   return text
-    .replace(/<<current month>>/gi, month)
-    .replace(/<<current year>>/gi, year);
+    .replace(/(?:<<|&lt;&lt;)current month(?:>>|&gt;&gt;)/gi, month)
+    .replace(/(?:<<|&lt;&lt;)current year(?:>>|&gt;&gt;)/gi, year);
 }
 
 /**

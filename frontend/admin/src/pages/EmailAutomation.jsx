@@ -5,6 +5,20 @@ import { emailAutomationApi } from '../api/emailAutomation';
 
 const isQuillEmpty = (val) => !val || val.replace(/<[^>]*>/g, '').trim() === '';
 
+// Convert legacy plain-text body to safe HTML for Quill.
+// Escapes < and > so <<placeholders>> aren't stripped as HTML tags,
+// and converts newlines to paragraph breaks.
+function toQuillHtml(text) {
+  if (!text || text.trimStart().startsWith('<')) return text; // already HTML
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .split('\n')
+    .map(line => `<p>${line || '<br>'}</p>`)
+    .join('');
+}
+
 const QUILL_MODULES = {
   toolbar: [
     [{ font: [] }, { size: ['small', false, 'large', 'huge'] }],
@@ -113,7 +127,7 @@ export default function EmailAutomation() {
       cc_list:        record.cc_list        || '',
       recipient_name: record.recipient_name || '',
       subject:        record.subject        || '',
-      body_content:   record.body_content   || '',
+      body_content:   toQuillHtml(record.body_content || ''),
       recurring_day:  record.recurring_day  != null ? String(record.recurring_day) : '',
       scheduled_date: record.scheduled_date ? record.scheduled_date.slice(0, 10) : '',
       send_time:      record.send_time      || '08:00',
