@@ -1,5 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import { emailAutomationApi } from '../api/emailAutomation';
+
+const QUILL_MODULES = {
+  toolbar: [
+    [{ font: [] }, { size: ['small', false, 'large', 'huge'] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ color: [] }, { background: [] }],
+    [{ header: [1, 2, 3, false] }],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    ['link', 'image'],
+    ['clean']
+  ]
+};
 
 const EMPTY_FORM = {
   portal_name: '',
@@ -58,6 +72,8 @@ export default function EmailAutomation() {
   const [importing, setImporting] = useState(false);
 
   const [sendingId, setSendingId] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const quillRef = useRef(null);
 
   useEffect(() => { loadRecords(); }, []);
 
@@ -82,6 +98,7 @@ export default function EmailAutomation() {
   const openNew = () => {
     setEditingRecord(null);
     setFormData(EMPTY_FORM);
+    setShowPreview(false);
     setShowModal(true);
   };
 
@@ -100,11 +117,18 @@ export default function EmailAutomation() {
       send_time:      record.send_time      || '08:00',
       is_active:      record.is_active !== false
     });
+    setShowPreview(false);
     setShowModal(true);
   };
 
+  const isQuillEmpty = (val) => !val || val.replace(/<[^>]*>/g, '').trim() === '';
+
   const handleSave = async (e) => {
     e.preventDefault();
+    if (isQuillEmpty(formData.body_content)) {
+      setError('Body Content is required');
+      return;
+    }
     setError('');
     setSaving(true);
     try {
@@ -212,7 +236,15 @@ export default function EmailAutomation() {
   };
 
   const insertPlaceholder = (field, placeholder) => {
-    setFormData(prev => ({ ...prev, [field]: prev[field] + placeholder }));
+    if (field === 'body_content' && quillRef.current) {
+      const editor = quillRef.current.getEditor();
+      const range = editor.getSelection(true);
+      const index = range ? range.index : editor.getLength();
+      editor.insertText(index, placeholder, 'user');
+      editor.setSelection(index + placeholder.length);
+    } else {
+      setFormData(prev => ({ ...prev, [field]: prev[field] + placeholder }));
+    }
   };
 
   const days = Array.from({ length: 28 }, (_, i) => i + 1);
@@ -390,7 +422,13 @@ export default function EmailAutomation() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Body Content *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Body Content *</label>
+                  <button type="button" onClick={() => setShowPreview(p => !p)}
+                    className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded border border-gray-200 hover:bg-gray-200">
+                    {showPreview ? 'Edit' : '👁 Preview'}
+                  </button>
+                </div>
                 <div className="flex gap-1 mb-1">
                   {['<<Current Month>>', '<<Current Year>>'].map(ph => (
                     <button key={ph} type="button" onClick={() => insertPlaceholder('body_content', ph)}
@@ -399,10 +437,22 @@ export default function EmailAutomation() {
                     </button>
                   ))}
                 </div>
-                <textarea required rows={6} value={formData.body_content}
-                  onChange={e => setFormData(p => ({ ...p, body_content: e.target.value }))}
-                  className="w-full border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Email body (after 'Dear [Name],')" />
+                {showPreview ? (
+                  <div
+                    className="w-full min-h-[160px] border rounded-lg px-3 py-2 text-sm bg-gray-50 prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: formData.body_content || '<span class="text-gray-400">Nothing to preview</span>' }}
+                  />
+                ) : (
+                  <ReactQuill
+                    ref={quillRef}
+                    theme="snow"
+                    value={formData.body_content}
+                    onChange={val => setFormData(p => ({ ...p, body_content: val }))}
+                    modules={QUILL_MODULES}
+                    placeholder="Email body (after 'Dear [Name],')"
+                    className="rounded-lg"
+                  />
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-4">

@@ -38,7 +38,10 @@ export function buildAutomationEmail(record) {
   const cc = parseEmailList(record.cc_list);
   const subject = resolveTemplateVars(record.subject);
   const resolvedBody = resolveTemplateVars(record.body_content);
-  const htmlBody = `Dear ${record.recipient_name},<br><br>${resolvedBody.replace(/\n/g, '<br>')}`;
+  // HTML from rich editor starts with '<'; plain text (legacy Excel imports) needs newline conversion
+  const isHtml = resolvedBody && resolvedBody.trimStart().startsWith('<');
+  const bodyPart = isHtml ? resolvedBody : resolvedBody.replace(/\n/g, '<br>');
+  const htmlBody = `<p>Dear ${record.recipient_name},</p><br>${bodyPart}`;
   return { to, cc, subject, htmlBody };
 }
 

@@ -2,10 +2,16 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import DOMPurify from 'isomorphic-dompurify';
 import { supabase } from '../../../config/supabase.js';
 import { requireSuperAdmin } from '../../middleware/authMiddleware.js';
 import { sendAutomationEmail } from '../../services/emailAutomationService.js';
 import { safeErrorDetails } from '../../utils/response.js';
+
+function sanitizeBody(body) {
+  if (!body) return body;
+  return DOMPurify.sanitize(body, { USE_PROFILES: { html: true } });
+}
 
 const router = express.Router();
 router.use(requireSuperAdmin);
@@ -144,7 +150,7 @@ router.post('/', async (req, res) => {
     .from('email_automations')
     .insert({
       portal_name, listing_type, recipient_email, cc_list, recipient_name,
-      body_content, subject,
+      body_content: sanitizeBody(body_content), subject,
       recurring_day: recurring_day || null,
       scheduled_date: scheduled_date || null,
       send_time: send_time || '08:00',
@@ -170,7 +176,7 @@ router.put('/:id', async (req, res) => {
     .from('email_automations')
     .update({
       portal_name, listing_type, recipient_email, cc_list, recipient_name,
-      body_content, subject,
+      body_content: sanitizeBody(body_content), subject,
       recurring_day: recurring_day || null,
       scheduled_date: scheduled_date || null,
       send_time: send_time || '08:00',
