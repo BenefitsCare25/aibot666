@@ -3,6 +3,8 @@ import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { emailAutomationApi } from '../api/emailAutomation';
 
+const isQuillEmpty = (val) => !val || val.replace(/<[^>]*>/g, '').trim() === '';
+
 const QUILL_MODULES = {
   toolbar: [
     [{ font: [] }, { size: ['small', false, 'large', 'huge'] }],
@@ -121,8 +123,6 @@ export default function EmailAutomation() {
     setShowModal(true);
   };
 
-  const isQuillEmpty = (val) => !val || val.replace(/<[^>]*>/g, '').trim() === '';
-
   const handleSave = async (e) => {
     e.preventDefault();
     if (isQuillEmpty(formData.body_content)) {
@@ -239,7 +239,7 @@ export default function EmailAutomation() {
     if (field === 'body_content' && quillRef.current) {
       const editor = quillRef.current.getEditor();
       const range = editor.getSelection(true);
-      const index = range ? range.index : editor.getLength();
+      const index = range ? range.index : Math.max(0, editor.getLength() - 1);
       editor.insertText(index, placeholder, 'user');
       editor.setSelection(index + placeholder.length);
     } else {
@@ -437,12 +437,7 @@ export default function EmailAutomation() {
                     </button>
                   ))}
                 </div>
-                {showPreview ? (
-                  <div
-                    className="w-full min-h-[160px] border rounded-lg px-3 py-2 text-sm bg-gray-50 prose max-w-none"
-                    dangerouslySetInnerHTML={{ __html: formData.body_content || '<span class="text-gray-400">Nothing to preview</span>' }}
-                  />
-                ) : (
+                <div style={{ display: showPreview ? 'none' : 'block' }}>
                   <ReactQuill
                     ref={quillRef}
                     theme="snow"
@@ -451,6 +446,12 @@ export default function EmailAutomation() {
                     modules={QUILL_MODULES}
                     placeholder="Email body (after 'Dear [Name],')"
                     className="rounded-lg"
+                  />
+                </div>
+                {showPreview && (
+                  <div
+                    className="w-full min-h-[160px] border rounded-lg px-3 py-2 text-sm bg-gray-50 prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: formData.body_content || '<span class="text-gray-400">Nothing to preview</span>' }}
                   />
                 )}
               </div>
