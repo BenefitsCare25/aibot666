@@ -42,9 +42,15 @@ ALTER TABLE public.email_automations ADD COLUMN IF NOT EXISTS send_time TEXT DEF
 `<<current month>>` / `<<Current Month>>` → e.g. "March" (case-insensitive)
 `<<current year>>` / `<<Current Year>>` → e.g. "2026"
 
-**Encoding handling**: `resolveTemplateVars()` matches plain (`<<`), HTML-encoded (`&lt;&lt;`), and double-encoded (`&amp;lt;&amp;lt;`) angle brackets. Quill rich editor stores `&lt;&lt;` in HTML; DOMPurify sanitization can produce double-encoded variants — the regex handles all cases.
+**Encoding handling**: The Quill rich-text editor stores content as HTML with two encoding behaviors:
+1. **Angle brackets** (`<<`, `>>`) are HTML-entity-encoded to `&lt;&lt;` / `&gt;&gt;` and further double-encoded after DOMPurify sanitization on save (`&amp;lt;&lt;`, etc.)
+2. **Spaces** inside `<<...>>` placeholders are stored as `&nbsp;` (6-char literal), not regular space characters — `\s` regex does NOT match these
 
-Email body sent as: `Dear [recipientName],<br><br>[resolved body with \n → <br>]`
+`resolveTemplateVars()` handles both: it iteratively decodes all `&amp;` chains then `&lt;`/`&gt;` back to literal `<`/`>`, and uses `(?:\s|&nbsp;)` in the regex to match spaces whether they are real whitespace or `&nbsp;` literals. Matching is case-insensitive.
+
+**Email body rendering**: The body stored by Quill is `<p>...</p>`-wrapped HTML. `quillHtmlToEmailHtml()` converts this to `<br>`-separated lines for email clients — email clients render `<p>` tags with large top/bottom margins causing unwanted double-spacing. Conversion: `<p><br></p>` → `<br>`, `</p>` → `<br>`, `<p>` → removed, trailing `<br>` trimmed.
+
+Final HTML sent: `<p>Dear [recipientName],</p><br>[converted body]`
 
 ## Excel Import
 
