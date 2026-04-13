@@ -196,6 +196,15 @@ export default function EmailAutomation() {
     if (!window.confirm('Send this email now?')) return;
     setSendingId(id);
     try {
+      // Debug: log what the server sees before sending
+      const preview = await emailAutomationApi.debugPreview(id);
+      console.group(`[EmailAutomation] Debug preview for record ${id}`);
+      console.log('raw_subject:', preview.data.raw_subject);
+      console.log('resolved_subject:', preview.data.resolved_subject);
+      console.log('raw_body (first 300 chars):', preview.data.raw_body?.substring(0, 300));
+      console.log('resolved_html_body (first 500 chars):', preview.data.resolved_html_body?.substring(0, 500));
+      console.groupEnd();
+
       await emailAutomationApi.sendNow(id);
       showSuccess('Email sent successfully');
       loadRecords();

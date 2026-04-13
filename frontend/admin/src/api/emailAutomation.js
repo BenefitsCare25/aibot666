@@ -8,6 +8,7 @@ export const emailAutomationApi = {
   update: (id, data) => apiClient.put(`${BASE}/${id}`, data),
   remove: (id) => apiClient.delete(`${BASE}/${id}`),
   sendNow: (id) => apiClient.post(`${BASE}/${id}/send`),
+  debugPreview: (id) => apiClient.get(`${BASE}/${id}/debug-preview`),
   importPreview: (formData) => apiClient.post(`${BASE}/import/preview`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),

@@ -5,7 +5,7 @@ import fs from 'fs';
 import DOMPurify from 'isomorphic-dompurify';
 import { supabase } from '../../../config/supabase.js';
 import { requireSuperAdmin } from '../../middleware/authMiddleware.js';
-import { sendAutomationEmail } from '../../services/emailAutomationService.js';
+import { sendAutomationEmail, buildAutomationEmail } from '../../services/emailAutomationService.js';
 import { safeErrorDetails } from '../../utils/response.js';
 
 function sanitizeBody(body) {
@@ -209,6 +209,22 @@ router.post('/:id/send', async (req, res) => {
     console.error('[EmailAutomation] Send failed:', err.message);
     res.status(500).json({ success: false, error: 'Failed to send email', details: safeErrorDetails(err) });
   }
+});
+
+router.get('/:id/debug-preview', async (req, res) => {
+  const { data: record, error } = await supabase
+    .from('email_automations').select('*').eq('id', req.params.id).single();
+  if (error || !record) return res.status(404).json({ success: false, error: 'Record not found' });
+  const { to, cc, subject, htmlBody } = buildAutomationEmail(record);
+  res.json({
+    success: true,
+    raw_body: record.body_content,
+    raw_subject: record.subject,
+    resolved_subject: subject,
+    resolved_html_body: htmlBody,
+    to,
+    cc,
+  });
 });
 
 // ─── Import: Preview (validate without inserting) ────────────────────────────
