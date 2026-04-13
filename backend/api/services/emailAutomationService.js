@@ -25,7 +25,22 @@ function decodeAngleBrackets(text) {
 export function resolveTemplateVars(text) {
   if (!text) return text;
   const decoded = decodeAngleBrackets(text);
-  if (!/<<\s*current\s+(?:month|year)\s*>>/i.test(decoded)) return text;
+
+  // DEBUG: log exact chars around "current" to diagnose encoding issues
+  const lc = decoded.toLowerCase();
+  const idx = lc.indexOf('current');
+  if (idx !== -1) {
+    const snippet = decoded.substring(Math.max(0, idx - 5), idx + 20);
+    const charCodes = [...snippet].map(c => `${c}(${c.charCodeAt(0)})`).join(' ');
+    console.log('[EmailAutomation] DEBUG decoded snippet:', JSON.stringify(snippet), '| chars:', charCodes);
+  }
+
+  if (!/<<\s*current\s+(?:month|year)\s*>>/i.test(decoded)) {
+    if (idx !== -1) {
+      console.log('[EmailAutomation] WARNING: "current" found but <<>> pattern not matched in decoded text');
+    }
+    return text;
+  }
 
   const now = new Date();
   const month = now.toLocaleString('en-SG', { month: 'long', timeZone: 'Asia/Singapore' });
