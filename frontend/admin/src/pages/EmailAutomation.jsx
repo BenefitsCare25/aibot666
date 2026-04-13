@@ -50,12 +50,15 @@ function resolvePreview(text) {
   const now = new Date();
   const month = now.toLocaleString('en-SG', { month: 'long' });
   const year = String(now.getFullYear());
-  // Decode all HTML-encoded angle brackets (any depth) then match simple <<>>
+  // Decode HTML-encoded angle brackets, then match <<>> allowing &nbsp; as whitespace (Quill encodes spaces as &nbsp;)
   let decoded = text;
   let prev;
   do { prev = decoded; decoded = decoded.replace(/&amp;/gi, '&'); } while (decoded !== prev);
   decoded = decoded.replace(/&lt;|&#60;|&#x3[cC];/gi, '<').replace(/&gt;|&#62;|&#x3[eE];/gi, '>');
-  return decoded.replace(/<<\s*current\s+month\s*>>/gi, month).replace(/<<\s*current\s+year\s*>>/gi, year);
+  const s = '(?:\\s|&nbsp;)';
+  return decoded
+    .replace(new RegExp(`<<${s}*current${s}+month${s}*>>`, 'gi'), month)
+    .replace(new RegExp(`<<${s}*current${s}+year${s}*>>`, 'gi'), year);
 }
 
 const COL_LABELS = {
