@@ -195,8 +195,8 @@ export default function EmailAutomation() {
   const handleSendNow = async (id) => {
     if (!window.confirm('Send this email now?')) return;
     setSendingId(id);
+    // Debug preview — separate try/catch so it never blocks the actual send
     try {
-      // Debug: log what the server sees before sending
       const preview = await emailAutomationApi.debugPreview(id);
       console.group(`[EmailAutomation] Debug preview for record ${id}`);
       console.log('raw_subject:', preview.data.raw_subject);
@@ -204,7 +204,10 @@ export default function EmailAutomation() {
       console.log('raw_body (first 300 chars):', preview.data.raw_body?.substring(0, 300));
       console.log('resolved_html_body (first 500 chars):', preview.data.resolved_html_body?.substring(0, 500));
       console.groupEnd();
-
+    } catch (previewErr) {
+      console.warn('[EmailAutomation] Debug preview failed (non-blocking):', previewErr.message);
+    }
+    try {
       await emailAutomationApi.sendNow(id);
       showSuccess('Email sent successfully');
       loadRecords();
