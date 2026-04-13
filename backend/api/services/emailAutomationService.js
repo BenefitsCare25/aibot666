@@ -6,17 +6,17 @@ const LOG_REQUEST_EMAIL_FROM = process.env.LOG_REQUEST_EMAIL_FROM;
 
 /**
  * Replace <<current month>>, <<Current Month>>, <<current year>>, <<Current Year>> placeholders.
- * Handles plain text (<<...>>) and all HTML encoding variants (&lt;&lt;...&gt;&gt;,
- * mixed &lt;<...>&gt;, etc.) by matching each angle bracket independently.
+ * Handles plain text (<<...>>), HTML-encoded (&lt;&lt;...&gt;&gt;), and double-encoded
+ * (&amp;lt;&amp;lt;...&amp;gt;&amp;gt;) variants by matching each angle bracket independently.
  */
 export function resolveTemplateVars(text) {
   if (!text) return text;
   const now = new Date();
   const month = now.toLocaleString('en-SG', { month: 'long', timeZone: 'Asia/Singapore' });
   const year = String(now.getFullYear());
-  // Each '<' and '>' may independently be plain or HTML-encoded (&lt; / &gt;)
-  const lt = '(?:&lt;|<)';
-  const gt = '(?:&gt;|>)';
+  // Each '<' may be: plain <, HTML-encoded &lt;, or double-encoded &amp;lt;
+  const lt = '(?:&amp;lt;|&lt;|<)';
+  const gt = '(?:&amp;gt;|&gt;|>)';
   return text
     .replace(new RegExp(`${lt}{2}current month${gt}{2}`, 'gi'), month)
     .replace(new RegExp(`${lt}{2}current year${gt}{2}`, 'gi'), year);

@@ -50,8 +50,8 @@ function resolvePreview(text) {
   const now = new Date();
   const month = now.toLocaleString('en-SG', { month: 'long' });
   const year = String(now.getFullYear());
-  const lt = '(?:&lt;|<)';
-  const gt = '(?:&gt;|>)';
+  const lt = '(?:&amp;lt;|&lt;|<)';
+  const gt = '(?:&amp;gt;|&gt;|>)';
   return text
     .replace(new RegExp(`${lt}{2}current month${gt}{2}`, 'gi'), month)
     .replace(new RegExp(`${lt}{2}current year${gt}{2}`, 'gi'), year);
