@@ -198,11 +198,13 @@ export default function EmailAutomation() {
     // Debug preview — separate try/catch so it never blocks the actual send
     try {
       const preview = await emailAutomationApi.debugPreview(id);
+      const d = preview?.data || preview;
       console.group(`[EmailAutomation] Debug preview for record ${id}`);
-      console.log('raw_subject:', preview.data.raw_subject);
-      console.log('resolved_subject:', preview.data.resolved_subject);
-      console.log('raw_body (first 300 chars):', preview.data.raw_body?.substring(0, 300));
-      console.log('resolved_html_body (first 500 chars):', preview.data.resolved_html_body?.substring(0, 500));
+      console.log('raw preview object:', preview);
+      console.log('raw_subject:', d?.raw_subject);
+      console.log('resolved_subject:', d?.resolved_subject);
+      console.log('raw_body:', d?.raw_body);
+      console.log('resolved_html_body:', d?.resolved_html_body);
       console.groupEnd();
     } catch (previewErr) {
       console.warn('[EmailAutomation] Debug preview failed (non-blocking):', previewErr.message);
