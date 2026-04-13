@@ -50,7 +50,11 @@ function resolvePreview(text) {
   const now = new Date();
   const month = now.toLocaleString('en-SG', { month: 'long' });
   const year = String(now.getFullYear());
-  return text.replace(/<<current month>>/gi, month).replace(/<<current year>>/gi, year);
+  const lt = '(?:&lt;|<)';
+  const gt = '(?:&gt;|>)';
+  return text
+    .replace(new RegExp(`${lt}{2}current month${gt}{2}`, 'gi'), month)
+    .replace(new RegExp(`${lt}{2}current year${gt}{2}`, 'gi'), year);
 }
 
 const COL_LABELS = {
@@ -465,7 +469,7 @@ export default function EmailAutomation() {
                 {showPreview && (
                   <div
                     className="w-full min-h-[160px] border rounded-lg px-3 py-2 text-sm bg-gray-50 prose max-w-none"
-                    dangerouslySetInnerHTML={{ __html: formData.body_content || '<span class="text-gray-400">Nothing to preview</span>' }}
+                    dangerouslySetInnerHTML={{ __html: resolvePreview(formData.body_content) || '<span class="text-gray-400">Nothing to preview</span>' }}
                   />
                 )}
               </div>

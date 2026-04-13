@@ -5,18 +5,21 @@ import { ConfidentialClientApplication } from '@azure/msal-node';
 const LOG_REQUEST_EMAIL_FROM = process.env.LOG_REQUEST_EMAIL_FROM;
 
 /**
- * Replace <<current month>>, <<Current Month>>, <<current year>>, <<Current Year>> placeholders
+ * Replace <<current month>>, <<Current Month>>, <<current year>>, <<Current Year>> placeholders.
+ * Handles plain text (<<...>>) and all HTML encoding variants (&lt;&lt;...&gt;&gt;,
+ * mixed &lt;<...>&gt;, etc.) by matching each angle bracket independently.
  */
 export function resolveTemplateVars(text) {
   if (!text) return text;
   const now = new Date();
   const month = now.toLocaleString('en-SG', { month: 'long', timeZone: 'Asia/Singapore' });
   const year = String(now.getFullYear());
-  // Match both plain <<...>> (legacy plain-text records) and
-  // HTML-encoded &lt;&lt;...&gt;&gt; (records saved through Quill editor)
+  // Each '<' and '>' may independently be plain or HTML-encoded (&lt; / &gt;)
+  const lt = '(?:&lt;|<)';
+  const gt = '(?:&gt;|>)';
   return text
-    .replace(/(?:<<|&lt;&lt;)current month(?:>>|&gt;&gt;)/gi, month)
-    .replace(/(?:<<|&lt;&lt;)current year(?:>>|&gt;&gt;)/gi, year);
+    .replace(new RegExp(`${lt}{2}current month${gt}{2}`, 'gi'), month)
+    .replace(new RegExp(`${lt}{2}current year${gt}{2}`, 'gi'), year);
 }
 
 /**
