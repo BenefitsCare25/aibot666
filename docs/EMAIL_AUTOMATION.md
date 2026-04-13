@@ -42,6 +42,8 @@ ALTER TABLE public.email_automations ADD COLUMN IF NOT EXISTS send_time TEXT DEF
 `<<current month>>` / `<<Current Month>>` → e.g. "March" (case-insensitive)
 `<<current year>>` / `<<Current Year>>` → e.g. "2026"
 
+**Encoding handling**: `resolveTemplateVars()` matches plain (`<<`), HTML-encoded (`&lt;&lt;`), and double-encoded (`&amp;lt;&amp;lt;`) angle brackets. Quill rich editor stores `&lt;&lt;` in HTML; DOMPurify sanitization can produce double-encoded variants — the regex handles all cases.
+
 Email body sent as: `Dear [recipientName],<br><br>[resolved body with \n → <br>]`
 
 ## Excel Import

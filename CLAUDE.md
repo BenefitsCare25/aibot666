@@ -29,6 +29,7 @@ All other admin routes get `companyContextMiddleware` (tenant schema).
 - **Color param XSS**: Validated against `/^#[0-9a-fA-F]{3,8}$/`
 - **X-Frame-Options**: `DENY` on all routes except `/chat` (iframe embed) and `/api/chat/log-form/*`
 - **LOG upload validation**: Frontend + backend token-overlap matching blocks non-LOG documents (`logAttachmentValidation.js`)
+- **LOG request dedup**: Anonymous LOG requests from the same email within 2 minutes return the existing record (no duplicate email sent)
 
 ## Widget Deployment
 

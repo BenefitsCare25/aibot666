@@ -572,6 +572,19 @@ router.post('/anonymous-log-request', async (req, res) => {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
+    // Dedup guard: reject if same email submitted a LOG request within the last 2 minutes
+    const { data: recentDup } = await supabaseClient
+      .from('log_requests')
+      .select('id')
+      .eq('user_email', email.trim())
+      .eq('request_type', 'anonymous')
+      .gte('created_at', new Date(Date.now() - 2 * 60 * 1000).toISOString())
+      .limit(1);
+
+    if (recentDup && recentDup.length > 0) {
+      return res.json({ success: true, data: { logRequestId: recentDup[0].id, emailSent: true, acknowledgmentSent: true, duplicate: true } });
+    }
+
     // Validate LOG attachments against route requirements (server-side)
     if (logRoute) {
       const logCfg = company?.settings?.logConfig || null;
