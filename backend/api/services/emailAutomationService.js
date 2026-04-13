@@ -5,25 +5,38 @@ import { ConfidentialClientApplication } from '@azure/msal-node';
 const LOG_REQUEST_EMAIL_FROM = process.env.LOG_REQUEST_EMAIL_FROM;
 
 /**
+ * Decode all HTML-encoded angle brackets back to literal < >.
+ * Handles any encoding depth: &lt; / &amp;lt; / &amp;amp;lt; / &#60; / &#x3c;
+ */
+function decodeAngleBrackets(text) {
+  let result = text;
+  let prev;
+  do { prev = result; result = result.replace(/&amp;/gi, '&'); } while (result !== prev);
+  return result
+    .replace(/&lt;|&#60;|&#x3[cC];/gi, '<')
+    .replace(/&gt;|&#62;|&#x3[eE];/gi, '>');
+}
+
+/**
  * Replace <<current month>>, <<Current Month>>, <<current year>>, <<Current Year>> placeholders.
- * Handles plain text, any level of HTML entity encoding (&lt; / &amp;lt; / &amp;amp;lt; ...),
- * and numeric entities (&#60; / &#x3c;).
+ * Decodes HTML entities before matching so the regex is simple and robust against any encoding.
+ * Content is already sanitized by DOMPurify on save, so full decode is safe.
  */
 export function resolveTemplateVars(text) {
   if (!text) return text;
+  const decoded = decodeAngleBrackets(text);
+  if (!/<<\s*current\s+(?:month|year)\s*>>/i.test(decoded)) return text;
+
   const now = new Date();
   const month = now.toLocaleString('en-SG', { month: 'long', timeZone: 'Asia/Singapore' });
   const year = String(now.getFullYear());
-  // &(?:amp;)*lt; handles any encoding depth: &lt; / &amp;lt; / &amp;amp;lt; etc.
-  const lt = '(?:&(?:amp;)*lt;|&#60;|&#x3[cC];|<)';
-  const gt = '(?:&(?:amp;)*gt;|&#62;|&#x3[eE];|>)';
-  const result = text
-    .replace(new RegExp(`${lt}\\s*${lt}\\s*current\\s+month\\s*${gt}\\s*${gt}`, 'gi'), month)
-    .replace(new RegExp(`${lt}\\s*${lt}\\s*current\\s+year\\s*${gt}\\s*${gt}`, 'gi'), year);
-  if (result !== text) {
+
+  const result = decoded
+    .replace(/<<\s*current\s+month\s*>>/gi, month)
+    .replace(/<<\s*current\s+year\s*>>/gi, year);
+
+  if (result !== decoded) {
     console.log('[EmailAutomation] Template vars resolved in text');
-  } else if (/current\s+month|current\s+year/i.test(text)) {
-    console.log('[EmailAutomation] WARNING: text contains "current month/year" but regex did not match. Raw snippet:', text.substring(text.toLowerCase().indexOf('current') - 30, text.toLowerCase().indexOf('current') + 40));
   }
   return result;
 }
@@ -42,6 +55,20 @@ function parseEmailList(raw) {
 }
 
 /**
+ * Convert Quill HTML (<p> per line) to email-friendly HTML using <br> line breaks.
+ * Quill wraps every line in <p>...</p> which email clients render with paragraph margins,
+ * causing double-spacing. This converts to <br> breaks matching the editor display.
+ */
+function quillHtmlToEmailHtml(html) {
+  let result = html;
+  result = result.replace(/<p><br\s*\/?><\/p>/gi, '<br>');
+  result = result.replace(/<\/p>/gi, '<br>');
+  result = result.replace(/<p>/gi, '');
+  result = result.replace(/(<br>)+$/i, '');
+  return result;
+}
+
+/**
  * Build email payload for Graph API from an automation record
  */
 export function buildAutomationEmail(record) {
@@ -49,9 +76,8 @@ export function buildAutomationEmail(record) {
   const cc = parseEmailList(record.cc_list);
   const subject = resolveTemplateVars(record.subject);
   const resolvedBody = resolveTemplateVars(record.body_content);
-  // HTML from rich editor starts with '<'; plain text (legacy Excel imports) needs newline conversion
   const isHtml = resolvedBody && resolvedBody.trimStart().startsWith('<');
-  const bodyPart = isHtml ? resolvedBody : resolvedBody.replace(/\n/g, '<br>');
+  const bodyPart = isHtml ? quillHtmlToEmailHtml(resolvedBody) : resolvedBody.replace(/\n/g, '<br>');
   const htmlBody = `<p>Dear ${record.recipient_name},</p><br>${bodyPart}`;
   return { to, cc, subject, htmlBody };
 }
