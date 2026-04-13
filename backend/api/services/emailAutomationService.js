@@ -6,20 +6,26 @@ const LOG_REQUEST_EMAIL_FROM = process.env.LOG_REQUEST_EMAIL_FROM;
 
 /**
  * Replace <<current month>>, <<Current Month>>, <<current year>>, <<Current Year>> placeholders.
- * Handles plain text (<<...>>), HTML-encoded (&lt;&lt;...&gt;&gt;), and double-encoded
- * (&amp;lt;&amp;lt;...&amp;gt;&amp;gt;) variants by matching each angle bracket independently.
+ * Handles plain text, any level of HTML entity encoding (&lt; / &amp;lt; / &amp;amp;lt; ...),
+ * and numeric entities (&#60; / &#x3c;).
  */
 export function resolveTemplateVars(text) {
   if (!text) return text;
   const now = new Date();
   const month = now.toLocaleString('en-SG', { month: 'long', timeZone: 'Asia/Singapore' });
   const year = String(now.getFullYear());
-  // Each '<' may be: plain <, HTML-encoded &lt;, or double-encoded &amp;lt;
-  const lt = '(?:&amp;lt;|&lt;|<)';
-  const gt = '(?:&amp;gt;|&gt;|>)';
-  return text
-    .replace(new RegExp(`${lt}{2}current month${gt}{2}`, 'gi'), month)
-    .replace(new RegExp(`${lt}{2}current year${gt}{2}`, 'gi'), year);
+  // &(?:amp;)*lt; handles any encoding depth: &lt; / &amp;lt; / &amp;amp;lt; etc.
+  const lt = '(?:&(?:amp;)*lt;|&#60;|&#x3[cC];|<)';
+  const gt = '(?:&(?:amp;)*gt;|&#62;|&#x3[eE];|>)';
+  const result = text
+    .replace(new RegExp(`${lt}\\s*${lt}\\s*current\\s+month\\s*${gt}\\s*${gt}`, 'gi'), month)
+    .replace(new RegExp(`${lt}\\s*${lt}\\s*current\\s+year\\s*${gt}\\s*${gt}`, 'gi'), year);
+  if (result !== text) {
+    console.log('[EmailAutomation] Template vars resolved in text');
+  } else if (/current\s+month|current\s+year/i.test(text)) {
+    console.log('[EmailAutomation] WARNING: text contains "current month/year" but regex did not match. Raw snippet:', text.substring(text.toLowerCase().indexOf('current') - 30, text.toLowerCase().indexOf('current') + 40));
+  }
+  return result;
 }
 
 /**
