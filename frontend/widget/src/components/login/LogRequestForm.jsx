@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Loader2, Paperclip, X, Download, AlertTriangle } from 'lucide-react';
+import { Loader2, Paperclip, X, Download, FileText, AlertTriangle } from 'lucide-react';
 
 export default function LogRequestForm({
   logEmail,
@@ -32,25 +32,50 @@ export default function LogRequestForm({
   const hasRoutes = !!logRoute;
   const hasRequiredFields = requiredFields.length > 0;
   const backLabel = hasRoutes ? '\u2190 Back to hospital type' : '\u2190 Back to options';
-  const hasDownloadableDocs = logRoute?.requiredDocuments?.some(d => d.downloadKey);
+  const hasRequiredDocs = logRoute?.requiredDocuments?.length > 0;
 
   return (
     <form onSubmit={onSubmit} className="ic-space-y-3">
-      {/* Download links only (no full route card) */}
-      {hasDownloadableDocs && (
-        <div className="ic-flex ic-flex-wrap ic-gap-2">
-          {logRoute.requiredDocuments.filter(d => d.downloadKey).map((doc, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => handleDownload(doc.downloadKey)}
-              className="ic-inline-flex ic-items-center ic-gap-1 ic-text-xs ic-font-medium ic-px-2 ic-py-1 ic-rounded-lg hover:ic-underline"
-              style={{ color: 'var(--color-primary-500)', backgroundColor: 'var(--color-bg-secondary)' }}
-            >
-              <Download className="ic-w-3 ic-h-3" strokeWidth={2} />
-              {doc.name}
-            </button>
-          ))}
+      {/* Required documents checklist with download links */}
+      {hasRequiredDocs && (
+        <div
+          className="ic-rounded-xl ic-p-3"
+          style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+        >
+          <div className="ic-flex ic-items-center ic-gap-2 ic-mb-2">
+            <FileText className="ic-w-4 ic-h-4" style={{ color: 'var(--color-text-secondary)' }} strokeWidth={2} />
+            <span className="ic-text-xs ic-font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+              Required documents:
+            </span>
+          </div>
+          <ul className="ic-space-y-1.5">
+            {logRoute.requiredDocuments.map((doc, idx) => (
+              <li key={idx} className="ic-flex ic-items-start ic-gap-2">
+                <span className="ic-text-xs ic-mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>•</span>
+                <div className="ic-flex-1">
+                  <span className="ic-text-xs ic-font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {doc.name}
+                  </span>
+                  {doc.description && (
+                    <p className="ic-text-xs" style={{ color: 'var(--color-text-tertiary)', whiteSpace: 'pre-line' }}>
+                      {doc.description}
+                    </p>
+                  )}
+                  {doc.downloadKey && (
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(doc.downloadKey)}
+                      className="ic-inline-flex ic-items-center ic-gap-1 ic-text-xs ic-font-medium ic-mt-0.5 hover:ic-underline"
+                      style={{ color: 'var(--color-primary-500)' }}
+                    >
+                      <Download className="ic-w-3 ic-h-3" strokeWidth={2} />
+                      Download form
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
