@@ -74,7 +74,17 @@
       "Bash(OPENAI_API_KEY=dummy node --input-type=module <<'EOF':*)",
       "Bash(grep '\"\"pdf-parse\"\"' package.json)",
       "Bash(python:*)",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(powershell -Command \"\\(Get-Content ''C:\\\\Users\\\\huien\\\\aibot\\\\CLAUDE.md''\\).Count\")",
+      "Bash(xargs grep:*)",
+      "Bash(ssh:*)",
+      "Bash(az webapp:*)",
+      "Read(//c/Program Files/Microsoft SDKs/Azure/**)",
+      "Read(//c/Program Files \\(x86\\)/Microsoft SDKs/Azure/**)",
+      "Bash(cmd.exe /c \"where az\")",
+      "Bash(cmd.exe /c \"az webapp log tail --name app-aibot-api --resource-group rg-aibot --timeout 15\")",
+      "Bash(grep -E \"\\\\.\\(js|json\\)$\")",
+      "Bash(npx -y acorn-jsx --ecma2020 --module --allow-import-export-everywhere frontend/widget/src/components/login/LogRequestForm.jsx)"
     ],
     "deny": [],
     "ask": []
