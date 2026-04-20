@@ -31,6 +31,7 @@ import { groupQuestionsByCategory } from '../utils/quickQuestionUtils.js';
 import { isContactInformation, handleEscalation, getPendingEscalation, updateEscalationWithContact } from '../services/escalationService.js';
 import { sendCallbackNotificationEmail, sendCallbackTelegramNotification } from '../services/callbackService.js';
 import { validateLogAttachments } from '../utils/logAttachmentValidation.js';
+import { validateLogFieldValues } from '../utils/validation.js';
 import { redis } from '../utils/redisClient.js';
 
 const router = express.Router();
@@ -418,36 +419,13 @@ router.post('/request-log', async (req, res) => {
       });
     }
 
-    // Validate required info fields against route configuration (server-side)
-    let matchedRouteObj = null;
-    if (logRoute) {
-      const logCfg = req.company?.settings?.logConfig || null;
-      matchedRouteObj = (logCfg?.routes || []).find(r => r.id === logRoute) || null;
-      if (matchedRouteObj?.requiredFields?.length > 0) {
-        const missingFields = matchedRouteObj.requiredFields
-          .filter(f => f.required !== false && (!fieldValues[f.id] || !String(fieldValues[f.id]).trim()))
-          .map(f => f.label);
-        if (missingFields.length > 0) {
-          return res.status(400).json({
-            success: false,
-            error: `Please fill in: ${missingFields.join(', ')}`,
-            code: 'FIELDS_REQUIRED'
-          });
-        }
-        for (const field of matchedRouteObj.requiredFields) {
-          const val = fieldValues[field.id];
-          if (!val) continue;
-          const strVal = String(val);
-          if (field.type === 'date' && isNaN(Date.parse(strVal))) {
-            return res.status(400).json({ success: false, error: `Invalid date for ${field.label}`, code: 'FIELDS_REQUIRED' });
-          }
-          if (field.type === 'text' && strVal.length > 500) {
-            return res.status(400).json({ success: false, error: `${field.label} is too long (max 500 characters)`, code: 'FIELDS_REQUIRED' });
-          }
-          if (field.type === 'textarea' && strVal.length > 2000) {
-            return res.status(400).json({ success: false, error: `${field.label} is too long (max 2000 characters)`, code: 'FIELDS_REQUIRED' });
-          }
-        }
+    const matchedRouteObj = logRoute
+      ? (req.company?.settings?.logConfig?.routes || []).find(r => r.id === logRoute) || null
+      : null;
+    if (matchedRouteObj?.requiredFields?.length > 0) {
+      const result = validateLogFieldValues(fieldValues, matchedRouteObj.requiredFields);
+      if (!result.valid) {
+        return res.status(400).json({ success: false, error: result.error, code: result.code });
       }
     }
 
@@ -496,18 +474,12 @@ router.post('/request-log', async (req, res) => {
     };
 
 
-    // Resolve logRoute label and field entries for email
-    let logRouteLabel = null;
+    let logRouteLabel = matchedRouteObj?.label || null;
     let fieldEntries = [];
-    if (logRoute) {
-      const routes = req.company?.settings?.logConfig?.routes || [];
-      const matched = routes.find(r => r.id === logRoute);
-      logRouteLabel = matched?.label || logRoute;
-      if (Object.keys(fieldValues).length > 0 && matchedRouteObj?.requiredFields) {
-        fieldEntries = matchedRouteObj.requiredFields
-          .filter(f => fieldValues[f.id])
-          .map(f => [f.label, String(fieldValues[f.id])]);
-      }
+    if (Object.keys(fieldValues).length > 0 && matchedRouteObj?.requiredFields) {
+      fieldEntries = matchedRouteObj.requiredFields
+        .filter(f => fieldValues[f.id])
+        .map(f => [f.label, String(fieldValues[f.id])]);
     }
 
     // Send email to support team
@@ -657,35 +629,13 @@ router.post('/anonymous-log-request', async (req, res) => {
       }
     }
 
-    // Validate required info fields against route configuration (server-side)
-    let matchedRouteObj = null;
-    if (logRoute) {
-      const logCfg = company?.settings?.logConfig || null;
-      matchedRouteObj = (logCfg?.routes || []).find(r => r.id === logRoute) || null;
-      if (matchedRouteObj?.requiredFields?.length > 0) {
-        const missingFields = matchedRouteObj.requiredFields
-          .filter(f => f.required && (!fieldValues[f.id] || !String(fieldValues[f.id]).trim()))
-          .map(f => f.label);
-        if (missingFields.length > 0) {
-          return res.status(400).json({
-            error: `Please fill in: ${missingFields.join(', ')}`,
-            code: 'FIELDS_REQUIRED'
-          });
-        }
-        for (const field of matchedRouteObj.requiredFields) {
-          const val = fieldValues[field.id];
-          if (!val) continue;
-          const strVal = String(val);
-          if (field.type === 'date' && isNaN(Date.parse(strVal))) {
-            return res.status(400).json({ error: `Invalid date for ${field.label}`, code: 'FIELDS_REQUIRED' });
-          }
-          if (field.type === 'text' && strVal.length > 500) {
-            return res.status(400).json({ error: `${field.label} is too long (max 500 characters)`, code: 'FIELDS_REQUIRED' });
-          }
-          if (field.type === 'textarea' && strVal.length > 2000) {
-            return res.status(400).json({ error: `${field.label} is too long (max 2000 characters)`, code: 'FIELDS_REQUIRED' });
-          }
-        }
+    const matchedRouteObj = logRoute
+      ? (company?.settings?.logConfig?.routes || []).find(r => r.id === logRoute) || null
+      : null;
+    if (matchedRouteObj?.requiredFields?.length > 0) {
+      const result = validateLogFieldValues(fieldValues, matchedRouteObj.requiredFields);
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error, code: result.code });
       }
     }
 
@@ -745,15 +695,7 @@ router.post('/anonymous-log-request', async (req, res) => {
       };
 
 
-      // Resolve logRoute label from company settings if logRoute ID is provided
-      let logRouteLabel = null;
-      if (logRoute) {
-        const routes = company?.settings?.logConfig?.routes || [];
-        const matchedRoute = routes.find(r => r.id === logRoute);
-        logRouteLabel = matchedRoute?.label || logRoute;
-      }
-
-      // Resolve field IDs to human-readable labels for email
+      let logRouteLabel = matchedRouteObj?.label || null;
       let fieldEntries = [];
       if (Object.keys(fieldValues).length > 0 && matchedRouteObj?.requiredFields) {
         fieldEntries = matchedRouteObj.requiredFields

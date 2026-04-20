@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, Paperclip, X, Download, FileText, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Loader2, Paperclip, X, Download, FileText, AlertTriangle } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 import LogRouteSelector from './login/LogRouteSelector';
 
@@ -25,7 +25,6 @@ export default function ChatLogForm() {
   const [localEmail, setLocalEmail] = useState(userEmail || '');
   const [fileWarnings, setFileWarnings] = useState([]);
 
-  const domain = domainOverride || window.location.hostname;
   const routes = logConfig?.routes || [];
   const hasMultipleRoutes = routes.length > 1;
   const hasRequiredDocs = selectedLogRoute?.requiredDocuments?.length > 0;
@@ -49,7 +48,8 @@ export default function ChatLogForm() {
 
   const handleDownload = (downloadKey) => {
     if (!downloadKey || !apiUrl) return;
-    const domainParam = domain ? `?domain=${encodeURIComponent(domain)}` : '';
+    const dom = domainOverride || window.location.hostname;
+    const domainParam = dom ? `?domain=${encodeURIComponent(dom)}` : '';
     const url = `${apiUrl}/api/chat/log-form/${downloadKey}${domainParam}`;
     window.parent.postMessage({ type: 'chatWidgetDownload', url, filename: `${downloadKey}.pdf` }, '*');
   };
@@ -105,7 +105,7 @@ export default function ChatLogForm() {
             routes={routes}
             downloadableFiles={logConfig.downloadableFiles}
             apiUrl={apiUrl}
-            domain={domain}
+            domain={domainOverride || window.location.hostname}
             onSelectRoute={setSelectedLogRoute}
             onBack={exitLogMode}
           />
@@ -119,7 +119,6 @@ export default function ChatLogForm() {
   return (
     <div className="ic-flex-shrink-0 ic-border-t ic-border-pink-200 ic-bg-white">
       <form onSubmit={handleSubmit} className="ic-p-3 ic-space-y-3" style={{ maxHeight: 400, overflowY: 'auto' }}>
-        {/* Required documents checklist */}
         {hasRequiredDocs && (
           <div
             className="ic-rounded-xl ic-p-3"
@@ -162,7 +161,6 @@ export default function ChatLogForm() {
           </div>
         )}
 
-        {/* Dynamic required fields */}
         {requiredFields.map((field) => (
           <div key={field.id}>
             <label
@@ -225,7 +223,6 @@ export default function ChatLogForm() {
           </div>
         ))}
 
-        {/* Email (optional, pre-filled) */}
         <div>
           <label
             htmlFor="chatLogEmail"
@@ -246,7 +243,6 @@ export default function ChatLogForm() {
           />
         </div>
 
-        {/* Attached files */}
         {attachments.length > 0 && (
           <div className="ic-space-y-1.5">
             {attachments.map((att) => (
@@ -274,7 +270,6 @@ export default function ChatLogForm() {
           </div>
         )}
 
-        {/* Attachment validation warning */}
         {fileWarnings.length > 0 && (
           <div className="ic-rounded-xl ic-p-2.5" style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b' }}>
             <div className="ic-flex ic-items-start ic-gap-2">
@@ -288,7 +283,6 @@ export default function ChatLogForm() {
           </div>
         )}
 
-        {/* Submit + Attach row */}
         <div className="ic-flex ic-items-center ic-gap-2">
           <label
             htmlFor="chatLogFileUpload"
