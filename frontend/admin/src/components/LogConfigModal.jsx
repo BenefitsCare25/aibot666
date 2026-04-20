@@ -249,7 +249,7 @@ export default function LogConfigModal({ company, onClose, onSuccess }) {
 
             {routes.map((route, routeIndex) => (
               <div
-                key={route.id || routeIndex}
+                key={routeIndex}
                 className="border border-gray-200 rounded-lg p-4 mb-4 bg-gray-50"
               >
                 <div className="flex items-center gap-2 mb-3">
