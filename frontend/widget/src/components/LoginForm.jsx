@@ -180,7 +180,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
         errorMessage.includes('Failed to create session');
 
       if (isEmployeeValidationError) {
-        setError('Invalid credentials, please contact helpdesk at 64487707');
+        setError('Invalid credentials, for urgent matters please contact helpdesk at 64487707');
         setShowCallbackForm(true);
       } else {
         setError(errorMessage);
@@ -545,7 +545,7 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
         <AnimatePresence>
           {error && (
             <motion.div
-              className="ic-mt-4 ic-p-4 ic-bg-red-50 ic-border-l-4 ic-border-red-500 ic-rounded-lg ic-shadow-soft"
+              className="ic-mt-4 ic-p-4 ic-bg-red-50 ic-rounded-lg ic-shadow-soft"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
