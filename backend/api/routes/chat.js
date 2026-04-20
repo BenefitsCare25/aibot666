@@ -557,7 +557,7 @@ router.post('/request-log', async (req, res) => {
  */
 router.post('/anonymous-log-request', async (req, res) => {
   try {
-    const { email, description, employeeId, attachments = [], logRoute } = req.body;
+    const { email, description, employeeId, attachments = [], logRoute, fieldValues = {} } = req.body;
     const supabaseClient = req.supabase;
     const company = req.company;
 
@@ -605,6 +605,38 @@ router.post('/anonymous-log-request', async (req, res) => {
       }
     }
 
+    // Validate required info fields against route configuration (server-side)
+    let matchedRouteObj = null;
+    if (logRoute) {
+      const logCfg = company?.settings?.logConfig || null;
+      matchedRouteObj = (logCfg?.routes || []).find(r => r.id === logRoute) || null;
+      if (matchedRouteObj?.requiredFields?.length > 0) {
+        const missingFields = matchedRouteObj.requiredFields
+          .filter(f => f.required && (!fieldValues[f.id] || !String(fieldValues[f.id]).trim()))
+          .map(f => f.label);
+        if (missingFields.length > 0) {
+          return res.status(400).json({
+            error: `Please fill in: ${missingFields.join(', ')}`,
+            code: 'FIELDS_REQUIRED'
+          });
+        }
+        for (const field of matchedRouteObj.requiredFields) {
+          const val = fieldValues[field.id];
+          if (!val) continue;
+          const strVal = String(val);
+          if (field.type === 'date' && isNaN(Date.parse(strVal))) {
+            return res.status(400).json({ error: `Invalid date for ${field.label}`, code: 'FIELDS_REQUIRED' });
+          }
+          if (field.type === 'text' && strVal.length > 500) {
+            return res.status(400).json({ error: `${field.label} is too long (max 500 characters)`, code: 'FIELDS_REQUIRED' });
+          }
+          if (field.type === 'textarea' && strVal.length > 2000) {
+            return res.status(400).json({ error: `${field.label} is too long (max 2000 characters)`, code: 'FIELDS_REQUIRED' });
+          }
+        }
+      }
+    }
+
     // Try to find employee if employeeId is provided
     let employee = null;
     if (employeeId && employeeId.trim()) {
@@ -638,7 +670,8 @@ router.post('/anonymous-log-request', async (req, res) => {
           ip_address: req.ip,
           company_id: company?.id,
           employee_identifier: employeeId?.trim() || null,
-          logRoute: logRoute || null
+          logRoute: logRoute || null,
+          fieldValues: Object.keys(fieldValues).length > 0 ? fieldValues : null
         }
       })
       .select()
@@ -668,6 +701,14 @@ router.post('/anonymous-log-request', async (req, res) => {
         logRouteLabel = matchedRoute?.label || logRoute;
       }
 
+      // Resolve field IDs to human-readable labels for email
+      let fieldEntries = [];
+      if (Object.keys(fieldValues).length > 0 && matchedRouteObj?.requiredFields) {
+        fieldEntries = matchedRouteObj.requiredFields
+          .filter(f => fieldValues[f.id])
+          .map(f => [f.label, String(fieldValues[f.id])]);
+      }
+
       // Send email to support team
       await sendLogRequestEmail({
         employee: employee || {
@@ -681,7 +722,8 @@ router.post('/anonymous-log-request', async (req, res) => {
         requestMessage: (logRouteLabel ? `[${logRouteLabel}] ` : '') + (description?.trim() || 'Anonymous LOG request submitted via widget'),
         attachments: attachments,
         companyConfig,
-        companyName: req.company?.name || company?.name || null
+        companyName: req.company?.name || company?.name || null,
+        fieldEntries
       });
 
       emailSent = true;

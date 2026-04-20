@@ -13,6 +13,11 @@ Per-company LOG request routes stored in `company.settings.logConfig` JSONB. Man
       "requiredDocuments": [
         { "name": "Hospital Care Cost Form", "description": "Obtained from the hospital", "downloadKey": null },
         { "name": "LOG Request Form", "description": "Download and complete this form", "downloadKey": "log-form" }
+      ],
+      "requiredFields": [
+        { "id": "date-of-admission", "label": "Date of Admission", "type": "date", "required": true, "placeholder": "Select date" },
+        { "id": "hospital-name", "label": "Name of Hospital", "type": "text", "required": true, "placeholder": "e.g. Singapore General Hospital" },
+        { "id": "medical-condition", "label": "Medical Condition", "type": "textarea", "required": true, "placeholder": "Describe the medical condition" }
       ]
     }
   ],
@@ -31,8 +36,8 @@ Per-company LOG request routes stored in `company.settings.logConfig` JSONB. Man
    - **No logConfig** → default LogRequestForm (backward compatible)
    - **1 route** → auto-selected, document checklist shown above form
    - **2+ routes** → LogRouteSelector shown first → user picks → then form with docs
-5. `LogRequestForm.jsx` displays route label, required document checklist, and download links when `logRoute` prop is present
-6. `POST /api/chat/anonymous-log-request` accepts optional `logRoute` field → stored in `metadata.logRoute` → route label included in support email (includes company name in subject and body)
+5. `LogRequestForm.jsx` displays route label, required document checklist, download links, and dynamic required info fields when `logRoute` prop is present
+6. `POST /api/chat/anonymous-log-request` accepts optional `logRoute` and `fieldValues` fields → stored in `metadata` → route label and field values included in support email
 
 ## Document Upload Validation (2026-03-24)
 
@@ -46,6 +51,18 @@ When a LOG route has `requiredDocuments`, uploaded files are validated on **both
 - Wrong files uploaded → "Please submit other claims on the portal."
 - Frontend warnings auto-clear when user changes attachments (useEffect on `logAttachments`)
 - No validation when `requiredDocuments` is absent or `logRoute` is null (backward compatible)
+
+## Required Info Fields Validation (2026-04-20)
+
+When a LOG route has `requiredFields`, structured form inputs are rendered in the widget and validated on **both frontend and backend**:
+- **Field types**: `text` (max 500 chars), `date` (native date picker, validated as parseable date), `textarea` (max 2000 chars)
+- **Configurable per route**: Admin Portal → LOG Configuration → each route has "Required Info Fields" section
+- **Frontend**: `LoginForm.jsx` validates required fields before submission → inline red error per empty field ("This field is required")
+- **Backend**: `POST /anonymous-log-request` validates `fieldValues` against `matchedRoute.requiredFields` → returns 400 with code `FIELDS_REQUIRED` if missing
+- **Storage**: Field values stored in `log_requests.metadata.fieldValues` JSONB
+- **Email**: Field labels and values rendered as "Submission Details" section in the support notification email
+- Routes can have BOTH `requiredDocuments` AND `requiredFields`, EITHER one, or NEITHER (backward compatible)
+- No DB migration needed — stored in existing JSONB columns
 
 ## LOG Form PDF Download (postMessage Delegation)
 
@@ -71,3 +88,4 @@ Widget delegates downloads to the parent page via `postMessage`:
 - Add/remove required documents per route
 - Toggle downloadable flag + set download key
 - Upload PDF files (max 2MB, stored as base64 in settings)
+- Add/remove required info fields per route (label, type, required toggle, placeholder)

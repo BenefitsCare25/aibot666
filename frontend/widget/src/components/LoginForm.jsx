@@ -127,6 +127,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const { createSession, apiUrl, domain: companyDomain, logConfig } = useChatStore();
   const [selectedLogRoute, setSelectedLogRoute] = useState(null);
+  const [logFieldValues, setLogFieldValues] = useState({});
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Auto-select when only one option is available
   useEffect(() => {
@@ -308,6 +310,18 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
       return;
     }
 
+    // Validate required info fields
+    if (selectedLogRoute?.requiredFields?.length > 0) {
+      const errors = {};
+      for (const field of selectedLogRoute.requiredFields) {
+        if (field.required && (!logFieldValues[field.id] || !String(logFieldValues[field.id]).trim())) {
+          errors[field.id] = 'This field is required';
+        }
+      }
+      setFieldErrors(errors);
+      if (Object.keys(errors).length > 0) return;
+    }
+
     // Validate LOG attachments before submitting
     const warnings = validateLogAttachments(logAttachments, selectedLogRoute, logConfig);
     setFileWarnings(warnings);
@@ -327,7 +341,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
           description: logDescription.trim(),
           employeeId: identifier || null,
           attachments: logAttachments,
-          logRoute: selectedLogRoute?.id || null
+          logRoute: selectedLogRoute?.id || null,
+          fieldValues: Object.keys(logFieldValues).length > 0 ? logFieldValues : undefined
         })
       });
 
@@ -363,6 +378,8 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
     setError('');
     setSelectedOption(null);
     setSelectedLogRoute(null);
+    setLogFieldValues({});
+    setFieldErrors({});
   };
 
   return (
@@ -491,6 +508,13 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
             apiUrl={apiUrl}
             domain={getDomain()}
             fileWarnings={fileWarnings}
+            requiredFields={selectedLogRoute?.requiredFields || []}
+            fieldValues={logFieldValues}
+            onFieldChange={(fieldId, value) => {
+              setLogFieldValues(prev => ({ ...prev, [fieldId]: value }));
+              if (fieldErrors[fieldId]) setFieldErrors(prev => { const next = { ...prev }; delete next[fieldId]; return next; });
+            }}
+            fieldErrors={fieldErrors}
           />
         )}
 

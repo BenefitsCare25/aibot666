@@ -133,7 +133,8 @@ export async function sendLogRequestEmail(data) {
       companyConfig = {},
       companyName = null,
       customSubject = null,
-      customHeader = null
+      customHeader = null,
+      fieldEntries = []
     } = data;
 
     if (!AZURE_CLIENT_ID || !AZURE_CLIENT_SECRET || !AZURE_TENANT_ID) {
@@ -221,6 +222,18 @@ export async function sendLogRequestEmail(data) {
                 </p>
               </div>
             </div>
+
+            <!-- Submission Details (required info fields) -->
+            ${fieldEntries.length > 0 ? `
+            <div class="section">
+              <h3 style="color: #1976D2; border-bottom: 2px solid #1976D2; padding-bottom: 5px;">📝 Submission Details</h3>
+              <div class="info-box">
+                ${fieldEntries.map(([label, value]) => `
+                  <p><span class="label">${label}:</span> ${value}</p>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
 
             <!-- Attachments Info -->
             ${attachments.length > 0 ? `

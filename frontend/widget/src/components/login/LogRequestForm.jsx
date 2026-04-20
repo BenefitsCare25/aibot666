@@ -17,6 +17,10 @@ export default function LogRequestForm({
   apiUrl = '',
   domain = '',
   fileWarnings = [],
+  requiredFields = [],
+  fieldValues = {},
+  onFieldChange,
+  fieldErrors = {},
 }) {
   const handleDownload = (downloadKey) => {
     if (!downloadKey || !apiUrl) return;
@@ -81,6 +85,79 @@ export default function LogRequestForm({
               </ul>
             </>
           )}
+        </div>
+      )}
+
+      {/* Required info fields (dynamic) */}
+      {requiredFields.length > 0 && (
+        <div className="ic-space-y-3">
+          <p
+            className="ic-text-sm ic-font-semibold"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            Required Information
+          </p>
+          {requiredFields.map((field) => (
+            <div key={field.id}>
+              <label
+                htmlFor={`field-${field.id}`}
+                className="ic-block ic-text-sm ic-font-medium ic-mb-1"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                {field.label}{field.required !== false ? ' *' : ''}
+              </label>
+              {field.type === 'date' ? (
+                <input
+                  type="date"
+                  id={`field-${field.id}`}
+                  value={fieldValues[field.id] || ''}
+                  onChange={(e) => onFieldChange?.(field.id, e.target.value)}
+                  className="ic-w-full ic-px-4 ic-py-2.5 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 ic-shadow-soft ic-transition-all"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: fieldErrors[field.id] ? '1px solid #ef4444' : 'none',
+                    color: 'var(--color-text-primary)'
+                  }}
+                  disabled={isLoading}
+                />
+              ) : field.type === 'textarea' ? (
+                <textarea
+                  id={`field-${field.id}`}
+                  value={fieldValues[field.id] || ''}
+                  onChange={(e) => onFieldChange?.(field.id, e.target.value)}
+                  placeholder={field.placeholder || ''}
+                  rows={3}
+                  className="ic-w-full ic-px-4 ic-py-2.5 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 ic-shadow-soft ic-transition-all ic-resize-none"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: fieldErrors[field.id] ? '1px solid #ef4444' : 'none',
+                    color: 'var(--color-text-primary)'
+                  }}
+                  disabled={isLoading}
+                />
+              ) : (
+                <input
+                  type="text"
+                  id={`field-${field.id}`}
+                  value={fieldValues[field.id] || ''}
+                  onChange={(e) => onFieldChange?.(field.id, e.target.value)}
+                  placeholder={field.placeholder || ''}
+                  className="ic-w-full ic-px-4 ic-py-2.5 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 ic-shadow-soft ic-transition-all"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: fieldErrors[field.id] ? '1px solid #ef4444' : 'none',
+                    color: 'var(--color-text-primary)'
+                  }}
+                  disabled={isLoading}
+                />
+              )}
+              {fieldErrors[field.id] && (
+                <p className="ic-text-xs ic-mt-1" style={{ color: '#ef4444' }}>
+                  {fieldErrors[field.id]}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

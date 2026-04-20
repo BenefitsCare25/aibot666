@@ -111,6 +111,32 @@ export default function LogConfigModal({ company, onClose, onSuccess }) {
     setRoutes(updated);
   };
 
+  // Required info field management per route
+  const addField = (routeIndex) => {
+    const updated = [...routes];
+    updated[routeIndex].requiredFields = [
+      ...(updated[routeIndex].requiredFields || []),
+      { id: `field-${Date.now()}`, label: '', type: 'text', required: true, placeholder: '' }
+    ];
+    setRoutes(updated);
+  };
+
+  const updateField = (routeIndex, fieldIndex, key, value) => {
+    const updated = [...routes];
+    const field = { ...updated[routeIndex].requiredFields[fieldIndex], [key]: value };
+    if (key === 'label') {
+      field.id = generateRouteId(value) || `field-${Date.now()}`;
+    }
+    updated[routeIndex].requiredFields[fieldIndex] = field;
+    setRoutes(updated);
+  };
+
+  const removeField = (routeIndex, fieldIndex) => {
+    const updated = [...routes];
+    updated[routeIndex].requiredFields = updated[routeIndex].requiredFields.filter((_, i) => i !== fieldIndex);
+    setRoutes(updated);
+  };
+
   // File upload
   const handleFileUpload = async (e, downloadKey) => {
     const file = e.target.files?.[0];
@@ -345,6 +371,72 @@ export default function LogConfigModal({ company, onClose, onSuccess }) {
                     </div>
                   ))}
                 </div>
+
+                {/* Required Info Fields */}
+                <div className="ml-6 mt-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-sm font-medium text-gray-700">Required Info Fields</p>
+                    <button
+                      type="button"
+                      onClick={() => addField(routeIndex)}
+                      className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      + Add field
+                    </button>
+                  </div>
+
+                  {(!route.requiredFields || route.requiredFields.length === 0) && (
+                    <p className="text-xs text-gray-400 italic">No required fields. Users submit email + optional description only.</p>
+                  )}
+
+                  {route.requiredFields?.map((field, fieldIndex) => (
+                    <div key={field.id || fieldIndex} className="flex items-start gap-2 mb-2 bg-white rounded-lg p-2 border border-gray-100">
+                      <div className="flex-1 space-y-1.5">
+                        <input
+                          type="text"
+                          value={field.label}
+                          onChange={(e) => updateField(routeIndex, fieldIndex, 'label', e.target.value)}
+                          className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-primary-500"
+                          placeholder="Field label (e.g. Date of Admission)"
+                        />
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={field.type}
+                            onChange={(e) => updateField(routeIndex, fieldIndex, 'type', e.target.value)}
+                            className="px-2 py-1 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-primary-500"
+                          >
+                            <option value="text">Text</option>
+                            <option value="date">Date</option>
+                            <option value="textarea">Textarea</option>
+                          </select>
+                          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={field.required !== false}
+                              onChange={(e) => updateField(routeIndex, fieldIndex, 'required', e.target.checked)}
+                              className="w-3.5 h-3.5 rounded border-gray-300"
+                            />
+                            Required
+                          </label>
+                        </div>
+                        <input
+                          type="text"
+                          value={field.placeholder || ''}
+                          onChange={(e) => updateField(routeIndex, fieldIndex, 'placeholder', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-primary-500"
+                          placeholder="Placeholder text (optional)"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeField(routeIndex, fieldIndex)}
+                        className="text-red-400 hover:text-red-600 text-xs mt-1"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -416,6 +508,8 @@ export default function LogConfigModal({ company, onClose, onSuccess }) {
                   <li><strong>Download key:</strong> Links a document to an uploaded PDF file</li>
                   <li>Multiple routes can share the same download key (same file)</li>
                   <li>The route label is included in the support email notification</li>
+                  <li><strong>Required fields:</strong> Add structured fields (text, date, textarea) that users must fill in</li>
+                  <li>Routes can have both required documents and required fields</li>
                 </ul>
               </div>
             </div>
