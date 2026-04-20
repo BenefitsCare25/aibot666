@@ -95,8 +95,10 @@ export default function LoginForm({ onLogin, onClose, primaryColor, isEmbedded =
         ? {
             width: '100%',
             maxWidth: 380,
+            height: '100%',
             display: 'flex',
             flexDirection: 'column',
+            overflow: 'hidden',
             backgroundColor: '#ffffff',
             borderRadius: 16,
             boxShadow: '0 8px 24px rgba(231, 76, 94, 0.16)'

@@ -200,7 +200,7 @@ export default function LogRequestForm({
           value={logDescription}
           onChange={(e) => setLogDescription(e.target.value)}
           placeholder="Please provide details about your LOG request..."
-          rows={4}
+          rows={requiredFields.length > 0 ? 2 : 4}
           className="ic-w-full ic-px-4 ic-py-3 ic-rounded-xl focus:ic-outline-none focus:ic-ring-2 focus:ic-ring-red-400 ic-shadow-soft ic-transition-all ic-resize-none"
           style={{
             backgroundColor: '#ffffff',
