@@ -88,9 +88,8 @@
     }
 
     // Handle file download requests from widget
-    // Uses hidden iframe to trigger download — more reliable than <a>.click() which
-    // can be silently ignored in message handlers without user activation.
-    // Server returns Content-Disposition: attachment, so browser downloads without navigating.
+    // Uses <a> navigation (not fetch) to avoid parent page CSP connect-src restrictions
+    // Server returns Content-Disposition: attachment, so browser downloads without navigating away
     if (event.data.type === 'chatWidgetDownload') {
       // SECURITY: Only allow downloads from the widget's own API origin
       var downloadUrl = event.data.url || '';
@@ -98,12 +97,12 @@
         console.warn('[ChatWidget] Blocked download from untrusted URL:', downloadUrl);
         return;
       }
-      // Primary: hidden iframe (works without user activation, not blocked by CSP connect-src)
-      var dlFrame = document.createElement('iframe');
-      dlFrame.style.display = 'none';
-      dlFrame.src = downloadUrl;
-      document.body.appendChild(dlFrame);
-      setTimeout(function() { try { document.body.removeChild(dlFrame); } catch(e) {} }, 30000);
+      var a = document.createElement('a');
+      a.href = downloadUrl;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       return;
     }
 

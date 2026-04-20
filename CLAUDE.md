@@ -183,7 +183,7 @@ Schema not exposed to PostgREST. Check `pgrst_config.db_schemas` table includes 
 2. **Domain mismatch**: Verify `domain` param in embed URL, check company's registered domain.
 
 ### File download not working from widget (LOG form PDF)
-Downloads must be delegated via postMessage. Widget sends `{ type: 'chatWidgetDownload', url, filename }` → `embed-helper.js` creates a hidden `<iframe>` with `src=downloadURL`. Never use `<a>.click()` — user activation is lost through postMessage. See `docs/LOG_CONFIG.md` for full rationale.
+Downloads must be delegated via postMessage. Widget sends `{ type: 'chatWidgetDownload', url, filename }` → `embed-helper.js` creates a hidden `<a>` element and triggers `.click()`. Server returns `Content-Disposition: attachment` so the browser downloads without navigating away.
 
 ### Widget opens but shows only top portion on Safari
 Race condition — widget loads inside a 200px iframe before parent info arrives. Fixed by `chatWidgetReady` handshake (2026-03-25). See Iframe Dynamic Resize section.

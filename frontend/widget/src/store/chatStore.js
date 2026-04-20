@@ -34,6 +34,9 @@ export const useChatStore = create((set, get) => ({
   isLogMode: false, // Track if user is in LOG request mode
   uploadError: null, // Error from file upload
   logError: null, // Error from LOG request
+  selectedLogRoute: null, // Selected LOG route (for logConfig flows)
+  logFieldValues: {}, // Dynamic field values for LOG form
+  logFieldErrors: {}, // Validation errors for LOG fields
 
   // Actions
   initialize: (apiUrl, domain = null) => {
@@ -302,10 +305,12 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  // Remove attachment
-  removeAttachment: (index) => {
+  // Remove attachment by id (string) or index (number)
+  removeAttachment: (idOrIndex) => {
     set(state => ({
-      attachments: state.attachments.filter((_, i) => i !== index)
+      attachments: typeof idOrIndex === 'string'
+        ? state.attachments.filter(att => att.id !== idOrIndex)
+        : state.attachments.filter((_, i) => i !== idOrIndex)
     }));
   },
 
@@ -326,14 +331,25 @@ export const useChatStore = create((set, get) => ({
 
   // Enter LOG request mode
   enterLogMode: async () => {
-    const { employeeEmail, messages, sessionId, apiUrl, domain: domainOverride } = get();
+    const { employeeEmail, messages, sessionId, apiUrl, domain: domainOverride, logConfig } = get();
 
-
-    // Auto-populate email if available from employee database
     const autoEmail = employeeEmail || '';
 
+    // If logConfig exists, use inline form (no hardcoded bot message)
+    if (logConfig?.routes?.length > 0) {
+      const autoRoute = logConfig.routes.length === 1 ? logConfig.routes[0] : null;
+      set({
+        isLogMode: true,
+        showEmailInput: false,
+        userEmail: autoEmail,
+        selectedLogRoute: autoRoute,
+        logFieldValues: {},
+        logFieldErrors: {},
+      });
+      return;
+    }
 
-    // Create the bot message with document requirements
+    // Fallback: no logConfig — show hardcoded bot message (legacy behavior)
     const botMessageContent = `For LOG request, you may attached the following documents:
 - Financial care cost form or
 - Pre-admission hospital form
@@ -351,7 +367,6 @@ Alternatively, you may provide the following information:
       isSystemMessage: true
     };
 
-    // Update state with LOG mode, email, and bot message
     set({
       isLogMode: true,
       showEmailInput: true,
@@ -359,7 +374,6 @@ Alternatively, you may provide the following information:
       messages: [...messages, botMessage]
     });
 
-    // Save bot message to database
     const domain = domainOverride || window.location.hostname;
     try {
       await axios.post(`${apiUrl}/api/chat/save-system-message`, {
@@ -367,13 +381,10 @@ Alternatively, you may provide the following information:
         message: botMessageContent,
         messageType: 'log_request_prompt'
       }, {
-        headers: {
-          'X-Widget-Domain': domain
-        }
+        headers: { 'X-Widget-Domain': domain }
       });
     } catch (error) {
       console.error('[ChatStore] Error saving bot message:', error);
-      // Don't block the UI if saving fails
     }
   },
 
@@ -383,12 +394,15 @@ Alternatively, you may provide the following information:
       isLogMode: false,
       showEmailInput: false,
       attachments: [],
-      userEmail: ''
+      userEmail: '',
+      selectedLogRoute: null,
+      logFieldValues: {},
+      logFieldErrors: {},
     });
   },
 
   // Request LOG
-  requestLog: async (message = '') => {
+  requestLog: async (message = '', logRoute = null, fieldValues = null) => {
     const { sessionId, attachments, logRequested, userEmail, apiUrl, domain: domainOverride, messages: currentMessages } = get();
 
     if (logRequested) {
@@ -397,10 +411,8 @@ Alternatively, you may provide the following information:
 
     set({ isLoading: true });
 
-    // Use domain override if provided, otherwise extract from current page URL
     const domain = domainOverride || window.location.hostname;
 
-    // Add user message to chat if they provided additional information
     const userMessageContent = message && message.trim() ? message.trim() : '';
 
     if (userMessageContent) {
@@ -421,7 +433,9 @@ Alternatively, you may provide the following information:
         sessionId,
         message: userMessageContent || 'User requested LOG via button',
         attachmentIds: attachments.map(att => att.id),
-        userEmail: userEmail || null
+        userEmail: userEmail || null,
+        logRoute: logRoute || null,
+        fieldValues: fieldValues || null
       }, {
         headers: {
           'Content-Type': 'application/json',
@@ -434,10 +448,13 @@ Alternatively, you may provide the following information:
 
         set({
           logRequested: true,
-          isLogMode: false, // Exit LOG mode after sending
-          attachments: [], // Clear attachments after successful LOG request
-          showEmailInput: false, // Hide email input
-          userEmail: '' // Clear email for privacy
+          isLogMode: false,
+          attachments: [],
+          showEmailInput: false,
+          userEmail: '',
+          selectedLogRoute: null,
+          logFieldValues: {},
+          logFieldErrors: {},
         });
 
         // Add system message to chat with email confirmation

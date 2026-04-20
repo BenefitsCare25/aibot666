@@ -356,7 +356,7 @@ router.post('/save-system-message', async (req, res) => {
  */
 router.post('/request-log', async (req, res) => {
   try {
-    const { sessionId, message, attachmentIds = [], userEmail } = req.body;
+    const { sessionId, message, attachmentIds = [], userEmail, logRoute = null, fieldValues = {} } = req.body;
 
     if (!sessionId) {
       return res.status(400).json({
@@ -418,6 +418,39 @@ router.post('/request-log', async (req, res) => {
       });
     }
 
+    // Validate required info fields against route configuration (server-side)
+    let matchedRouteObj = null;
+    if (logRoute) {
+      const logCfg = req.company?.settings?.logConfig || null;
+      matchedRouteObj = (logCfg?.routes || []).find(r => r.id === logRoute) || null;
+      if (matchedRouteObj?.requiredFields?.length > 0) {
+        const missingFields = matchedRouteObj.requiredFields
+          .filter(f => f.required !== false && (!fieldValues[f.id] || !String(fieldValues[f.id]).trim()))
+          .map(f => f.label);
+        if (missingFields.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: `Please fill in: ${missingFields.join(', ')}`,
+            code: 'FIELDS_REQUIRED'
+          });
+        }
+        for (const field of matchedRouteObj.requiredFields) {
+          const val = fieldValues[field.id];
+          if (!val) continue;
+          const strVal = String(val);
+          if (field.type === 'date' && isNaN(Date.parse(strVal))) {
+            return res.status(400).json({ success: false, error: `Invalid date for ${field.label}`, code: 'FIELDS_REQUIRED' });
+          }
+          if (field.type === 'text' && strVal.length > 500) {
+            return res.status(400).json({ success: false, error: `${field.label} is too long (max 500 characters)`, code: 'FIELDS_REQUIRED' });
+          }
+          if (field.type === 'textarea' && strVal.length > 2000) {
+            return res.status(400).json({ success: false, error: `${field.label} is too long (max 2000 characters)`, code: 'FIELDS_REQUIRED' });
+          }
+        }
+      }
+    }
+
     // Get full conversation history
     const { data: conversationHistory, error: histError } = await req.supabase
       .from('chat_history')
@@ -463,16 +496,31 @@ router.post('/request-log', async (req, res) => {
     };
 
 
+    // Resolve logRoute label and field entries for email
+    let logRouteLabel = null;
+    let fieldEntries = [];
+    if (logRoute) {
+      const routes = req.company?.settings?.logConfig?.routes || [];
+      const matched = routes.find(r => r.id === logRoute);
+      logRouteLabel = matched?.label || logRoute;
+      if (Object.keys(fieldValues).length > 0 && matchedRouteObj?.requiredFields) {
+        fieldEntries = matchedRouteObj.requiredFields
+          .filter(f => fieldValues[f.id])
+          .map(f => [f.label, String(fieldValues[f.id])]);
+      }
+    }
+
     // Send email to support team
     const emailResult = await sendLogRequestEmail({
       employee,
       conversationHistory,
       conversationId: session.conversationId,
       requestType: 'button',
-      requestMessage: message || 'User requested LOG via button',
+      requestMessage: (logRouteLabel ? `[${logRouteLabel}] ` : '') + (message || 'User requested LOG via button'),
       attachments,
       companyConfig,
-      companyName: req.company?.name || null
+      companyName: req.company?.name || null,
+      fieldEntries
     });
 
     // Send acknowledgment email to user (if email provided)
@@ -503,7 +551,11 @@ router.post('/request-log', async (req, res) => {
           name: att.name,
           size: att.size,
           path: att.path
-        }))
+        })),
+        metadata: {
+          logRoute: logRoute || null,
+          fieldValues: Object.keys(fieldValues).length > 0 ? fieldValues : null
+        }
       }])
       .select()
       .single();

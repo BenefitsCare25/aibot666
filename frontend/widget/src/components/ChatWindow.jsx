@@ -4,6 +4,7 @@ import { User, HelpCircle, LogOut, X, ChevronDown } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
+import ChatLogForm from './ChatLogForm';
 import QuickQuestions from './QuickQuestions';
 import { isLogCategory } from '../utils/logDetection';
 
@@ -25,7 +26,8 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
     isLogMode,
     enterLogMode,
     exitLogMode,
-    saveInstantAnswer
+    saveInstantAnswer,
+    logConfig
   } = useChatStore();
   const [inputValue, setInputValue] = useState('');
   const [showQuickQuestions, setShowQuickQuestions] = useState(false);
@@ -256,27 +258,31 @@ export default function ChatWindow({ onClose, onLogout, primaryColor, isEmbedded
         </div>
       )}
 
-      {/* Input - Enhanced with attachments and email */}
-      <MessageInput
-        value={inputValue}
-        onChange={setInputValue}
-        onSend={handleSend}
-        onKeyPress={handleKeyPress}
-        disabled={isLoading}
-        primaryColor={primaryColor}
-        attachments={attachments}
-        onAddAttachment={addAttachment}
-        onRemoveAttachment={removeAttachment}
-        onRequestLog={handleRequestLog}
-        logRequested={logRequested}
-        userEmail={userEmail}
-        onEmailChange={setUserEmail}
-        showEmailInput={showEmailInput}
-        onToggleEmailInput={toggleEmailInput}
-        isLogMode={isLogMode}
-        onEnterLogMode={enterLogMode}
-        onExitLogMode={exitLogMode}
-      />
+      {/* Input - Show inline LOG form when logConfig is active, otherwise standard MessageInput */}
+      {isLogMode && logConfig?.routes?.length > 0 ? (
+        <ChatLogForm />
+      ) : (
+        <MessageInput
+          value={inputValue}
+          onChange={setInputValue}
+          onSend={handleSend}
+          onKeyPress={handleKeyPress}
+          disabled={isLoading}
+          primaryColor={primaryColor}
+          attachments={attachments}
+          onAddAttachment={addAttachment}
+          onRemoveAttachment={removeAttachment}
+          onRequestLog={handleRequestLog}
+          logRequested={logRequested}
+          userEmail={userEmail}
+          onEmailChange={setUserEmail}
+          showEmailInput={showEmailInput}
+          onToggleEmailInput={toggleEmailInput}
+          isLogMode={isLogMode}
+          onEnterLogMode={enterLogMode}
+          onExitLogMode={exitLogMode}
+        />
+      )}
 
 
     </div>

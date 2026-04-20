@@ -68,15 +68,12 @@ When a LOG route has `requiredFields`, structured form inputs are rendered in th
 
 Widget delegates downloads to the parent page via `postMessage`:
 1. Widget sends `{ type: 'chatWidgetDownload', url, filename }` to `window.parent`
-2. `embed-helper.js` (running in the unsandboxed parent) catches the message, creates a hidden `<iframe>` with `src` pointing to the download URL
+2. `embed-helper.js` (running in the unsandboxed parent) catches the message, creates a hidden `<a>` element and triggers `.click()`
 3. Server returns `Content-Disposition: attachment` → browser downloads the file without navigating away
 
-**Why hidden iframe, not `<a>.click()` or `fetch+blob`:**
-- `<a>.click()` inside a `message` event handler is silently ignored by browsers because user activation (gesture) is lost through the postMessage boundary
+**Why not `fetch+blob`:**
 - `fetch+blob` is blocked by parent CSP `connect-src 'self'` on sites like Inspro
-- Hidden iframe with `src=downloadURL` works without user activation and isn't restricted by `connect-src` — server returns `Content-Disposition: attachment` so the browser downloads without navigating
-
-**Rule:** Never use `fetch+blob+a.click()`, `window.open()`, or `<a>.click()` for downloads delegated via postMessage. Always use a hidden iframe with the download URL as `src`.
+- `<a>.click()` with a direct URL works because it triggers navigation (not fetch), and `Content-Disposition: attachment` tells the browser to download instead of navigate
 
 ## Backend Endpoints
 
