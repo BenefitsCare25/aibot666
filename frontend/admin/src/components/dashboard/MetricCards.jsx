@@ -1,19 +1,56 @@
-export default function MetricCards({ stats, quality }) {
-  const cards = [
-    ['Unique employees', stats?.queries?.uniqueEmployees || 0],
-    ['AI responses', stats?.queries?.totalResponses || 0],
-    ['Escalation rate', `${stats?.queries?.escalationRate || 0}%`],
-    ['Helpful answers', `${quality?.summary?.helpfulRate || 0}%`],
-    ['Average latency', formatDuration(quality?.summary?.averageLatencyMs)],
-    ['Resolution rate', `${quality?.summary?.resolutionRate || 0}%`]
-  ];
+const CARDS = [
+  {
+    label: 'Unique employees',
+    tooltip: 'Number of distinct employees who sent at least one message in the selected period.',
+    getValue: (stats, _quality) => stats?.queries?.uniqueEmployees || 0
+  },
+  {
+    label: 'AI responses',
+    tooltip: 'Total number of replies the chatbot generated, including cached and escalated responses.',
+    getValue: (stats, _quality) => stats?.queries?.totalResponses || 0
+  },
+  {
+    label: 'Escalation rate',
+    tooltip: "Percentage of user messages the AI couldn't confidently answer and handed off to your team. Lower is better.",
+    getValue: (stats, _quality) => `${stats?.queries?.escalationRate || 0}%`
+  },
+  {
+    label: 'Helpful answers',
+    tooltip: 'Based on 👍 / 👎 ratings submitted by users. Shows the percentage of rated responses that received a thumbs up. Only messages that users actually rated are counted — unrated messages are excluded.',
+    getValue: (_stats, quality) => `${quality?.summary?.helpfulRate || 0}%`
+  },
+  {
+    label: 'Avg response time',
+    tooltip: 'How long the chatbot takes to generate a reply, averaged across all AI responses in the period. Lower means a faster experience for employees.',
+    getValue: (_stats, quality) => formatDuration(quality?.summary?.averageLatencyMs)
+  },
+  {
+    label: 'Resolution rate',
+    tooltip: 'Of all escalated cases, the percentage that your team marked as resolved. Higher means your team is closing more support requests.',
+    getValue: (_stats, quality) => `${quality?.summary?.resolutionRate || 0}%`
+  }
+];
 
+export default function MetricCards({ stats, quality }) {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {cards.map(([label, value]) => (
-        <section key={label} className="rounded-xl border border-border bg-card p-5">
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="mt-2 text-3xl font-semibold text-card-foreground">{value}</p>
+      {CARDS.map(({ label, tooltip, getValue }) => (
+        <section key={label} className="group relative rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm text-muted-foreground">{label}</p>
+            <span className="flex h-4 w-4 shrink-0 cursor-default items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground">
+              ?
+            </span>
+          </div>
+          <p className="mt-2 text-3xl font-semibold text-card-foreground">
+            {getValue(stats, quality)}
+          </p>
+
+          {/* Tooltip */}
+          <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-64 -translate-x-1/2 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100">
+            {tooltip}
+            <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-border" />
+          </div>
         </section>
       ))}
     </div>
