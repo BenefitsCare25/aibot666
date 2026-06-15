@@ -947,7 +947,9 @@ router.post('/message', async (req, res) => {
       // Update escalation record if pending
       const pendingEscalation = await getPendingEscalation(session.conversationId, req.supabase);
       if (pendingEscalation) {
-        await updateEscalationWithContact(pendingEscalation.id, message, employee, req.supabase);
+        const companySettings = req.company?.settings || {};
+        const sendTelegram = companySettings.telegramEscalation !== false;
+        await updateEscalationWithContact(pendingEscalation.id, message, employee, req.supabase, { sendTelegram });
       }
 
       await updateConversationState(sessionId, {

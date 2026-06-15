@@ -93,6 +93,8 @@ export async function updateEscalationWithContact(escalationId, contactInfo, emp
       // Notify Telegram that contact information was provided
       if (options.sendTelegram !== false) {
         await notifyContactProvided(escalationId, contactInfo, employee);
+      } else {
+        console.log(`[Escalation] Contact-info Telegram suppressed (telegramEscalation=false), escalation=${escalationId}`);
       }
     }
   } catch (error) {
@@ -176,6 +178,8 @@ export async function handleEscalation(session, query, response, employee, reaso
     // Notify via Telegram with AI response, conversation history, and schema name for multi-tenant routing
     if (options.sendTelegram !== false) {
       await notifyTelegramEscalation(escalation, query, employee, response, recentMessages || [], schemaName);
+    } else {
+      console.log(`[Escalation] Telegram suppressed for schema=${schemaName} (telegramEscalation=false), escalation=${escalation.id}`);
     }
 
     // Mark message as escalated
