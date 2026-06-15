@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --background: 248 250 252;
+  --foreground: 15 23 42;
+  --card: 255 255 255;
+  --card-foreground: 15 23 42;
+  --muted: 241 245 249;
+  --muted-foreground: 100 116 139;
+  --border: 226 232 240;
+  --accent: 37 99 235;
+  --accent-foreground: 255 255 255;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

@@ -15,6 +15,11 @@
   --color-border-hover: #d4d4d4;
   --color-shadow: rgba(0, 0, 0, 0.1);
   --color-overlay: rgba(0, 0, 0, 0.5);
+  --color-success: #15803d;
+  --color-error-bg: #fef2f2;
+  --color-error-border: #fecdd3;
+  --color-error-text: #be123c;
+  --color-text-on-primary-muted: rgba(255, 255, 255, 0.75);
 
   /* Brand colors (same for both themes) */
   --color-primary-500: #e74c5e;

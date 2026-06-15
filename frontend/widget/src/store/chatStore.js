@@ -162,13 +162,15 @@ export const useChatStore = create((set, get) => ({
       });
 
       if (response.data.success) {
-        const { answer, confidence, sources, escalated } = response.data.data;
+        const { answer, action, confidence, sources, escalated, messageId } = response.data.data;
 
         // Add AI response
         const aiMessage = {
-          id: crypto.randomUUID(),
+          id: messageId || crypto.randomUUID(),
+          messageId: messageId || null,
           role: 'assistant',
           content: answer,
+          action,
           confidence,
           sources,
           escalated,
@@ -221,6 +223,30 @@ export const useChatStore = create((set, get) => ({
 
       throw new Error(errorMessage);
     }
+  },
+
+  submitFeedback: async (messageId, rating, reason = '') => {
+    const state = get();
+    if (!state.sessionId || !messageId) {
+      throw new Error('Feedback is unavailable for this message');
+    }
+
+    await axios.post(`${state.apiUrl}/api/chat/feedback`, {
+      sessionId: state.sessionId,
+      messageId,
+      rating,
+      reason
+    }, {
+      headers: getHeaders(state)
+    });
+
+    set(current => ({
+      messages: current.messages.map(message => (
+        message.id === messageId || message.messageId === messageId
+          ? { ...message, feedback: { rating, reason } }
+          : message
+      ))
+    }));
   },
 
   loadHistory: async (conversationId) => {
@@ -484,12 +510,14 @@ Alternatively, you may provide the following information:
             });
 
             if (aiRes.data.success) {
-              const { answer, confidence, sources, escalated } = aiRes.data.data;
+              const { answer, action, confidence, sources, escalated, messageId } = aiRes.data.data;
               set(state => ({
                 messages: [...state.messages, {
-                  id: crypto.randomUUID(),
+                  id: messageId || crypto.randomUUID(),
+                  messageId: messageId || null,
                   role: 'assistant',
                   content: answer,
+                  action,
                   confidence,
                   sources,
                   escalated,

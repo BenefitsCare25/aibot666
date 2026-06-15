@@ -21,8 +21,21 @@ export const analyticsApi = {
 
   // Get query trends
   getQueryTrends: async (params = {}) => {
-    const { days = 7 } = params;
-    return apiClient.get('/api/admin/analytics/query-trends', { params: { days } });
+    const { days, startDate, endDate } = params;
+    return apiClient.get('/api/admin/analytics/query-trends', {
+      params: { days, startDate, endDate }
+    });
+  },
+
+  getQualityAnalytics: async (params = {}) => {
+    const { startDate, endDate } = params;
+    return apiClient.get('/api/admin/analytics/quality', {
+      params: { startDate, endDate }
+    });
+  },
+
+  getSystemHealth: async () => {
+    return apiClient.get('/api/admin/analytics/health');
   },
 
   // Reset knowledge base usage counts

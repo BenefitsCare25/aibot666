@@ -11,6 +11,7 @@ const EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-
 const CHAT_MODEL = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
 const TEMPERATURE = parseFloat(process.env.OPENAI_TEMPERATURE) || 0;
 const MAX_TOKENS = parseInt(process.env.OPENAI_MAX_TOKENS) || 1000;
+const RESPONSE_ACTIONS = new Set(['answer', 'clarify', 'escalate', 'contact_received']);
 
 /**
  * Generate embeddings for text using OpenAI's embedding model
@@ -165,6 +166,18 @@ Follow these rules:
 - ALWAYS detect and respond in the SAME language as the user's question.
 </formatting_guidelines>
 
+<response_contract>
+Return a JSON object with exactly these fields:
+- "answer": the complete user-facing response as a string
+- "action": one of "answer", "clarify", "escalate", or "contact_received"
+
+Action rules:
+- "answer": a normal answer, greeting, correction acknowledgment, or portal referral that does not request follow-up contact
+- "clarify": you are asking the user to elaborate because useful knowledge is unavailable on the first attempt
+- "escalate": you are using the escalation message and requesting contact details
+- "contact_received": you are acknowledging contact information supplied after escalation
+</response_contract>
+
 <employee_information>
 ${employeeInfo}
 </employee_information>
@@ -216,12 +229,14 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
       messages: messages,
       temperature: temperature,
       max_tokens: maxTokens,
+      response_format: { type: 'json_object' },
       top_p: 1.0,
       frequency_penalty: 0.0,
       presence_penalty: 0.0
     });
 
-    const answer = response.choices[0].message.content;
+    const parsed = parseStructuredResponse(response.choices[0].message.content);
+    const answer = parsed.answer;
     const finishReason = response.choices[0].finish_reason;
 
     // Calculate confidence score based on various factors
@@ -232,6 +247,7 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
 
     return {
       answer,
+      action: parsed.action,
       confidence,
       sources: contexts.map(ctx => ({
         id: ctx.id,
@@ -248,6 +264,28 @@ export async function generateRAGResponse(query, contexts, employeeData, convers
     console.error('Error generating RAG response:', error.message);
     throw new Error(`Failed to generate response: ${error.message}`);
   }
+}
+
+function parseStructuredResponse(content) {
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error('Model returned invalid JSON');
+  }
+
+  const answer = typeof parsed.answer === 'string' ? parsed.answer.trim() : '';
+  const action = typeof parsed.action === 'string' ? parsed.action.trim().toLowerCase() : '';
+
+  if (!answer) {
+    throw new Error('Model returned an empty answer');
+  }
+
+  if (!RESPONSE_ACTIONS.has(action)) {
+    throw new Error(`Model returned unsupported action: ${action || 'missing'}`);
+  }
+
+  return { answer, action };
 }
 
 /**

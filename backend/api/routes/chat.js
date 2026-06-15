@@ -1,25 +1,15 @@
 import express from 'express';
-import OpenAI from 'openai';
-import { generateRAGResponse, generateEmbedding } from '../services/openai.js';
-import { searchKnowledgeBase, getEmployeeByEmployeeId, getEmployeeByIdentifier } from '../services/vectorDB.js';
+import { getEmployeeByEmployeeId, getEmployeeByIdentifier } from '../services/vectorDB.js';
 import {
   createSession,
   getSession,
   saveSession,
   touchSession,
   addMessageToHistory,
-  getConversationHistory,
-  checkRateLimit,
-  cacheQueryResult,
-  getCachedQueryResult,
-  getSemanticCacheMatch,
-  setSemanticCache,
-  updateConversationState,
-  getConversationState
+  getConversationHistory
 } from '../utils/session.js';
 import supabase from '../../config/supabase.js';
 import { safeErrorDetails } from '../utils/response.js';
-import { createHash } from 'crypto';
 import { notifyLogRequest } from '../services/telegram.js';
 import { companyContextMiddleware } from '../middleware/companyContext.js';
 import multer from 'multer';
@@ -28,21 +18,18 @@ import { sendLogRequestEmail, sendAcknowledgmentEmail } from '../services/email.
 import path from 'path';
 import fs from 'fs/promises';
 import { groupQuestionsByCategory } from '../utils/quickQuestionUtils.js';
-import { isContactInformation, handleEscalation, getPendingEscalation, updateEscalationWithContact } from '../services/escalationService.js';
 import { sendCallbackNotificationEmail, sendCallbackTelegramNotification } from '../services/callbackService.js';
 import { validateLogAttachments } from '../utils/logAttachmentValidation.js';
 import { validateLogFieldValues } from '../utils/validation.js';
 import { redis } from '../utils/redisClient.js';
+import { processChatMessage } from '../handlers/chatMessageHandler.js';
+import chatFeedbackRouter from './chatFeedback.js';
 
 const router = express.Router();
 
 // Apply company context middleware to all chat routes
 router.use(companyContextMiddleware);
-
-const ESCALATE_ON_NO_KNOWLEDGE = process.env.ESCALATE_ON_NO_KNOWLEDGE !== 'false';
-
-// Lightweight OpenAI client for intent classification (gpt-4o-mini)
-const classificationClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+router.use('/feedback', chatFeedbackRouter);
 
 // GET /api/chat/config - Return company widget feature flags
 router.get('/config', (req, res) => {
@@ -791,318 +778,7 @@ router.post('/anonymous-log-request', async (req, res) => {
   }
 });
 
-/**
- * POST /api/chat/message
- * Send a message and get AI response
- */
-router.post('/message', async (req, res) => {
-  try {
-    const { sessionId, message } = req.body;
-
-    if (!sessionId || !message) {
-      return res.status(400).json({
-        success: false,
-        error: 'Session ID and message are required'
-      });
-    }
-
-    // Get session
-    const session = await getSession(sessionId);
-
-    if (!session) {
-      return res.status(404).json({
-        success: false,
-        error: 'Session not found or expired'
-      });
-    }
-
-    // Rate limiting check
-    const rateLimit = await checkRateLimit(session.employeeId, 100, 60);
-
-    if (!rateLimit.allowed) {
-      return res.status(429).json({
-        success: false,
-        error: 'Rate limit exceeded',
-        resetAt: rateLimit.resetAt
-      });
-    }
-
-    // Build namespaced cache key — prevents cross-tenant cache hits (PDPA compliance)
-    const queryHash = createHash('sha256').update(message.trim().toLowerCase()).digest('hex');
-    const schemaName = req.company.schemaName;
-    const cacheKey = `query:${schemaName}:${queryHash}`;
-
-    // Exact-match cache check
-    const cachedResult = await getCachedQueryResult(cacheKey);
-
-    if (cachedResult) {
-      await touchSession(sessionId);
-      return res.json({
-        success: true,
-        data: {
-          ...cachedResult,
-          cached: true
-        }
-      });
-    }
-
-    // Get employee data (use company-specific client)
-    const { data: employee, error: empError } = await req.supabase
-      .from('employees')
-      .select('*')
-      .eq('id', session.employeeId)
-      .single();
-
-    if (empError) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve employee data'
-      });
-    }
-
-    // Get company AI settings (will be null/undefined if not configured)
-    const companyAISettings = req.company?.ai_settings || null;
-
-    // Classify intent: fast regex first, LLM fallback for ambiguous messages
-    let messageIntent = classifyMessageIntentFastPath(message);
-    // Get conversation history early (needed for LLM classification + RAG)
-    const history = await getConversationHistory(session.conversationId, 40, session.employeeId);
-    const formattedHistory = history.map(h => ({ role: h.role, content: h.content }));
-
-    if (messageIntent === 'unknown') {
-      try {
-        messageIntent = await classifyMessageIntentLLM(message, formattedHistory);
-      } catch (err) {
-        console.error('LLM intent classification failed, falling back:', err.message);
-        messageIntent = 'domain_question';
-      }
-    }
-    const needsKBSearch = ['domain_question', 'follow_up', 'meta_request'].includes(messageIntent);
-
-    // For domain questions: generate embedding once, reuse for semantic cache + KB search
-    let queryEmbedding = null;
-    if (needsKBSearch) {
-      queryEmbedding = await generateEmbedding(message);
-
-      // Semantic cache check — catch paraphrase matches (e.g. "dental coverage" vs "dental benefits")
-      const semanticHit = await getSemanticCacheMatch(schemaName, queryEmbedding);
-      if (semanticHit) {
-        await touchSession(sessionId);
-        return res.json({
-          success: true,
-          data: {
-            ...semanticHit,
-            cached: true
-          }
-        });
-      }
-    }
-
-    // Search knowledge base only for domain questions, passing pre-computed embedding
-    const contexts = needsKBSearch
-      ? await searchKnowledgeBase(
-          message,
-          req.supabase,
-          companyAISettings?.top_k_results || 5,
-          companyAISettings?.similarity_threshold || 0.55,
-          null,
-          null,
-          queryEmbedding
-        )
-      : [];
-
-    // Log KB search results for debugging
-    if (contexts && contexts.length > 0) {
-      console.log(`[KB Search] Found ${contexts.length} results for "${message.substring(0, 60)}"`);
-      contexts.forEach((ctx, idx) => {
-        console.log(`  [${idx + 1}] similarity=${ctx.similarity?.toFixed(4)} title="${(ctx.title || '').substring(0, 60)}" category=${ctx.category}`);
-      });
-    } else if (needsKBSearch) {
-      console.log(`[KB Search] No results for "${message.substring(0, 60)}" (threshold=${companyAISettings?.similarity_threshold || 0.55})`);
-    }
-
-    // Pre-process: Check if user is responding to escalation with contact info
-    let messageToProcess = message;
-    const conversationState = await getConversationState(sessionId);
-    const lastAssistantMsg = formattedHistory
-      .filter(m => m.role === 'assistant')
-      .slice(-1)[0];
-
-    const wasEscalation = lastAssistantMsg?.content
-      ?.toLowerCase()
-      .includes('check back with the team');
-
-    const isContactInfo = isContactInformation(message);
-    const awaitingContact = conversationState?.awaitingContactInfo === true;
-
-    // Guard: If LLM says contact_info but there's no pending escalation and message looks like a question, reclassify
-    if (messageIntent === 'contact_info' && !awaitingContact && !wasEscalation && !isContactInfo) {
-      messageIntent = 'meta_request';
-    }
-
-    // Handle contact_info intent: LLM-classified OR regex-detected after escalation
-    if (messageIntent === 'contact_info' || ((wasEscalation || awaitingContact) && isContactInfo)) {
-      messageToProcess = `[User is providing contact information in response to escalation request] ${message}`;
-
-      // Update escalation record if pending
-      const pendingEscalation = await getPendingEscalation(session.conversationId, req.supabase);
-      if (pendingEscalation) {
-        const companySettings = req.company?.settings || {};
-        const sendTelegram = companySettings.telegramEscalation !== false;
-        await updateEscalationWithContact(pendingEscalation.id, message, employee, req.supabase, { sendTelegram });
-      }
-
-      await updateConversationState(sessionId, {
-        awaitingContactInfo: false,
-        lastBotAction: 'received_contact_info',
-        contactReceivedAt: new Date().toISOString(),
-        failedKBAttempts: 0,
-        askedToElaborate: false
-      });
-    }
-
-    // Handle correction intent: reset elaborate state, no KB search needed
-    if (messageIntent === 'correction') {
-      await updateConversationState(sessionId, {
-        askedToElaborate: false,
-        failedKBAttempts: 0,
-        lastIntent: 'correction'
-      });
-    }
-
-    // Track failed KB attempts for escalation flow
-    let failedKBAttempts = conversationState?.failedKBAttempts || 0;
-    if (needsKBSearch && (!contexts || contexts.length === 0)) {
-      failedKBAttempts += 1;
-      await updateConversationState(sessionId, {
-        failedKBAttempts,
-        askedToElaborate: failedKBAttempts === 1,
-        lastFailedQuery: message.substring(0, 200)
-      });
-    }
-
-    // Generate RAG response with company-specific AI settings + intent
-    const response = await generateRAGResponse(
-      messageToProcess,
-      contexts,
-      employee,
-      formattedHistory,
-      companyAISettings,
-      messageIntent,
-      failedKBAttempts
-    );
-
-    // Non-KB intents get high confidence (greetings, corrections, contact_info, conversational)
-    if (!needsKBSearch) {
-      response.confidence = 0.9;
-    }
-
-    // Escalation detection — AI prompt handles escalation decisions via XML rules.
-    // Backend detects escalation phrase to trigger side effects (DB record, Telegram, state).
-    let escalated = false;
-    let escalationReason = null;
-
-    // Normalize: strip markdown, collapse whitespace/newlines for robust substring matching
-    const cleanLower = (response.answer || '')
-      .replace(/[*_#`]/g, '')
-      .replace(/\s+/g, ' ')
-      .toLowerCase()
-      .trim();
-
-    // Detect if the AI chose to escalate — substring matching catches the phrase
-    // even if the AI prepends "Apologies," or adds extra words around it.
-    // Phrases are kept short to survive minor LLM rewording.
-    const aiEscalated =
-      cleanLower.includes('check back with the team') ||
-      cleanLower.includes('leave your contact') ||
-      cleanLower.includes('leave your email') ||
-      cleanLower.includes('our team to follow up') ||
-      cleanLower.includes('核实') ||
-      cleanLower.includes('团队会尽快与您联系') ||
-      cleanLower.includes('留下您的联系');
-
-    const canEscalate = ['domain_question', 'follow_up', 'meta_request'].includes(messageIntent);
-    const currentState = conversationState || {};
-
-    if (canEscalate && aiEscalated && ESCALATE_ON_NO_KNOWLEDGE) {
-      // AI decided to escalate — trigger backend side effects
-      escalated = true;
-      escalationReason = 'ai_escalated';
-
-      await updateConversationState(sessionId, {
-        failedKBAttempts: 0,
-        askedToElaborate: false,
-        lastFailedQuery: null,
-        consecutiveEscalations: (currentState.consecutiveEscalations || 0) + 1
-      });
-
-      const companySettings = req.company?.settings || {};
-      const sendTelegram = companySettings.telegramEscalation !== false;
-      await handleEscalation(session, message, response, employee, escalationReason, req.supabase, req.company.schemaName, { sendTelegram });
-
-      await updateConversationState(sessionId, {
-        lastBotAction: 'escalated',
-        awaitingContactInfo: true,
-        escalationTimestamp: new Date().toISOString(),
-        escalationReason
-      });
-    } else if (canEscalate && contexts?.length > 0) {
-      // KB returned results — reset state
-      await updateConversationState(sessionId, {
-        failedKBAttempts: 0,
-        askedToElaborate: false,
-        lastFailedQuery: null,
-        consecutiveEscalations: 0
-      });
-    }
-
-    // Save messages AFTER escalation check — ensures the final response is persisted
-    await addMessageToHistory(session.conversationId, {
-      role: 'user',
-      content: message
-    });
-    await addMessageToHistory(session.conversationId, {
-      role: 'assistant',
-      content: response.answer,
-      confidence: response.confidence,
-      sources: response.sources
-    });
-
-    // Parallelize post-response ops (DB save + session touch + cache are independent)
-    await Promise.all([
-      saveMessageToDB(session, message, response, employee.id, req.supabase),
-      touchSession(sessionId)
-    ]);
-
-    // Cache the result if confidence is high (only for domain questions with an embedding)
-    if (response.confidence >= 0.8 && needsKBSearch && queryEmbedding) {
-      const cachePayload = {
-        answer: response.answer,
-        confidence: response.confidence,
-        sources: response.sources
-      };
-      setSemanticCache(schemaName, queryHash, cachePayload, queryEmbedding).catch(() => {});
-    }
-
-    res.json({
-      success: true,
-      data: {
-        answer: response.answer,
-        confidence: response.confidence,
-        sources: response.sources,
-        escalated,
-        sessionId,
-        conversationId: session.conversationId
-      }
-    });
-  } catch (error) {
-    console.error('Error processing message:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to process message'
-    });
-  }
-});
+router.post('/message', processChatMessage);
 
 /**
  * POST /api/chat/instant-answer
@@ -1316,106 +992,6 @@ router.get('/status', async (req, res) => {
     });
   }
 });
-
-/**
- * Helper: Fast-path intent classification using regex only
- * Returns 'greeting' | 'conversational' | 'unknown'
- */
-function classifyMessageIntentFastPath(message) {
-  const msg = message.trim();
-  const greetingPattern = /^(hi+|hello+|hey+|good (morning|afternoon|evening|day)|howdy|greetings|sup|yo|what'?s up|how are you|how r u|你好|早上好|下午好|晚上好|嗨|喂)\W*$/i;
-  const conversationalPattern = /^(ok|okay|got it|i see|sure|alright|understood|noted|cool|great|sounds good|perfect|thanks|thank you|ty|thx|no problem|np|bye|goodbye|see you|take care|谢谢|好的|明白)\W*$/i;
-
-  if (greetingPattern.test(msg)) return 'greeting';
-  if (conversationalPattern.test(msg)) return 'conversational';
-  return 'unknown';
-}
-
-/**
- * Helper: LLM-assisted intent classification using gpt-4o-mini
- * Called only when fast-path returns 'unknown'
- * Returns 'domain_question' | 'correction' | 'contact_info' | 'meta_request' | 'follow_up'
- */
-async function classifyMessageIntentLLM(message, conversationHistory = []) {
-  const lastAssistantMsg = conversationHistory
-    .filter(m => m.role === 'assistant')
-    .slice(-1)[0]?.content || '';
-
-  // Truncate for token efficiency
-  const truncatedLast = lastAssistantMsg.substring(0, 200);
-  const truncatedMsg = message.substring(0, 200);
-
-  const classificationPrompt = `Classify this message in an insurance benefits chatbot.
-Categories: domain_question, correction, contact_info, meta_request, follow_up
-
-Rules:
-- correction: user corrects previous input ("ignore that", "wrong email", "I meant...", "forget that")
-- contact_info: user is PROVIDING their actual contact details (a raw email address, phone number, or domain-style identifier like name.company.com) in response to a previous request. NOT questions ABOUT changing/updating contact info — those are meta_request.
-- meta_request: account help, login issues, forgot username/password, requests to change/update contact number or email, portal navigation questions
-- follow_up: short question referencing previous topic ("what about dental?", "and for outpatient?")
-- domain_question: benefits/coverage/policy/claims questions, or anything else
-
-Examples:
-- "88399967" → contact_info (raw phone number)
-- "john@email.com" → contact_info (raw email)
-- "how to change my contact number" → meta_request (asking about a process)
-- "i want to update my old number" → meta_request (requesting an action)
-
-Last bot message: "${truncatedLast}"
-User message: "${truncatedMsg}"
-
-Reply with ONLY the category name.`;
-
-  const response = await classificationClient.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: classificationPrompt }],
-    temperature: 0,
-    max_tokens: 20
-  });
-
-  const result = response.choices[0].message.content.trim().toLowerCase();
-  const validIntents = ['domain_question', 'correction', 'contact_info', 'meta_request', 'follow_up'];
-  return validIntents.includes(result) ? result : 'domain_question';
-}
-
-/**
- * Helper: Save message to database
- */
-async function saveMessageToDB(session, userMessage, aiResponse, employeeId, supabaseClient) {
-  try {
-    const messages = [
-      {
-        conversation_id: session.conversationId,
-        employee_id: employeeId,
-        role: 'user',
-        content: userMessage,
-        metadata: {}
-      },
-      {
-        conversation_id: session.conversationId,
-        employee_id: employeeId,
-        role: 'assistant',
-        content: aiResponse.answer,
-        confidence_score: aiResponse.confidence,
-        sources: aiResponse.sources,
-        metadata: {
-          model: aiResponse.model,
-          tokens: aiResponse.tokens
-        }
-      }
-    ];
-
-    const { error } = await supabaseClient
-      .from('chat_history')
-      .insert(messages);
-
-    if (error) {
-      console.error('Error saving to database:', error);
-    }
-  } catch (error) {
-    console.error('Error in saveMessageToDB:', error);
-  }
-}
 
 /**
  * POST /api/chat/callback-request

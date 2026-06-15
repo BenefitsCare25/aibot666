@@ -1,4 +1,6 @@
 import express from 'express';
+import { getQualityAnalytics } from '../../services/qualityAnalyticsService.js';
+import { getSystemHealth } from '../../services/systemHealthService.js';
 
 const router = express.Router();
 
@@ -30,8 +32,12 @@ router.get('/', async (req, res) => {
     // Calculate metrics - only count user messages as queries
     const userMessages = chatData.filter(c => c.role === 'user');
     const totalQueries = userMessages.length;
-    const escalatedQueries = userMessages.filter(c => c.was_escalated).length;
-    const avgConfidence = chatData.reduce((sum, c) => sum + (c.confidence_score || 0), 0) / chatData.length;
+    const confidenceValues = chatData
+      .map(item => Number(item.confidence_score))
+      .filter(Number.isFinite);
+    const avgConfidence = confidenceValues.length > 0
+      ? confidenceValues.reduce((sum, value) => sum + value, 0) / confidenceValues.length
+      : 0;
 
     // Count unique employees
     const uniqueEmployees = new Set(chatData.map(c => c.employee_id).filter(id => id)).size;
@@ -40,9 +46,13 @@ router.get('/', async (req, res) => {
     const totalResponses = chatData.filter(c => c.role === 'assistant').length;
 
     // Get escalation statistics
-    const { data: escalations, error: escError } = await req.supabase
+    let escalationQuery = req.supabase
       .from('escalations')
       .select('status, created_at, resolved_at');
+    if (startDate) escalationQuery = escalationQuery.gte('created_at', startDate);
+    if (endDate) escalationQuery = escalationQuery.lte('created_at', endDate);
+
+    const { data: escalations, error: escError } = await escalationQuery;
 
     if (escError) throw escError;
 
@@ -66,8 +76,8 @@ router.get('/', async (req, res) => {
           total: totalQueries,
           uniqueEmployees: uniqueEmployees,
           totalResponses: totalResponses,
-          escalated: escalatedQueries,
-          escalationRate: totalQueries > 0 ? (escalatedQueries / totalQueries * 100).toFixed(2) : 0,
+          escalated: escalations.length,
+          escalationRate: totalQueries > 0 ? (escalations.length / totalQueries * 100).toFixed(2) : 0,
           avgConfidence: avgConfidence.toFixed(2)
         },
         escalations: {
@@ -98,7 +108,7 @@ router.get('/recent-activity', async (req, res) => {
     // Get recent conversations (user messages only)
     let query = req.supabase
       .from('chat_history')
-      .select('id, employee_id, content, created_at, was_escalated, confidence_score, employees(name, email)')
+      .select('id, conversation_id, employee_id, content, created_at, was_escalated, confidence_score, employees(name, email)')
       .eq('role', 'user')
       .order('created_at', { ascending: false })
       .limit(parseInt(limit));
@@ -115,13 +125,24 @@ router.get('/recent-activity', async (req, res) => {
 
     if (error) throw error;
 
+    const conversationIds = [...new Set(data.map(item => item.conversation_id).filter(Boolean))];
+    const escalatedConversations = new Set();
+    if (conversationIds.length > 0) {
+      const { data: escalationData, error: escalationError } = await req.supabase
+        .from('escalations')
+        .select('conversation_id')
+        .in('conversation_id', conversationIds);
+      if (escalationError) throw escalationError;
+      escalationData.forEach(item => escalatedConversations.add(item.conversation_id));
+    }
+
     // Format the response
     const activity = data.map(item => ({
       id: item.id,
       employeeName: item.employees?.name || 'Unknown',
       employeeEmail: item.employees?.email || '',
       question: item.content,
-      status: item.was_escalated ? 'escalated' : 'resolved',
+      status: escalatedConversations.has(item.conversation_id) ? 'escalated' : 'answered',
       confidence: item.confidence_score,
       timestamp: item.created_at
     }));
@@ -265,29 +286,41 @@ router.post('/reset-usage', async (req, res) => {
  */
 router.get('/query-trends', async (req, res) => {
   try {
-    const { days = 7 } = req.query;
+    const { days, startDate: requestedStartDate, endDate: requestedEndDate } = req.query;
 
-    // Calculate date range
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - parseInt(days));
+    const endDate = requestedEndDate ? new Date(requestedEndDate) : new Date();
+    let startDate = requestedStartDate ? new Date(requestedStartDate) : null;
+    if (!startDate && days) {
+      startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - parseInt(days));
+    }
 
     // Get all user queries in the date range
-    const { data, error } = await req.supabase
+    let trendQuery = req.supabase
       .from('chat_history')
       .select('created_at')
       .eq('role', 'user')
-      .gte('created_at', startDate.toISOString())
       .lte('created_at', endDate.toISOString());
+    if (startDate) trendQuery = trendQuery.gte('created_at', startDate.toISOString());
+
+    const { data, error } = await trendQuery;
 
     if (error) throw error;
 
     // Group by date
     const dailyCounts = {};
+    if (!startDate) {
+      const earliest = data.reduce((minimum, item) => {
+        const date = new Date(item.created_at);
+        return !minimum || date < minimum ? date : minimum;
+      }, null);
+      startDate = earliest || new Date(endDate);
+    }
 
     // Initialize all dates with 0
-    for (let i = 0; i < parseInt(days); i++) {
-      const date = new Date();
+    const totalDays = Math.max(1, Math.ceil((endDate - startDate) / 86400000) + 1);
+    for (let i = 0; i < totalDays; i++) {
+      const date = new Date(endDate);
       date.setDate(date.getDate() - i);
       const dateKey = date.toISOString().split('T')[0];
       dailyCounts[dateKey] = 0;
@@ -316,6 +349,26 @@ router.get('/query-trends', async (req, res) => {
       success: false,
       error: 'Failed to fetch query trends'
     });
+  }
+});
+
+router.get('/quality', async (req, res) => {
+  try {
+    const data = await getQualityAnalytics(req.supabase, req.query);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching quality analytics:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch quality analytics' });
+  }
+});
+
+router.get('/health', async (req, res) => {
+  try {
+    const data = await getSystemHealth(req.supabase);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching system health:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch system health' });
   }
 });
 

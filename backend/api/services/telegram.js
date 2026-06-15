@@ -24,6 +24,19 @@ if (TELEGRAM_BOT_TOKEN) {
   console.warn('⚠ TELEGRAM_BOT_TOKEN not set - HITL features disabled');
 }
 
+export async function checkTelegramHealth() {
+  if (!bot || !TELEGRAM_CHAT_ID) {
+    return { status: 'disabled', detail: 'Telegram is not configured' };
+  }
+
+  const startedAt = Date.now();
+  await bot.telegram.getMe();
+  return {
+    status: 'operational',
+    latencyMs: Date.now() - startedAt
+  };
+}
+
 /**
  * Extract contact information (email/phone) from conversation messages
  * @param {Array} messages - Array of conversation messages

@@ -30,6 +30,9 @@ Thumbs.db
 *.sublime-project
 *.sublime-workspace
 
+# Local Claude permissions
+.claude/settings.local.json
+
 # Uploads
 uploads/
 temp/

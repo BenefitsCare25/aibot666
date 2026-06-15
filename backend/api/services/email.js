@@ -70,6 +70,28 @@ function getGraphClient() {
   return client;
 }
 
+export async function checkEmailHealth() {
+  const required = [
+    AZURE_CLIENT_ID,
+    AZURE_CLIENT_SECRET,
+    AZURE_TENANT_ID,
+    AZURE_SERVICE_ACCOUNT_USERNAME,
+    AZURE_SERVICE_ACCOUNT_PASSWORD,
+    LOG_REQUEST_EMAIL_FROM
+  ];
+
+  if (required.some(value => !value)) {
+    return { status: 'disabled', detail: 'Email credentials are incomplete' };
+  }
+
+  const startedAt = Date.now();
+  await getGraphClient().api('/me').select('id').get();
+  return {
+    status: 'operational',
+    latencyMs: Date.now() - startedAt
+  };
+}
+
 /**
  * Convert file to base64 for Graph API attachment
  */
