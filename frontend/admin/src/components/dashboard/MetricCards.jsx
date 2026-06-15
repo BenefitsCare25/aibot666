@@ -15,9 +15,24 @@ const CARDS = [
     getValue: (stats, _quality) => `${stats?.queries?.escalationRate || 0}%`
   },
   {
-    label: 'Helpful answers',
-    tooltip: 'Based on 👍 / 👎 ratings submitted by users. Shows the percentage of rated responses that received a thumbs up. Only messages that users actually rated are counted — unrated messages are excluded.',
-    getValue: (_stats, quality) => `${quality?.summary?.helpfulRate || 0}%`
+    label: 'User feedback',
+    tooltip: 'Counts of 👍 and 👎 ratings submitted by users. Most responses are not rated — this shows only messages where employees chose to give feedback.',
+    getValue: (_stats, quality) => null, // rendered separately
+    renderValue: (_stats, quality) => {
+      const pos = quality?.summary?.positiveFeedback || 0;
+      const neg = quality?.summary?.negativeFeedback || 0;
+      return (
+        <div className="mt-2 flex items-center gap-4">
+          <span className="flex items-center gap-1.5 text-3xl font-semibold text-card-foreground">
+            <span className="text-2xl">👍</span>{pos}
+          </span>
+          <span className="text-muted-foreground/40 text-2xl font-light">·</span>
+          <span className="flex items-center gap-1.5 text-3xl font-semibold text-card-foreground">
+            <span className="text-2xl">👎</span>{neg}
+          </span>
+        </div>
+      );
+    }
   },
   {
     label: 'Avg response time',
@@ -34,7 +49,7 @@ const CARDS = [
 export default function MetricCards({ stats, quality }) {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {CARDS.map(({ label, tooltip, getValue }) => (
+      {CARDS.map(({ label, tooltip, getValue, renderValue }) => (
         <section key={label} className="group relative rounded-xl border border-border bg-card p-5">
           <div className="flex items-center gap-1.5">
             <p className="text-sm text-muted-foreground">{label}</p>
@@ -42,9 +57,10 @@ export default function MetricCards({ stats, quality }) {
               ?
             </span>
           </div>
-          <p className="mt-2 text-3xl font-semibold text-card-foreground">
-            {getValue(stats, quality)}
-          </p>
+          {renderValue
+            ? renderValue(stats, quality)
+            : <p className="mt-2 text-3xl font-semibold text-card-foreground">{getValue(stats, quality)}</p>
+          }
 
           {/* Tooltip */}
           <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-64 -translate-x-1/2 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100">
