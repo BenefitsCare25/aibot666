@@ -61,8 +61,7 @@ function createMetrics() {
     tokenTotal: 0,
     actionCounts: new Map(),
     similarityBins: [0, 0, 0, 0],
-    questionClusters: new Map(),
-    topicCounts: new Map(),
+    topicQuestions: new Map(),
     escalationCount: 0,
     resolvedCount: 0,
     escalationClusters: new Map(),
@@ -75,9 +74,8 @@ function aggregateMessages(metrics, messages) {
   messages.forEach(message => {
     if (message.role === 'user') {
       metrics.userCount += 1;
-      addQuestionCluster(metrics.questionClusters, message.content);
       const topic = message.metadata?.topic;
-      if (topic) increment(metrics.topicCounts, topic);
+      if (topic) addTopicQuestion(metrics.topicQuestions, topic, message.content);
       return;
     }
     if (message.role !== 'assistant') return;
@@ -138,24 +136,28 @@ function addFeedback(metrics, message) {
   }
 }
 
-// Greetings and conversational filler — not useful as "questions" for HR
-const CONVERSATIONAL_PHRASES = new Set([
-  'hi', 'hello', 'hey', 'hi there', 'hello there', 'hey there',
-  'good morning', 'good afternoon', 'good evening', 'good day',
-  'thanks', 'thank you', 'thank', 'thank you very much', 'thanks a lot',
-  'ok', 'okay', 'k', 'yes', 'no', 'yep', 'nope', 'sure', 'noted',
-  'bye', 'goodbye', 'see you', 'great', 'cool', 'nice', 'awesome', 'test'
-]);
-
-function addQuestionCluster(clusters, content = '') {
+// Group a question under its topic, de-duplicating identical phrasings.
+function addTopicQuestion(topicMap, topic, content = '') {
   const key = normalizeQuestion(content);
-  if (!key || CONVERSATIONAL_PHRASES.has(key)) return;
-  const existing = clusters.get(key) || {
-    question: content.substring(0, 160),
-    count: 0
-  };
+  if (!key) return;
+  let questions = topicMap.get(topic);
+  if (!questions) {
+    questions = new Map();
+    topicMap.set(topic, questions);
+  }
+  const existing = questions.get(key) || { question: content.substring(0, 200), count: 0 };
   existing.count += 1;
-  clusters.set(key, existing);
+  questions.set(key, existing);
+}
+
+function formatTopicQuestions(topicMap) {
+  return [...topicMap.entries()]
+    .map(([topic, questions]) => {
+      const list = [...questions.values()].sort((a, b) => b.count - a.count);
+      const total = list.reduce((sum, item) => sum + item.count, 0);
+      return { topic, total, questions: list };
+    })
+    .sort((a, b) => b.total - a.total);
 }
 
 function addEscalationCluster(clusters, escalation, category) {
@@ -172,6 +174,7 @@ function addEscalationCluster(clusters, escalation, category) {
 
 function formatMetrics(metrics) {
   metrics.latencies.sort((a, b) => a - b);
+  const questionsByTopic = formatTopicQuestions(metrics.topicQuestions);
   return {
     summary: {
       totalQuestions: metrics.userCount,
@@ -194,8 +197,8 @@ function formatMetrics(metrics) {
     },
     actions: mapToSortedArray(metrics.actionCounts),
     similarityDistribution: formatSimilarityBins(metrics.similarityBins),
-    repeatedQuestions: topClusters(metrics.questionClusters, false),
-    topicDistribution: mapToSortedArray(metrics.topicCounts),
+    topicDistribution: questionsByTopic.map(item => ({ label: item.topic, count: item.total })),
+    questionsByTopic,
     unansweredClusters: topClusters(metrics.escalationClusters, false),
     escalationCategories: mapToSortedArray(metrics.escalationCategories),
     recentNegativeFeedback: metrics.recentNegativeFeedback

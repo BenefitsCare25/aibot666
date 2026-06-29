@@ -21,13 +21,13 @@ export async function generateQuestionInsightsReport({ companyName, startDate, e
   workbook.created = generatedAt ? new Date(generatedAt) : undefined;
 
   const summary = quality?.summary || {};
-  const repeated = quality?.repeatedQuestions || [];
   const topics = quality?.topicDistribution || [];
+  const questionsByTopic = quality?.questionsByTopic || [];
   const categories = quality?.escalationCategories || [];
 
   buildOverviewSheet(workbook, { companyName, startDate, endDate, generatedAt, summary });
   buildTopicsSheet(workbook, topics);
-  buildTopQuestionsSheet(workbook, repeated);
+  buildQuestionsByTopicSheet(workbook, questionsByTopic);
   buildCategoriesSheet(workbook, categories);
 
   return workbook.xlsx.writeBuffer();
@@ -58,7 +58,6 @@ function buildOverviewSheet(workbook, { companyName, startDate, endDate, generat
     ['AI answers given', summary.totalAnswers ?? 0],
     ['Escalated to a human', summary.escalations ?? 0],
     ['Escalation rate', formatPercent(summary.escalationRate)],
-    ['Escalations resolved', formatPercent(summary.resolutionRate)],
     ['Answers rated by users', summary.ratedAnswers ?? 0],
     ['Liked (thumbs up)', summary.positiveFeedback ?? 0],
     ['Disliked (thumbs down)', summary.negativeFeedback ?? 0],
@@ -72,7 +71,7 @@ function buildOverviewSheet(workbook, { companyName, startDate, endDate, generat
 }
 
 function buildTopicsSheet(workbook, topics) {
-  const sheet = workbook.addWorksheet('Questions by Topic');
+  const sheet = workbook.addWorksheet('Topic Summary');
   sheet.columns = [{ width: 28 }, { width: 14 }, { width: 12 }];
 
   const total = topics.reduce((sum, item) => sum + item.count, 0);
@@ -90,18 +89,20 @@ function buildTopicsSheet(workbook, topics) {
   wrapCells(sheet);
 }
 
-function buildTopQuestionsSheet(workbook, repeated) {
-  const sheet = workbook.addWorksheet('Top Questions');
-  sheet.columns = [{ width: 8 }, { width: 90 }, { width: 14 }];
+function buildQuestionsByTopicSheet(workbook, questionsByTopic) {
+  const sheet = workbook.addWorksheet('Questions by Topic');
+  sheet.columns = [{ width: 22 }, { width: 90 }, { width: 14 }];
 
-  const header = sheet.addRow(['Rank', 'Question (most asked)', 'Times asked']);
-  styleHeaderRow(header, SUBHEADER_FILL);
+  const header = sheet.addRow(['Topic', 'Question asked', 'Times asked']);
+  styleHeaderRow(header, HEADER_FILL);
 
-  if (repeated.length === 0) {
-    addBorderedRow(sheet, ['', 'No repeated questions in this period.', '']);
+  if (questionsByTopic.length === 0) {
+    addBorderedRow(sheet, ['No classified questions in this period.', '', '']);
   } else {
-    repeated.forEach((item, index) => {
-      addBorderedRow(sheet, [index + 1, item.question, item.count]);
+    questionsByTopic.forEach(group => {
+      group.questions.forEach(item => {
+        addBorderedRow(sheet, [group.topic, item.question, item.count]);
+      });
     });
   }
   wrapCells(sheet);

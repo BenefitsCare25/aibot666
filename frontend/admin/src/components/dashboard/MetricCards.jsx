@@ -38,11 +38,6 @@ const CARDS = [
     label: 'Avg response time',
     tooltip: 'How long the chatbot takes to generate a reply, averaged across all AI responses in the period. Lower means a faster experience for employees.',
     getValue: (_stats, quality) => formatDuration(quality?.summary?.averageLatencyMs)
-  },
-  {
-    label: 'Resolution rate',
-    tooltip: 'Of all escalated cases, the percentage that your team marked as resolved. Higher means your team is closing more support requests.',
-    getValue: (_stats, quality) => `${quality?.summary?.resolutionRate || 0}%`
   }
 ];
 
