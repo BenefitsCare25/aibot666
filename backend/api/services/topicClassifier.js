@@ -12,7 +12,7 @@ export const REPORT_TOPICS = [
   { name: 'Panel Clinics', hint: 'finding GP or specialist panel lists, panel clinic payments, which clinics to visit' },
   { name: 'Account/Login', hint: 'login problems, passwords, user ID, OTP, phone number changes, portal access' },
   { name: 'LOG', hint: 'Letter of Guarantee requests' },
-  { name: 'Other', hint: 'greetings, thanks, or anything that does not fit the topics above' }
+  { name: 'Other', hint: 'a genuine question that does not fit any topic above (NOT greetings or small talk)' }
 ];
 
 const VALID_TOPICS = new Set(REPORT_TOPICS.map(topic => topic.name));
@@ -21,6 +21,8 @@ const TOPIC_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 /**
  * Resolve the reporting topic for a question, using a Redis cache keyed by the
  * query hash so identical questions are classified by the LLM only once.
+ * Returns null for greetings / small talk / non-questions — these are never
+ * stored as a topic, so they are excluded from reporting entirely.
  */
 export async function resolveQuestionTopic({ message, schemaName, queryHash }) {
   const cacheKey = `topic:${schemaName}:${queryHash}`;
@@ -34,10 +36,12 @@ export async function resolveQuestionTopic({ message, schemaName, queryHash }) {
 
   const topic = await classifyTopic(message);
 
-  try {
-    await redis.set(cacheKey, topic, 'EX', TOPIC_TTL_SECONDS);
-  } catch (error) {
-    console.error('[topic] cache write failed:', error.message);
+  if (topic) {
+    try {
+      await redis.set(cacheKey, topic, 'EX', TOPIC_TTL_SECONDS);
+    } catch (error) {
+      console.error('[topic] cache write failed:', error.message);
+    }
   }
 
   return topic;
@@ -48,7 +52,8 @@ async function classifyTopic(message) {
   const prompt = `Categorize this employee question to an insurance/benefits helpdesk into ONE topic.
 Topics:
 ${list}
-Reply with ONLY the exact topic name from the list above.
+If the message is only a greeting, thanks, small talk, or not an actual question, reply with exactly: None
+Otherwise reply with ONLY the exact topic name from the list above.
 Question: "${message.substring(0, 300)}"`;
 
   const response = await client.chat.completions.create({
@@ -60,6 +65,7 @@ Question: "${message.substring(0, 300)}"`;
 
   const output = (response.choices[0]?.message?.content || '').trim();
   const lower = output.toLowerCase();
+  if (lower.startsWith('none')) return null;
 
   const exact = REPORT_TOPICS.find(topic => topic.name.toLowerCase() === lower);
   if (exact) return exact.name;

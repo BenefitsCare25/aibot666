@@ -124,7 +124,7 @@ Reads `chat_history` and `escalations` tables. Key metrics:
 - **Helpful rate**: `positiveCount / ratedCount` — only counts messages where users clicked 👍/👎. Zero if no ratings exist.
 - **Avg response time**: average of `metadata.latency_ms` across assistant messages. Zero if field absent (pre-latency-tracking messages).
 - **Similarity distribution**: bins `metadata.best_similarity` from KB search into `<0.55 / 0.55-0.69 / 0.70-0.84 / ≥0.85`.
-- **Topic distribution**: counts of user-message `metadata.topic`, classified into a fixed taxonomy (Coverage, Claims, Referral, Panel Clinics, Account/Login, LOG, Other). Tags are written asynchronously after each response by `topicClassifier.js` (`resolveQuestionTopic`, Redis-cached by query hash), so only questions asked after this feature launched are classified. Skips greetings/conversational filler.
+- **Topic distribution**: counts of user-message `metadata.topic`, classified into a fixed taxonomy (Coverage, Claims, Referral, Panel Clinics, Account/Login, LOG, Other — where Other is a genuine question that fits no other bucket). Tags are written asynchronously after each response by `topicClassifier.js` (`resolveQuestionTopic`, Redis-cached by query hash). Greetings/small talk/non-questions return null and are never tagged, so they are excluded from reporting entirely.
 
 ## Key Operational Rules
 

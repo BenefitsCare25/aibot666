@@ -414,10 +414,13 @@ function tagQuestionTopic(request, userMessageId) {
     schemaName: request.schemaName,
     queryHash: request.queryHash
   })
-    .then(topic => request.req.supabase
-      .from('chat_history')
-      .update({ metadata: { topic } })
-      .eq('id', userMessageId))
+    .then(topic => {
+      if (!topic) return; // greeting / non-question — never tagged
+      return request.req.supabase
+        .from('chat_history')
+        .update({ metadata: { topic } })
+        .eq('id', userMessageId);
+    })
     .catch(error => console.error('[topic] tagging failed:', error?.message));
 }
 
