@@ -2,7 +2,6 @@ import ExcelJS from 'exceljs';
 
 const HEADER_FILL = 'FF1F4B7A';
 const SUBHEADER_FILL = 'FF4472C4';
-const ESCALATION_FILL = 'FFC0392B';
 
 /**
  * Generate an HR-facing Excel report of chatbot question insights.
@@ -24,16 +23,12 @@ export async function generateQuestionInsightsReport({ companyName, startDate, e
   const summary = quality?.summary || {};
   const repeated = quality?.repeatedQuestions || [];
   const topics = quality?.topicDistribution || [];
-  const unanswered = quality?.unansweredClusters || [];
   const categories = quality?.escalationCategories || [];
-  const negative = quality?.recentNegativeFeedback || [];
 
   buildOverviewSheet(workbook, { companyName, startDate, endDate, generatedAt, summary });
   buildTopicsSheet(workbook, topics);
   buildTopQuestionsSheet(workbook, repeated);
-  buildUnansweredSheet(workbook, unanswered);
   buildCategoriesSheet(workbook, categories);
-  buildNegativeFeedbackSheet(workbook, negative);
 
   return workbook.xlsx.writeBuffer();
 }
@@ -112,23 +107,6 @@ function buildTopQuestionsSheet(workbook, repeated) {
   wrapCells(sheet);
 }
 
-function buildUnansweredSheet(workbook, unanswered) {
-  const sheet = workbook.addWorksheet('Unanswered Questions');
-  sheet.columns = [{ width: 8 }, { width: 70 }, { width: 24 }, { width: 14 }];
-
-  const header = sheet.addRow(['Rank', 'Question the bot could not answer', 'Category', 'Times escalated']);
-  styleHeaderRow(header, ESCALATION_FILL);
-
-  if (unanswered.length === 0) {
-    addBorderedRow(sheet, ['', 'No escalated question clusters in this period.', '', '']);
-  } else {
-    unanswered.forEach((item, index) => {
-      addBorderedRow(sheet, [index + 1, item.question, item.category || 'Uncategorized', item.count]);
-    });
-  }
-  wrapCells(sheet);
-}
-
 function buildCategoriesSheet(workbook, categories) {
   const sheet = workbook.addWorksheet('Escalation Categories');
   sheet.columns = [{ width: 40 }, { width: 16 }];
@@ -140,21 +118,6 @@ function buildCategoriesSheet(workbook, categories) {
     addBorderedRow(sheet, ['No escalations in this period.', '']);
   } else {
     categories.forEach(item => addBorderedRow(sheet, [item.label, item.count]));
-  }
-  wrapCells(sheet);
-}
-
-function buildNegativeFeedbackSheet(workbook, negative) {
-  const sheet = workbook.addWorksheet('Negative Feedback');
-  sheet.columns = [{ width: 90 }, { width: 40 }];
-
-  const header = sheet.addRow(['Answer marked unhelpful', 'Reason given']);
-  styleHeaderRow(header, ESCALATION_FILL);
-
-  if (negative.length === 0) {
-    addBorderedRow(sheet, ['No negative feedback in this period.', '']);
-  } else {
-    negative.forEach(item => addBorderedRow(sheet, [item.answer, item.reason || 'No reason supplied']));
   }
   wrapCells(sheet);
 }
