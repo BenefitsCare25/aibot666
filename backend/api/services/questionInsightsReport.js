@@ -1,7 +1,6 @@
 import ExcelJS from 'exceljs';
 
 const HEADER_FILL = 'FF1F4B7A';
-const SUBHEADER_FILL = 'FF4472C4';
 
 /**
  * Generate an HR-facing Excel report of chatbot question insights.
@@ -23,12 +22,10 @@ export async function generateQuestionInsightsReport({ companyName, startDate, e
   const summary = quality?.summary || {};
   const topics = quality?.topicDistribution || [];
   const questionsByTopic = quality?.questionsByTopic || [];
-  const categories = quality?.escalationCategories || [];
 
   buildOverviewSheet(workbook, { companyName, startDate, endDate, generatedAt, summary });
   buildTopicsSheet(workbook, topics);
   buildQuestionsByTopicSheet(workbook, questionsByTopic);
-  buildCategoriesSheet(workbook, categories);
 
   return workbook.xlsx.writeBuffer();
 }
@@ -104,21 +101,6 @@ function buildQuestionsByTopicSheet(workbook, questionsByTopic) {
         addBorderedRow(sheet, [group.topic, item.question, item.count]);
       });
     });
-  }
-  wrapCells(sheet);
-}
-
-function buildCategoriesSheet(workbook, categories) {
-  const sheet = workbook.addWorksheet('Escalation Categories');
-  sheet.columns = [{ width: 40 }, { width: 16 }];
-
-  const header = sheet.addRow(['Category', 'Escalations']);
-  styleHeaderRow(header, SUBHEADER_FILL);
-
-  if (categories.length === 0) {
-    addBorderedRow(sheet, ['No escalations in this period.', '']);
-  } else {
-    categories.forEach(item => addBorderedRow(sheet, [item.label, item.count]));
   }
   wrapCells(sheet);
 }
