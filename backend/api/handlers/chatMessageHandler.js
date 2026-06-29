@@ -25,6 +25,14 @@ import { resolveQuestionTopic } from '../services/topicClassifier.js';
 const ESCALATE_ON_NO_KNOWLEDGE = process.env.ESCALATE_ON_NO_KNOWLEDGE !== 'false';
 const classificationClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const KB_INTENTS = new Set(['domain_question', 'follow_up', 'meta_request']);
+// Intents whose answer MUST be grounded in the knowledge base. meta_request is
+// deliberately excluded: capability/about-the-service questions can be answered
+// (or self-escalated) by the model and must not be force-clobbered.
+const GROUNDED_INTENTS = new Set(['domain_question', 'follow_up']);
+const ZERO_KB_CLARIFY_MESSAGE =
+  "Could you provide more details about what you're looking for?";
+const ZERO_KB_ESCALATION_MESSAGE =
+  'For such a query, let us check back with the team. You may leave your contact or email address for our team to follow up with you. Thank you.';
 
 export async function processChatMessage(req, res) {
   const startedAt = Date.now();
@@ -67,6 +75,7 @@ export async function processChatMessage(req, res) {
       request.failedKBAttempts
     );
     if (!request.needsKBSearch) request.response.confidence = 0.9;
+    await enforceZeroKnowledgePolicy(request);
 
     await persistGeneratedResponse(request);
     await applyPostResponseAction(request);
@@ -189,6 +198,63 @@ async function applyPreResponseState(request) {
       askedToElaborate: request.failedKBAttempts === 1,
       lastFailedQuery: request.message.substring(0, 200)
     });
+  }
+}
+
+/**
+ * Deterministic safety net for zero-knowledge answers.
+ *
+ * When a grounded-intent query (domain_question / follow_up) retrieves no
+ * supporting context, the model has no source and tends to invent
+ * plausible-but-ungrounded advice while self-reporting action "answer" — which
+ * silently bypasses escalation. Enforce the documented policy regardless of what
+ * the model returned: clarify once, then escalate on the next failed attempt
+ * (mirrors the prompt's escalation rules and the failedKBAttempts threshold set
+ * in applyPreResponseState). Fallback messages are localized to the user's
+ * language to honor the same "respond in the user's language" rule as the prompt.
+ */
+async function enforceZeroKnowledgePolicy(request) {
+  if (!GROUNDED_INTENTS.has(request.intent) || request.contexts.length > 0) return;
+
+  const action = request.response.action;
+  // Explicit escalations / contact acknowledgements are already correct.
+  if (action === 'escalate' || action === 'contact_received') return;
+
+  if (request.failedKBAttempts >= 2) {
+    request.response.action = 'escalate';
+    request.response.answer = await localizeFallback(ZERO_KB_ESCALATION_MESSAGE, request.message);
+  } else if (action !== 'clarify') {
+    request.response.action = 'clarify';
+    request.response.answer = await localizeFallback(ZERO_KB_CLARIFY_MESSAGE, request.message);
+  }
+}
+
+/**
+ * Translate a canonical English fallback message into the user's language so the
+ * deterministic safety net obeys the same language rule as the main prompt.
+ * Plain-ASCII (English) input skips the round-trip; any failure degrades to the
+ * English text so a translation outage never breaks the chat response.
+ */
+async function localizeFallback(message, userText) {
+  if (![...userText].some(ch => ch.charCodeAt(0) > 127)) return message;
+  try {
+    const completion = await classificationClient.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{
+        role: 'user',
+        content:
+          `Translate the message into the same language as the user's text. ` +
+          `Reply with ONLY the translated message, no quotes or notes.\n` +
+          `User's text: "${userText.slice(0, 200)}"\n` +
+          `Message: "${message}"`
+      }],
+      temperature: 0,
+      max_tokens: 200
+    });
+    return completion.choices[0]?.message?.content?.trim() || message;
+  } catch (error) {
+    console.error('[ZeroKB] message localization failed, using English:', error.message);
+    return message;
   }
 }
 

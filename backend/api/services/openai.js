@@ -107,10 +107,12 @@ function createRAGPrompt(query, contexts, employeeData, conversationHistory = []
       }).join('\n\n---\n\n')
     : '[NO KNOWLEDGE BASE DATA AVAILABLE FOR THIS QUERY]';
 
+  // Note: the stored login identifier (user_id) is intentionally NOT exposed here.
+  // Username/login questions must be answered from the knowledge base (e.g. the
+  // documented username format), never by reading back a stored credential value.
   const employeeInfo = employeeData ? `
 - Name: ${employeeData.name}
 - Employee ID: ${employeeData.employee_id || 'N/A'}
-- User ID: ${employeeData.user_id || 'N/A'}
 - Email: ${employeeData.email || 'N/A'}
 ` : 'No employee information available.';
 
