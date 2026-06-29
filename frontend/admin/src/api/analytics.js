@@ -1,6 +1,20 @@
-import apiClient from './client';
+import apiClient, { downloadFile } from './client';
 
 export const analyticsApi = {
+  // Download HR Excel report of question insights
+  downloadQualityReport: async (params = {}) => {
+    const { startDate, endDate } = params;
+    const query = new URLSearchParams();
+    if (startDate) query.set('startDate', startDate);
+    if (endDate) query.set('endDate', endDate);
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    const stamp = new Date().toISOString().split('T')[0];
+    await downloadFile(
+      `/api/admin/analytics/quality-report${suffix}`,
+      `Chatbot_Question_Insights_${stamp}.xlsx`
+    );
+  },
+
   // Get analytics data
   getAnalytics: async (params = {}) => {
     const { startDate, endDate } = params;

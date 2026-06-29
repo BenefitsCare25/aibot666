@@ -362,6 +362,34 @@ router.get('/quality', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/admin/analytics/quality-report
+ * Download an HR-facing Excel report of chatbot question insights
+ */
+router.get('/quality-report', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const quality = await getQualityAnalytics(req.supabase, { startDate, endDate });
+
+    const { generateQuestionInsightsReport } = await import('../../services/questionInsightsReport.js');
+    const buffer = await generateQuestionInsightsReport({
+      companyName: req.company?.name,
+      startDate,
+      endDate,
+      generatedAt: new Date().toISOString(),
+      quality
+    });
+
+    const stamp = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=Chatbot_Question_Insights_${stamp}.xlsx`);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Error generating quality report:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate quality report' });
+  }
+});
+
 router.get('/health', async (req, res) => {
   try {
     const data = await getSystemHealth(req.supabase);

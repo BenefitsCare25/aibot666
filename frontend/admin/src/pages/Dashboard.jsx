@@ -18,8 +18,21 @@ export default function Dashboard() {
   const [timeFilter, setTimeFilter] = useState('week');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
   const companySelected = Boolean(localStorage.getItem('selected_company_domain'));
   const dateRange = useMemo(() => getDateRange(timeFilter), [timeFilter]);
+
+  const handleDownloadReport = async () => {
+    setDownloading(true);
+    try {
+      await analyticsApi.downloadQualityReport(dateRange);
+      toast.success('Report downloaded');
+    } catch {
+      toast.error('Failed to generate report');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useEffect(() => {
     if (!companySelected) {
@@ -84,19 +97,29 @@ export default function Dashboard() {
           <h1 className="text-3xl font-semibold text-foreground">Dashboard</h1>
           <p className="mt-1 text-muted-foreground">Answer quality and system operations</p>
         </div>
-        <div className="flex gap-2 rounded-xl border border-border bg-card p-1">
-          {FILTERS.map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setTimeFilter(value)}
-              className={timeFilter === value
-                ? 'rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-foreground'
-                : 'rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted'}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-2 rounded-xl border border-border bg-card p-1">
+            {FILTERS.map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setTimeFilter(value)}
+                className={timeFilter === value
+                  ? 'rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-foreground'
+                  : 'rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted'}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={handleDownloadReport}
+            disabled={downloading}
+            className="rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-card-foreground hover:bg-muted disabled:opacity-50"
+          >
+            {downloading ? 'Generating…' : 'Download HR report'}
+          </button>
         </div>
       </header>
 

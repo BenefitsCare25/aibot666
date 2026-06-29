@@ -162,6 +162,9 @@ function formatMetrics(metrics) {
   metrics.latencies.sort((a, b) => a - b);
   return {
     summary: {
+      totalQuestions: metrics.userCount,
+      totalAnswers: metrics.assistantCount,
+      escalations: metrics.escalationCount,
       ratedAnswers: metrics.ratedCount,
       positiveFeedback: metrics.positiveCount,
       negativeFeedback: metrics.negativeCount,

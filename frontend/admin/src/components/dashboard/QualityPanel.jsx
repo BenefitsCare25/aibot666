@@ -1,10 +1,42 @@
 export default function QualityPanel({ quality }) {
+  const repeated = quality?.repeatedQuestions || [];
   const unanswered = quality?.unansweredClusters || [];
   const negative = quality?.recentNegativeFeedback || [];
   const similarities = quality?.similarityDistribution || [];
+  const maxAsked = Math.max(...repeated.map(item => item.count), 1);
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <section className="rounded-xl border border-border bg-card p-6 xl:col-span-2">
+        <h2 className="text-lg font-semibold text-card-foreground">Top Questions Asked</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Most frequently asked questions in this period</p>
+        <div className="mt-4 space-y-3">
+          {repeated.length > 0 ? repeated.slice(0, 10).map((item, index) => (
+            <div key={`${item.question}-${index}`}>
+              <div className="flex items-start justify-between gap-4 text-sm">
+                <span className="text-card-foreground">
+                  <span className="mr-2 text-muted-foreground">{index + 1}.</span>
+                  {item.question}
+                </span>
+                <span className="shrink-0 text-muted-foreground">
+                  {item.count}&times;
+                </span>
+              </div>
+              <div className="mt-1 h-2 rounded-full bg-muted">
+                <div
+                  className="h-2 rounded-full bg-accent"
+                  style={{ width: `${(item.count / maxAsked) * 100}%` }}
+                />
+              </div>
+            </div>
+          )) : (
+            <p className="text-sm text-muted-foreground">
+              No repeated questions yet. Questions appear here once asked more than once.
+            </p>
+          )}
+        </div>
+      </section>
+
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-lg font-semibold text-card-foreground">Retrieval Quality</h2>
         <div className="mt-4 space-y-3">
