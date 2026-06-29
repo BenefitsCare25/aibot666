@@ -224,46 +224,6 @@ export async function clearConversationHistory(conversationId) {
 }
 
 /**
- * Get all active sessions (for monitoring)
- * @returns {Promise<Array>} - Array of active session IDs
- */
-export async function getActiveSessions() {
-  try {
-    const keys = [];
-    let cursor = '0';
-    do {
-      const [nextCursor, batch] = await redis.scan(cursor, 'MATCH', 'session:*', 'COUNT', 100);
-      cursor = nextCursor;
-      keys.push(...batch);
-    } while (cursor !== '0');
-    return keys.map(key => key.replace('session:', ''));
-  } catch (error) {
-    console.error('Error getting active sessions:', error);
-    return [];
-  }
-}
-
-/**
- * Get session count (for analytics)
- * @returns {Promise<number>} - Number of active sessions
- */
-export async function getSessionCount() {
-  try {
-    let count = 0;
-    let cursor = '0';
-    do {
-      const [nextCursor, batch] = await redis.scan(cursor, 'MATCH', 'session:*', 'COUNT', 100);
-      cursor = nextCursor;
-      count += batch.length;
-    } while (cursor !== '0');
-    return count;
-  } catch (error) {
-    console.error('Error getting session count:', error);
-    return 0;
-  }
-}
-
-/**
  * Cache query result
  * @param {string} cacheKey - Full namespaced cache key (query:{schemaName}:{hash})
  * @param {Object} result - Query result to cache
@@ -508,8 +468,6 @@ export default {
   addMessageToHistory,
   getConversationHistory,
   clearConversationHistory,
-  getActiveSessions,
-  getSessionCount,
   cacheQueryResult,
   getCachedQueryResult,
   getSemanticCacheMatch,
