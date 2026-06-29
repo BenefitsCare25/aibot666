@@ -62,6 +62,7 @@ function createMetrics() {
     actionCounts: new Map(),
     similarityBins: [0, 0, 0, 0],
     questionClusters: new Map(),
+    topicCounts: new Map(),
     escalationCount: 0,
     resolvedCount: 0,
     escalationClusters: new Map(),
@@ -75,6 +76,8 @@ function aggregateMessages(metrics, messages) {
     if (message.role === 'user') {
       metrics.userCount += 1;
       addQuestionCluster(metrics.questionClusters, message.content);
+      const topic = message.metadata?.topic;
+      if (topic) increment(metrics.topicCounts, topic);
       return;
     }
     if (message.role !== 'assistant') return;
@@ -135,9 +138,18 @@ function addFeedback(metrics, message) {
   }
 }
 
+// Greetings and conversational filler — not useful as "questions" for HR
+const CONVERSATIONAL_PHRASES = new Set([
+  'hi', 'hello', 'hey', 'hi there', 'hello there', 'hey there',
+  'good morning', 'good afternoon', 'good evening', 'good day',
+  'thanks', 'thank you', 'thank', 'thank you very much', 'thanks a lot',
+  'ok', 'okay', 'k', 'yes', 'no', 'yep', 'nope', 'sure', 'noted',
+  'bye', 'goodbye', 'see you', 'great', 'cool', 'nice', 'awesome', 'test'
+]);
+
 function addQuestionCluster(clusters, content = '') {
   const key = normalizeQuestion(content);
-  if (!key) return;
+  if (!key || CONVERSATIONAL_PHRASES.has(key)) return;
   const existing = clusters.get(key) || {
     question: content.substring(0, 160),
     count: 0
@@ -182,7 +194,8 @@ function formatMetrics(metrics) {
     },
     actions: mapToSortedArray(metrics.actionCounts),
     similarityDistribution: formatSimilarityBins(metrics.similarityBins),
-    repeatedQuestions: topClusters(metrics.questionClusters, true),
+    repeatedQuestions: topClusters(metrics.questionClusters, false),
+    topicDistribution: mapToSortedArray(metrics.topicCounts),
     unansweredClusters: topClusters(metrics.escalationClusters, false),
     escalationCategories: mapToSortedArray(metrics.escalationCategories),
     recentNegativeFeedback: metrics.recentNegativeFeedback

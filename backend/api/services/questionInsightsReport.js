@@ -23,11 +23,13 @@ export async function generateQuestionInsightsReport({ companyName, startDate, e
 
   const summary = quality?.summary || {};
   const repeated = quality?.repeatedQuestions || [];
+  const topics = quality?.topicDistribution || [];
   const unanswered = quality?.unansweredClusters || [];
   const categories = quality?.escalationCategories || [];
   const negative = quality?.recentNegativeFeedback || [];
 
   buildOverviewSheet(workbook, { companyName, startDate, endDate, generatedAt, summary });
+  buildTopicsSheet(workbook, topics);
   buildTopQuestionsSheet(workbook, repeated);
   buildUnansweredSheet(workbook, unanswered);
   buildCategoriesSheet(workbook, categories);
@@ -72,6 +74,25 @@ function buildOverviewSheet(workbook, { companyName, startDate, endDate, generat
   sheet.eachRow(row => row.eachCell(cell => {
     cell.alignment = { vertical: 'middle', wrapText: true };
   }));
+}
+
+function buildTopicsSheet(workbook, topics) {
+  const sheet = workbook.addWorksheet('Questions by Topic');
+  sheet.columns = [{ width: 28 }, { width: 14 }, { width: 12 }];
+
+  const total = topics.reduce((sum, item) => sum + item.count, 0);
+  const header = sheet.addRow(['Topic', 'Questions', 'Share']);
+  styleHeaderRow(header, HEADER_FILL);
+
+  if (topics.length === 0) {
+    addBorderedRow(sheet, ['No classified questions in this period.', '', '']);
+  } else {
+    topics.forEach(item => {
+      const share = total > 0 ? `${Math.round((item.count / total) * 100)}%` : '0%';
+      addBorderedRow(sheet, [item.label, item.count, share]);
+    });
+  }
+  wrapCells(sheet);
 }
 
 function buildTopQuestionsSheet(workbook, repeated) {

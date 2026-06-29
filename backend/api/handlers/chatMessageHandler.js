@@ -20,6 +20,7 @@ import {
   isContactInformation,
   updateEscalationWithContact
 } from '../services/escalationService.js';
+import { resolveQuestionTopic } from '../services/topicClassifier.js';
 
 const ESCALATE_ON_NO_KNOWLEDGE = process.env.ESCALATE_ON_NO_KNOWLEDGE !== 'false';
 const classificationClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -232,7 +233,7 @@ async function persistGeneratedResponse(request) {
     request.message,
     request.response
   );
-  request.assistantMessageId = await persistExchange({
+  const ids = await persistExchange({
     supabaseClient: request.req.supabase,
     session: request.session,
     employeeId: request.employee.id,
@@ -240,6 +241,8 @@ async function persistGeneratedResponse(request) {
     response: request.response,
     metadata: buildResponseMetadata(request)
   });
+  request.assistantMessageId = ids.assistantId;
+  tagQuestionTopic(request, ids.userId);
 }
 
 async function applyPostResponseAction(request) {
@@ -313,7 +316,7 @@ async function sendCachedResponse(res, request, cachedResult, cacheType) {
   const latencyMs = Date.now() - request.startedAt;
 
   await appendRedisHistory(request.session.conversationId, request.message, response);
-  const messageId = await persistExchange({
+  const ids = await persistExchange({
     supabaseClient: request.req.supabase,
     session: request.session,
     employeeId: request.session.employeeId,
@@ -328,6 +331,8 @@ async function sendCachedResponse(res, request, cachedResult, cacheType) {
       cacheType
     })
   });
+  const messageId = ids.assistantId;
+  tagQuestionTopic(request, ids.userId);
   await touchSession(request.sessionId);
 
   return res.json({
@@ -386,9 +391,34 @@ async function persistExchange({
     .select('id, role');
   if (error) {
     console.error('Error saving chat exchange:', error);
-    return null;
+    return { assistantId: null, userId: null };
   }
-  return data?.find(item => item.role === 'assistant')?.id || null;
+  return {
+    assistantId: data?.find(item => item.role === 'assistant')?.id || null,
+    userId: data?.find(item => item.role === 'user')?.id || null
+  };
+}
+
+/**
+ * Fire-and-forget: classify the question into a reporting topic and store it on
+ * the user message metadata. Runs after the response is sent (no added latency).
+ * Greetings/conversational filler are skipped — they are not real questions.
+ */
+function tagQuestionTopic(request, userMessageId) {
+  if (!userMessageId) return;
+  const fastPath = classifyMessageIntentFastPath(request.message);
+  if (fastPath === 'greeting' || fastPath === 'conversational') return;
+
+  resolveQuestionTopic({
+    message: request.message,
+    schemaName: request.schemaName,
+    queryHash: request.queryHash
+  })
+    .then(topic => request.req.supabase
+      .from('chat_history')
+      .update({ metadata: { topic } })
+      .eq('id', userMessageId))
+    .catch(error => console.error('[topic] tagging failed:', error?.message));
 }
 
 function buildResponseMetadata(input) {
