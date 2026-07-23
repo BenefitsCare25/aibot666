@@ -1,0 +1,34 @@
+name: Deploy admin to inspro-ai-chatbot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/admin/**'
+      - '.github/workflows/deploy-admin-appservice.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install and build
+        working-directory: frontend/admin
+        env:
+          VITE_API_URL: https://app-aibot-api.azurewebsites.net
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: inspro-ai-chatbot
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_INSPRO_AI_CHATBOT }}
+          package: frontend/admin/dist
